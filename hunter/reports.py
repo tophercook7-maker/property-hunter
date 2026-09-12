@@ -157,6 +157,11 @@ def dossier_html(prop_id: int) -> str:
                       for s in (p.get("distress") or []))
     steps = "".join(f"<li><b>{esc(s['title'])}</b> - {esc(s['detail'])}</li>"
                     for s in d["next_steps"])
+    fin = d["financials"]
+    deal = fin.get("deal")
+    lien_ev = [e for e in d["evidence"] if e["field"] in ("cleanup_lien_total", "cleanup_lien_amount")]
+    lien_total = lien_ev[0]["value"] if lien_ev else None
+    lien_text = next((e["value"] for e in d["evidence"] if e["field"] == "cleanup_lien"), "")
     return f"""<!doctype html><meta charset="utf-8">
 <title>Property dossier - {esc(p.get('address') or p.get('parcel_id'))}</title>
 <style>
@@ -168,12 +173,24 @@ def dossier_html(prop_id: int) -> str:
  th{{background:#f4f5f7}} .box{{background:#f7f8fa;border-left:4px solid #4a6cf7;
       padding:.8rem 1rem;margin:1rem 0;border-radius:4px}}
  .warn{{border-left-color:#d9822b;background:#fff8f0}}
+ .box table{{margin:0}} .box th{{width:190px;background:transparent}} .sub{{color:#777;font-size:12px}}
 </style>
 <h1>{esc(p.get('address') or 'No street address')}</h1>
 <div class="sub">Parcel {esc(p.get('parcel_id'))} &middot; {esc(p.get('city'))} &middot;
  {esc(p.get('acreage'))} acres &middot; generated {esc(d['generated_at'])}</div>
 <div class="box"><b>Our call: {esc(p.get('recommendation'))}</b> &mdash;
  {esc(d['deal_or_trap']['verdict'])}. {esc(d['deal_or_trap']['why'])}</div>
+<h2>What it would cost</h2>
+<div class="box">
+<table>
+<tr><th>Asking price</th><td>{esc('$%s' % format(p['list_price'], ',.0f')) if p.get('list_price') else 'NOT LISTED FOR SALE that we know of - this came off a City register, not a listing. If you find it listed, enter the price on the property.'}</td></tr>
+<tr><th>County assessed total</th><td>{esc('$%s' % format(p['total_value'], ',.0f')) if p.get('total_value') else 'unknown'} <span class="sub">(FACT, county roll)</span></td></tr>
+<tr><th>Implied market value</th><td>{esc('$%s' % format(fin.get('implied_market_value') or 0, ',.0f')) if fin.get('implied_market_value') else 'unknown'} <span class="sub">(ESTIMATE: assessed &times; 5)</span></td></tr>
+<tr><th>The most I'd pay</th><td>{('$%s try &middot; $%s marginal &middot; $%s walk away' % (format(deal['aggressive'], ',.0f'), format(deal['reasonable'], ',.0f'), format(deal['maximum'], ',.0f'))) if deal and deal.get('works_at_any_price') else ('No price works on the current repair estimate - get a real contractor number.' if deal else 'Needs a building size to estimate - see the Money tab in the app.')} <span class="sub">(ESTIMATE)</span></td></tr>
+<tr><th>City liens on it</th><td>{esc('$%s - ' % format(float(lien_total), ',.2f') + str(lien_text)) if lien_total else 'none on the City lien layer'} <span class="sub">(FACT, City GIS)</span></td></tr>
+<tr><th>Delinquent taxes owed</th><td><b>NOT CHECKED - we cannot read this automatically.</b> Look it up here: <a href="https://www.arkansastaxsearch.com/garland.html">arkansastaxsearch.com &rarr; Garland</a> (parcel {esc(p.get('parcel_id') or '?')}). Paying someone's back taxes does NOT make you the owner.</td></tr>
+</table>
+</div>
 <h2>What caught our attention</h2><ul>{signals or '<li>Nothing stood out.</li>'}</ul>
 <h2>Why it might be cheap</h2>
 <p>{esc(d['why_cheap']['most_likely'])}</p>

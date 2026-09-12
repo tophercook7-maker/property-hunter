@@ -120,6 +120,12 @@ your name on it — a neighbour's remark never becomes a fact.
 projects with budget-vs-actual per task; a money ledger; leases; and before / during /
 after photos lined up side by side. "My properties" totals it into a portfolio view.
 
+**Register records find their parcel** — a City register polygon says where a property
+is, not which parcel it is. The scan's `parcel_ids` stage does one point-in-polygon lookup
+against the City's roll copy per parcel-less property and learns the parcel id, owner,
+values and mailing address; when the county record already exists, the register record
+is folded onto it with its history intact.
+
 **Coming off a register** — every scan re-reads the City's vacancy, lien and code
 registers. A property that carried one of those records last time and is not on the
 register now gets an observation, a timeline event and an alert ("came off the

@@ -76,11 +76,22 @@ def test_building_footprints_answer_for_downtown_hot_springs():
 
 
 @pytest.mark.slow
-def test_openstreetmap_context_answers():
+def test_openstreetmap_reports_nearby_businesses_and_not_roads():
+    """OSM's job is who is nearby - competition for a food stand, and the anchors
+    that generate traffic. Road access moved to the 911 centerline file, so this
+    adapter must no longer claim to answer it."""
     from hunter.sources.context import OSM_CONTEXT
     res = OSM_CONTEXT.enrich({"id": 1, "lat": 34.5133, "lon": -93.0538})
     assert res.status == "ok", res.detail
-    assert res.records[0].raw["road_rank"] > 0
+    raw = res.records[0].raw
+    assert set(raw) == {"food", "shops", "anchors"}
+    assert "road_rank" not in raw and "road_class" not in raw
+    # downtown Hot Springs genuinely has mapped food businesses
+    assert raw["food"], "expected mapped food businesses on Central Ave"
+    fields = {e["field"] for e in res.records[0].evidence}
+    assert not (fields & {"road_access", "legal_access"}), \
+        f"OSM should no longer write road evidence, wrote {fields}"
+    assert res.records[0].fields == {}
 
 
 def test_road_centerlines_classify_a_known_highway_and_a_lake():

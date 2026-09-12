@@ -43,7 +43,7 @@ def test_no_access_plus_flood_is_do_not_touch():
     store.store_evidence(pid, [{"field": "legal_access",
                                 "value": "no road mapped near this parcel",
                                 "evidence_type": "OBSERVATION", "confidence": "LOW",
-                                "source": "osm_overpass"}])
+                                "source": "ar_gis_roads"}])
     p = store.get_property(pid)
     distress.refresh(p)
     p = store.get_property(pid)

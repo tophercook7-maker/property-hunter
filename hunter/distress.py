@@ -203,6 +203,17 @@ def analyse(prop: dict) -> list[dict]:
         add("opportunity_zone", "Inside a federal Opportunity Zone",
             "Capital-gains treatment on investment here can be favourable.", "MEDIUM",
             "Ask a CPA before counting on it.", "opportunity")
+    absentee = latest("absentee_owner")
+    if absentee:
+        add("absentee_owner", f"Absentee owner - {absentee['value']}",
+            "Owners who are not here to see the place decline are often the ones who "
+            "will take a fair offer to be done with it.", "MEDIUM",
+            "Confirm the mailing address on the current tax bill, then write to it.")
+    if latest("owner_occupancy"):
+        add("owner_occupied", "Tax bill goes to the property - probably owner-occupied",
+            "Somebody living there changes the conversation: it is their home, not a "
+            "problem they want gone.", "MEDIUM",
+            "A drive-by tells you quickly whether it is lived in.", "opportunity")
     water = latest("city_water")
     if water and "at this address" in (water["value"] or ""):
         add("city_water", "City water meter at the address",

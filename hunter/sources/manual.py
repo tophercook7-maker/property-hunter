@@ -62,11 +62,13 @@ class GarlandTaxCollector(ManualSource):
     name = "garland_tax_collector"
     label = "Garland County Tax Collector - delinquent taxes"
     kind = "tax"
-    url = "https://www.garlandcounty.org/181/Tax-Collector"
-    probe_url = url
-    why_manual = ("Delinquent-tax status is published through a search form, not a "
-                  "data feed. Tax status changes the whole picture of a deal, so it "
-                  "is checked by hand rather than guessed.")
+    url = "https://www.arkansastaxsearch.com/garland.html"
+    probe_url = "https://www.garlandcounty.org/181/Tax-Collector"
+    why_manual = ("The Collector's inquiry portal (arkansastaxsearch.com) is a login-gated "
+                  "session application, and the assessor portal (ARCountyData) sits behind "
+                  "a browser challenge. Neither is a data feed and neither is bypassed. "
+                  "Tax status changes the whole picture of a deal, so it is checked by "
+                  "hand rather than guessed.")
     what_to_check = ("Look up the parcel and record: are taxes current, how many years "
                      "are delinquent, the dollar amount owed, and whether the parcel has "
                      "been certified to the Commissioner of State Lands.")

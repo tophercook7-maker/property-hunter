@@ -43,7 +43,23 @@ TERRITORIES = [
         "center": [34.5037, -93.0552],
         "bbox": [-93.55, 34.25, -92.75, 34.75],  # minlon, minlat, maxlon, maxlat
         "active": True,
-    }
+    },
+    # Phase two candidate. Inactive: nothing scans it until it is switched on, but
+    # it proves the point that a new county is a dict, not a rewrite - the same
+    # statewide parcel adapter, boundary, flood, road and imagery services cover
+    # it. Hot Springs Village straddles the Garland/Saline line, so its exclusion
+    # polygon already applies here too.
+    {
+        "key": "saline_ar",
+        "label": "Saline County, Arkansas",
+        "state": "AR",
+        "state_fips": "05",
+        "county": "Saline",
+        "county_fips": "05125",
+        "center": [34.6440, -92.6750],
+        "bbox": [-92.95, 34.42, -92.40, 34.90],
+        "active": False,
+    },
 ]
 DEFAULT_TERRITORY = "garland_ar"
 

@@ -219,3 +219,94 @@ def test_a_lien_read_from_the_register_is_a_signal_too(prop):
     p = _with_city_evidence(prop, cleanup_lien_amount=5917.61)
     keys = {s["key"]: s for s in distress.analyse(p)}
     assert "cleanup_lien" in keys and "$5,918" in keys["cleanup_lien"]["label"]
+
+
+# ---------------------------------------------------- absentee owner (18) --
+
+MAILING = lambda addr: {"attributes": {"ParcelId": "300-06186-000", "OwnerName": "X",
+                                       "MailingAdd": addr, "AdrLabel": "111  ISABELLE ST",
+                                       "AdrCity": "HOT SPRINGS", "AdrZip5": 71901,
+                                       "SourceDate": 1511222400000}}
+
+
+@pytest.mark.parametrize("mailing, expect", [
+    ("300 E OAKLAND PARK BLVD #270  FORT LAUDERDALE FL 33334", "out of state"),
+    ("8525 SARAH LN  MABELVALE AR 72103", "out of county"),
+    ("PO BOX 272  ROYAL AR 71968", "po box"),
+    ("111 ISABELLE ST  HOT SPRINGS AR 71901", "owner occupied"),
+    ("100 FOUR OAKS LN  HOT SPRINGS AR 71901", "mailing address on file"),
+])
+def test_owner_mailing_is_classified_conservatively(prop, monkeypatch, mailing, expect):
+    monkeypatch.setattr(hs, "_query", _fake_query({("Housing_Liens_WFL1", 0): [MAILING(mailing)]}))
+    res = hs.HS_OWNER_MAILING.enrich(prop)
+    assert res.status == "ok" and res.detail == expect
+    fields = {e["field"]: e for e in res.records[0].evidence}
+    assert fields["owner_mailing_address"]["evidence_type"] == "FACT"
+    if expect in ("out of state", "out of county", "po box"):
+        assert fields["absentee_owner"]["evidence_type"] == "OBSERVATION"
+        assert "not proof" in fields["absentee_owner"]["raw_ref"]
+    elif expect == "owner occupied":
+        assert "owner_occupancy" in fields and "absentee_owner" not in fields
+    else:
+        assert "absentee_owner" not in fields and "owner_occupancy" not in fields
+
+
+def test_absentee_and_owner_occupied_move_the_score_in_opposite_directions(boundaries):
+    def scored(parcel, **ev):
+        pid, _, _ = store.ingest(make_record(parcel_id=parcel, address=f"{parcel[-2:]} Score St"))
+        if ev:
+            store.store_evidence(pid, [{"field": k, "value": v, "evidence_type": "FACT",
+                                        "confidence": "HIGH", "source": "hs_gis_test"}
+                                       for k, v in ev.items()])
+        distress.refresh(store.get_property(pid))
+        return scoring.compute(store.get_property(pid), persist=False)["overall"]["score"]
+    base = scored("300-40")
+    away = scored("300-41", absentee_owner="owner gets the tax bill in FL")
+    home = scored("300-42", owner_occupancy="tax bill goes to the property itself")
+    assert away > base > home
+
+
+# ------------------------------------------------ register removals (13) --
+
+def test_leaving_the_vacant_register_is_observed_and_alerted(boundaries, monkeypatch):
+    from hunter import scanner
+    from hunter.sources import get_source
+    from hunter.sources.base import SourceResult, Record
+    # a house that was on the register last time
+    pid, _, _ = store.ingest(make_record(parcel_id="300-21", address="120 Iowa St"))
+    store.store_evidence(pid, [{"field": "vacant_structure", "value": "on the register",
+                                "evidence_type": "FACT", "confidence": "HIGH",
+                                "source": "hs_gis_vacant"}])
+    # this run: the register is empty
+    for name in scanner.Scan.CITY_REGISTERS:
+        monkeypatch.setattr(get_source(name), "discover",
+                            lambda **kw: SourceResult(status="ok", records=[], detail="0"))
+    s = scanner.Scan(mode="city_registers"); s.save()
+    s._city_registers()
+    ev = [e for e in store.evidence_for(pid) if e["field"] == "vacant_structure_removed"]
+    assert ev and ev[0]["evidence_type"] == "OBSERVATION"
+    assert "does not say which" in ev[0]["raw_ref"]
+    assert db.q1("SELECT 1 FROM alerts WHERE property_id=? AND kind='register_removed'", (pid,))
+    assert "came off the vacant-structure register" in s.stage("city_registers").detail
+    # a second run must not report it again
+    s2 = scanner.Scan(mode="city_registers"); s2.save(); s2._city_registers()
+    assert db.q1("SELECT COUNT(*) c FROM alerts WHERE property_id=? AND kind='register_removed'", (pid,))["c"] == 1
+
+
+def test_scan_manual_tasks_are_capped_to_first_line_sources(boundaries, monkeypatch):
+    from hunter import scanner
+    from hunter.sources import get_source
+    for i in range(12):
+        store.ingest(make_record(parcel_id=f"300-3{i}", address=f"{i} Cap St", imp_value=900.0))
+    s = scanner.Scan(mode="distress", enrich_top=40); s.save()
+    s.touched = [r["id"] for r in db.q("SELECT id FROM properties")]
+    for src in [get_source(n) for n in ("garland_assessor", "garland_tax_collector", "cosl",
+                                        "hs_vacant_structures", "hs_code_enforcement",
+                                        "garland_recorder", "hs_planning_zoning", "public_listings")]:
+        monkeypatch.setattr(src, "health_check", lambda: __import__("hunter.sources.base",
+                                                                    fromlist=["SourceResult"]).SourceResult(status="manual", detail="x"))
+    s._manual()
+    per_property = db.q("SELECT property_id, COUNT(*) n FROM tasks WHERE property_id IS NOT NULL GROUP BY property_id")
+    assert 0 < len(per_property) <= 10
+    assert all(r["n"] <= 4 for r in per_property)          # assessor, tax, COSL, recorder only
+    assert not db.q1("SELECT 1 FROM tasks WHERE source='hs_planning_zoning'")

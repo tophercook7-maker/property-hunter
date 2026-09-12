@@ -55,6 +55,7 @@ seeded, invented or padded.
 | **City of Hot Springs GIS — zoning (2024 update) & overlays** | The zoning district and ordinance at the parcel, plus historic districts, the Malvern overlay, planned-development districts and Opportunity Zones; also the RPID via the address join. |
 | **City of Hot Springs GIS — water meters & sewer mains** | Whether a City water meter sits at the address and whether a sewer main runs nearby. |
 | **City of Hot Springs GIS — city-owned property** | Parcels the City itself owns, and whether it marks them vacant. |
+| **City of Hot Springs GIS — county roll copy with owner mailing address** | Where the tax bill goes. Out of state, out of county or a PO box is recorded as an *absentee owner* observation; a bill addressed to the property itself as probably owner-occupied. |
 
 The City publishes these as open ArcGIS feature services under a use-at-your-own-risk
 disclaimer, which is quoted on every piece of evidence taken from them.
@@ -68,7 +69,7 @@ raises a **MANUAL VERIFICATION REQUIRED** task you can complete and attach evide
 | Source | Why |
 |---|---|
 | **Garland County Assessor (actDataScout)** | Answers automated requests with HTTP 403. We do not work around that. |
-| **Garland County Tax Collector** | Delinquency is behind a search form, not a feed. Tax status is too important to guess. |
+| **Garland County Tax Collector** | The Collector's inquiry portal (arkansastaxsearch.com) is a login-gated session application and the assessor portal (ARCountyData) sits behind a browser challenge. Neither is bypassed. Tax status is too important to guess. |
 | **Commissioner of State Lands (COSL)** | Certified-delinquent parcels and auctions live in an interactive catalogue and a separate auction site. |
 | **Hot Springs — confirm vacancy / condemnation** | The register is read automatically; whether a condemnation or demolition *order* is pending is only known to the office. Low priority. |
 | **Hot Springs — lien payoff & pre-2025 code history** | Lien amounts are read automatically; the payoff with interest and older cases are not. Low priority. |
@@ -118,6 +119,12 @@ your name on it — a neighbour's remark never becomes a fact.
 **Own it** — once you actually buy one: purchase, loan and value tracking; renovation
 projects with budget-vs-actual per task; a money ledger; leases; and before / during /
 after photos lined up side by side. "My properties" totals it into a portfolio view.
+
+**Coming off a register** — every scan re-reads the City's vacancy, lien and code
+registers. A property that carried one of those records last time and is not on the
+register now gets an observation, a timeline event and an alert ("came off the
+vacant-structure register") — phrased as what was observed, because the layer does not
+say whether it was resolved, demolished, sold or paid off.
 
 **Fuzzy search** — "111 Isabel Street", "Malvurn" or "Tucker Aquisitions" still find the
 right property; the response says what it matched on.
@@ -195,8 +202,11 @@ requests that sit as `pending` until you decide.
 
 Geography is configuration. Add an entry to `TERRITORIES` in `hunter/config.py` with
 the county FIPS, centre and bounding box, and an `EXCLUSIONS` entry if there is
-somewhere you never want to look. The Arkansas parcel adapter already covers every
-Arkansas county; a new state needs a new parcel adapter implementing `PropertySource`.
+somewhere you never want to look. Saline County is already there, switched off
+(`active: False`), and a live test proves the same parcel adapter reads its ~40,000
+parcels and that the Hot Springs Village exclusion — which straddles the county line —
+still applies. The API refuses to scan a territory that is not switched on. A new
+state needs a new parcel adapter implementing `PropertySource`.
 
 ---
 

@@ -116,6 +116,10 @@ def overall(prop: dict) -> Sheet:
             s.add(w[key], sig[key]["label"], sig[key]["why"])
     if "vacant_structure" in sig:
         s.add(14, "On the City's vacant-structure register", sig["vacant_structure"]["why"])
+    if "absentee_owner" in sig:
+        s.add(6, sig["absentee_owner"]["label"], sig["absentee_owner"]["why"])
+    if "owner_occupied" in sig:
+        s.add(-5, "Probably owner-occupied - not a distressed seller", "")
     if "cleanup_lien" in sig:
         s.add(7, sig["cleanup_lien"]["label"], "A lien means a motivated situation - and a "
                                                  "known cost you can price in.")

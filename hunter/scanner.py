@@ -313,6 +313,42 @@ class Scan:
 
     CITY_REGISTERS = ("hs_gis_vacant", "hs_gis_liens", "hs_gis_code_cases")
 
+    REGISTER_FIELDS = {"hs_gis_vacant": ("vacant_structure", "vacant-structure register"),
+                       "hs_gis_liens": ("cleanup_lien", "City lien parcels"),
+                       "hs_gis_code_cases": ("code_case_open", "2025 open code cases")}
+
+    def _register_removals(self, name: str, present: set[int]) -> int:
+        """Properties that carried this register's evidence last time but are not
+        on it now. A house coming off the vacant register, or a lien parcel
+        dropping off the lien layer, is a change worth telling Topher about -
+        phrased as what we observed, not as what it means."""
+        field, label = self.REGISTER_FIELDS[name]
+        rows = db.q("""SELECT DISTINCT e.property_id, p.address, p.parcel_id
+                       FROM evidence e JOIN properties p ON p.id=e.property_id
+                       WHERE e.field=? AND e.source=? AND p.excluded=0
+                       AND NOT EXISTS (SELECT 1 FROM evidence r WHERE r.property_id=e.property_id
+                                       AND r.field=? AND r.id > e.id)""",
+                    (field, name, field + "_removed"))
+        n = 0
+        for r in rows:
+            if r["property_id"] in present:
+                continue
+            store.store_evidence(r["property_id"], [{
+                "field": field + "_removed",
+                "value": f"no longer on the City's {label} as of this scan",
+                "evidence_type": "OBSERVATION", "confidence": "MEDIUM", "source": name,
+                "source_name": f"City of Hot Springs GIS ({label})",
+                "raw_ref": "It left the layer. That could mean resolved, demolished, sold, "
+                           "paid off, or just re-edited - the record does not say which."}])
+            store.add_timeline(r["property_id"], "change", f"Came off the City's {label}",
+                               "observed by comparing this scan with the last", source=name)
+            store.add_alert(r["property_id"], "register_removed",
+                            f"{r['address'] or r['parcel_id']} - came off the {label}",
+                            "Worth finding out why: resolved, demolished, sold, or paid off.",
+                            "medium")
+            n += 1
+        return n
+
     def _city_registers(self) -> None:
         """The City's three distress registers are small (a few hundred rows each),
         so every scan reads all of them and folds them onto the properties we know
@@ -332,13 +368,19 @@ class Scan:
                 continue
             self._count_source(True)
             new = seen = 0
+            present: set[int] = set()
             for rec in res.records:
                 pid, action, _ = store.ingest(rec)
                 self.touched.append(pid)
+                present.add(pid)
                 if action == "created":
                     new += 1
                 else:
                     seen += 1
+            gone = self._register_removals(name, present)
+            if gone:
+                details.append(f"{gone} came off the {self.REGISTER_FIELDS[name][1]}")
+                self.stats["changes"] += gone
             total_new += new
             total_seen += seen
             # Register rows are records we examined, whatever mode we are in.
@@ -392,7 +434,8 @@ class Scan:
             deadline = time.monotonic() + budget
             city_srcs = ([get_source(n) for n in ("hs_gis_zoning", "hs_gis_utilities",
                                                    "hs_gis_liens", "hs_gis_vacant",
-                                                   "hs_gis_code_cases", "hs_gis_city_property")]
+                                                   "hs_gis_code_cases", "hs_gis_city_property",
+                                                   "hs_gis_owner_mailing")]
                          if key == "city" else [src])
             for n, pid in enumerate(stage_ids, 1):
                 if time.monotonic() > deadline:
@@ -473,11 +516,14 @@ class Scan:
             details.append(f"{src.label}: {result.status}")
             self.log(f"{src.label} -> {result.status}: {result.detail}",
                      source=src.name, stage="manual")
-        # One standing task per strong candidate for the things only a human can do.
-        for pid in self._top_candidates(max(5, self.enrich_top // 2)):
-            for src in sources:
-                if src.name in ("public_listings",):
-                    continue
+        # One standing task per strong candidate for the things only a human can
+        # do FIRST - title, taxes, the State's tax-sale status, the assessor's own
+        # record. The low-priority "confirm with the office" sources are raised
+        # by the investigator on demand, or a scan would bury Topher in tasks.
+        first_line = [src for src in sources
+                      if getattr(src, "priority", 2) <= 2 and src.name != "public_listings"]
+        for pid in self._top_candidates(min(10, max(5, self.enrich_top // 2))):
+            for src in first_line:
                 store.add_task(pid, src.manual_task(pid))
                 made += 1
         # And one global task to nail down the parcel-type code table.

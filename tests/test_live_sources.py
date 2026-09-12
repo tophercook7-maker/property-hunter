@@ -180,3 +180,24 @@ def test_city_of_hot_springs_gis_answers_and_knows_111_isabelle():
     assert u.status == "ok"
     assert any(e["field"] == "city_water" and "at this address" in e["value"]
                for e in u.records[0].evidence)
+
+
+def test_a_second_county_is_configuration_not_code():
+    """Spec 71/72: adding Saline County is a dict. The same parcel adapter must
+    read it, and the HSV exclusion polygon (which straddles the county line)
+    must still bite there."""
+    from hunter import exclusions
+    from hunter.config import TERRITORIES
+    from hunter.sources.ar_parcels import ARKANSAS_PARCELS
+    saline = next(t for t in TERRITORIES if t["key"] == "saline_ar")
+    assert saline["active"] is False
+    n = ARKANSAS_PARCELS.count(f"countyfips='{saline['county_fips']}'")
+    assert n > 20000, f"Saline County should have tens of thousands of parcels, got {n}"
+    res = ARKANSAS_PARCELS.discover(territory="saline_ar", limit=3)
+    assert res.status == "ok" and len(res.records) == 3
+    assert all(r.fields["territory"] == "saline_ar" and r.fields["county_fips"] == "05125"
+               for r in res.records)
+    # the HSV polygon extends into Saline County: an HSV point there is still excluded
+    from hunter.sources.boundaries import CENSUS_BOUNDARIES
+    CENSUS_BOUNDARIES.discover(); exclusions.refresh_cache()
+    assert exclusions.check(lat=34.68, lon=-92.90).excluded

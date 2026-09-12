@@ -180,6 +180,9 @@ def _ownership(p):
     owner = p.get("owner_name")
     ev = store.latest_evidence(p["id"], "owner_name")
     findings = []
+    # Where the tax bill goes says a lot about how motivated the owner might be.
+    mailing, mdetail, mok = _city(p, "hs_gis_owner_mailing")
+    findings += mailing
     if owner:
         findings.append(_f(f"Tax roll owner of record: {owner}"
                            + (f" (as of {ev['effective_date']})" if ev and ev.get("effective_date") else ""),

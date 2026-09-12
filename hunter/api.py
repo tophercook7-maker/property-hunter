@@ -92,6 +92,8 @@ def api_status() -> dict:
     return {
         "app": APP_NAME, "version": VERSION,
         "territory": next(t for t in TERRITORIES if t["key"] == DEFAULT_TERRITORY),
+        "territories": [{"key": t["key"], "label": t["label"], "active": t["active"]}
+                        for t in TERRITORIES],
         "counts": {
             "properties": counts["active"] or 0,
             "excluded": counts["excluded"] or 0,
@@ -630,6 +632,15 @@ def api_scan(payload: dict = Body(default={})) -> dict:
     if scanner.is_running():
         return {"started": False, "reason": "a scan is already running",
                 "scan": scanner.current().as_dict()}
+    territory = payload.get("territory", DEFAULT_TERRITORY)
+    terr = next((t for t in TERRITORIES if t["key"] == territory), None)
+    if not terr:
+        raise HTTPException(400, f"unknown territory {territory!r}")
+    if not terr.get("active"):
+        raise HTTPException(400, f"{terr['label']} is configured but not switched on - "
+                                 f"set active: True in hunter/config.py to scan it")
+    if payload.get("mode", "distress") not in scanner.PRESETS:
+        raise HTTPException(400, f"mode must be one of {list(scanner.PRESETS)}")
     scan = scanner.start(mode=payload.get("mode", "distress"),
                          territory=payload.get("territory", DEFAULT_TERRITORY),
                          limit=payload.get("limit", 400),

@@ -586,10 +586,10 @@ def attach_parcel(fields: dict) -> dict:
     hit = parcel_at(fields["lat"], fields["lon"])
     if not hit:
         return fields
+    # Identity only. The roll copy's owner and values are older than the State
+    # layer's and must never overwrite them; a property that truly lacks them
+    # gets them from the parcel_ids stage, which fills only what is missing.
     fields["parcel_id"] = hit["parcel_id"]
-    for k in ("owner_name", "legal", "parcel_type", "total_value", "land_value", "imp_value"):
-        if fields.get(k) in (None, "", 0) and hit.get(k) not in (None, ""):
-            fields[k] = hit[k]
     return fields
 
 

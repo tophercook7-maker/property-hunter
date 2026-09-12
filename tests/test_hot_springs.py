@@ -400,4 +400,4 @@ def test_register_discovery_attaches_parcels(boundaries, monkeypatch):
                                                    ("Housing_Liens_WFL1", 0): [roll]}))
     res = hs.HS_VACANT.discover()
     assert res.records[0].fields["parcel_id"] == "400-1"
-    assert res.records[0].fields["owner_name"] == "O"
+    assert "owner_name" not in res.records[0].fields          # identity only; roll copy is stale

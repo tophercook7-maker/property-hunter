@@ -24,6 +24,20 @@ from .sources.base import Record
 COORD_REFINEMENT_M = 60.0
 
 
+def _same_value(old, new) -> bool:
+    """'21450.0' and 21450 are the same assessed value. Different sources hand
+    numbers back as floats, ints and strings; a formatting difference is not a
+    change and must never raise an alert."""
+    if old is None or new is None:
+        return old is None and new is None
+    if str(old) == str(new):
+        return True
+    try:
+        return abs(float(old) - float(new)) < 1e-6
+    except (TypeError, ValueError):
+        return False
+
+
 def _less_specific_address(old: str | None, new: str | None) -> bool:
     """'1100 Park' is the same address as '1100 Park Ave' with the suffix missing.
     A source that knows less must not overwrite one that knows more."""
@@ -172,6 +186,8 @@ def ingest(record: Record, *, data_class: str = "real",
                 # follows address; recorded through it, not separately
                 sets.append("address_norm=?")
                 vals.append(v)
+                continue
+            if _same_value(old, v):
                 continue
             if old is None or old == "":
                 # A field going from nothing to something is usually just a gap

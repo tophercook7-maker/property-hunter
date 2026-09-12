@@ -203,3 +203,15 @@ def test_same_rpid_different_house_number_is_one_parcel_with_a_recorded_conflict
     assert len(rows) == 1 and rows[0]["status"] == "NEEDS VERIFICATION"   # one open conflict, not one per source
     assert rows[0]["value_b"] == "134 Magnolia" and rows[0]["value_a"] == "118 Magnolia St"
     assert store.get_property(county)["address"] == "118 Magnolia St"      # county spelling kept
+
+
+def test_number_formatting_differences_are_not_changes():
+    """Regression: the City roll copy returns 21450 where the State layer gave
+    21450.0, and 1,892 'changes' plus owner alerts followed."""
+    store.ingest(make_record(parcel_id="300-71", total_value=21450.0, land_value=20000.0, imp_value=1450.0))
+    _, action, changes = store.ingest(make_record(parcel_id="300-71", total_value=21450, land_value=20000, imp_value=1450))
+    assert action == "seen" and changes == []
+    assert db.q1("SELECT COUNT(*) c FROM changes")["c"] == 0
+    _, action, changes = store.ingest(make_record(parcel_id="300-71", total_value=30000,
+                                                  land_value=20000, imp_value=1450))
+    assert action == "updated" and [c["field"] for c in changes] == ["total_value"]

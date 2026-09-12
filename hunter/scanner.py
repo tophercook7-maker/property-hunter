@@ -403,9 +403,10 @@ class Scan:
             self.finish("parcel_ids", "skipped", "roll-copy source disabled")
             return
         ids = [r["id"] for r in db.q(
-            "SELECT id FROM properties WHERE parcel_id IS NULL AND lat IS NOT NULL "
-            "AND excluded=0 ORDER BY id")]
-        self.begin("parcel_ids", f"{len(ids)} properties lack a parcel id", total=len(ids))
+            "SELECT id FROM properties WHERE excluded=0 AND lat IS NOT NULL AND "
+            "(parcel_id IS NULL OR owner_name IS NULL OR total_value IS NULL) ORDER BY id")]
+        self.begin("parcel_ids", f"{len(ids)} properties lack a parcel id, owner or values",
+                   total=len(ids))
         matched = merged = missed = 0
         deadline = time.monotonic() + budget
         for n, pid in enumerate(ids, 1):
@@ -425,18 +426,23 @@ class Scan:
             cols = {k: v for k, v in (rec.fields or {}).items()
                     if k in store.WRITABLE and v is not None}
             parcel = cols.pop("parcel_id", None)
-            if parcel:
+            if parcel and not p.get("parcel_id"):
                 survivor = store.adopt_parcel_id(pid, parcel)
                 if survivor != pid:
                     merged += 1
                     pid = survivor
                 else:
                     matched += 1
-                if cols:
-                    sets = ",".join(f"{k}=?" for k in cols)
-                    db.ex(f"UPDATE properties SET {sets} WHERE id=?", (*cols.values(), pid))
+            elif parcel or cols:
+                matched += 1
             else:
                 missed += 1
+            # fill only what is missing - never overwrite the State layer's values
+            fresh = store.get_property(pid) or {}
+            cols = {k: v for k, v in cols.items() if fresh.get(k) in (None, "")}
+            if cols:
+                sets = ",".join(f"{k}=?" for k in cols)
+                db.ex(f"UPDATE properties SET {sets} WHERE id=?", (*cols.values(), pid))
             self.touched.append(pid)
             if n % 20 == 0 or n == len(ids):
                 self.tick("parcel_ids", n, len(ids), f"{matched} matched, {merged} merged")

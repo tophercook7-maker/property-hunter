@@ -1,0 +1,217 @@
+"""Local AI layer (spec 51/52/63).
+
+Hard rules enforced here, not just asked for in a prompt:
+  * the model is only ever shown the evidence we actually hold
+  * it is told to say "I don't know" and is given the words to do it
+  * deterministic work (arithmetic, filtering, ranking) never reaches the model
+  * every answer is cached, so we do not burn a 27B model on the same property
+  * if no model is available the feature degrades to a written summary built
+    from the evidence, and says so - it never fabricates
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+
+import httpx
+
+from . import db
+from .config import AI_ENABLED, AI_MODEL, AI_NUM_CTX, AI_TIMEOUT, OLLAMA_URL
+from .db import utcnow
+
+PREFERRED = ["qwen3.8:27b", "gemma2:27b", "gpt-oss:20b", "gemma4:latest",
+             "qwen2.5:7b-instruct", "llama3.3:70b"]
+
+SYSTEM = """You are the property analyst for one person, Topher, who is looking for
+real-estate opportunities in Garland County, Arkansas.
+
+How you talk:
+- Plain everyday English. Short sentences. No real-estate jargon unless you
+  immediately explain it.
+- You are allowed, and expected, to say "I don't know", "we haven't verified
+  that yet", "this is only an estimate", and "don't buy this yet".
+- Be conservative. When the evidence is thin, say the evidence is thin.
+
+Hard rules you must never break:
+- Use ONLY the evidence given to you below. If a fact is not in the evidence,
+  you do not know it.
+- Never invent an owner, a price, a tax amount, a lien, a zoning district, a
+  square footage, a year, a date, or a source.
+- Never state a legal conclusion. Point at a lawyer or the right government
+  office instead.
+- Never say paying somebody's delinquent taxes makes you the owner.
+- Do not repeat a number back with more precision than you were given.
+- If you are guessing, label it as a guess in the sentence itself.
+- A parcel class is not zoning. The assessor's residential / commercial /
+  agricultural code is a tax category, not permission to do anything. Never say
+  a property is "zoned" for something unless the evidence gives an actual
+  zoning district from the City.
+- A mapped road is not legal access. Legal access is a recorded easement or
+  platted frontage, and it lives in the deed.
+- The county's assessed value is not a market value and not an asking price.
+"""
+
+_available: list[str] | None = None
+
+
+def available_models() -> list[str]:
+    global _available
+    if _available is not None:
+        return _available
+    try:
+        r = httpx.get(f"{OLLAMA_URL}/api/tags", timeout=6)
+        _available = [m["name"] for m in r.json().get("models", [])]
+    except Exception:
+        _available = []
+    return _available
+
+
+def pick_model() -> str | None:
+    if not AI_ENABLED:
+        return None
+    models = available_models()
+    if not models:
+        return None
+    if AI_MODEL and AI_MODEL in models:
+        return AI_MODEL
+    for name in PREFERRED:
+        if name in models:
+            return name
+    return models[0]
+
+
+def status() -> dict:
+    model = pick_model()
+    return {"enabled": AI_ENABLED, "model": model,
+            "available": len(available_models()),
+            "backend": OLLAMA_URL,
+            "detail": ("ready" if model else
+                       "no local model reachable - explanations fall back to a "
+                       "plain summary of the stored evidence")}
+
+
+def _key(prompt: str, model: str) -> str:
+    return hashlib.sha256(f"{model}\n{prompt}".encode()).hexdigest()
+
+
+def _cached(key: str) -> str | None:
+    row = db.q1("SELECT response FROM ai_cache WHERE key=?", (key,))
+    return row["response"] if row else None
+
+
+def _cache(key: str, model: str, prompt: str, response: str) -> None:
+    db.ex("INSERT OR REPLACE INTO ai_cache(key,model,prompt,response,created_at) "
+          "VALUES(?,?,?,?,?)", (key, model, prompt[:4000], response, utcnow()))
+
+
+def ask(prompt: str, *, system: str = SYSTEM, use_cache: bool = True,
+        temperature: float = 0.2, max_tokens: int = 900) -> tuple[str, str]:
+    """Returns (text, model_or_empty). Empty model means no AI ran."""
+    model = pick_model()
+    if not model:
+        return "", ""
+    key = _key(system + prompt, model)
+    if use_cache:
+        hit = _cached(key)
+        if hit:
+            return hit, model
+    try:
+        r = httpx.post(
+            f"{OLLAMA_URL}/api/chat",
+            json={"model": model, "stream": False,
+                  "messages": [{"role": "system", "content": system},
+                               {"role": "user", "content": prompt}],
+                  "options": {"temperature": temperature, "num_ctx": AI_NUM_CTX,
+                              "num_predict": max_tokens}},
+            timeout=AI_TIMEOUT)
+        r.raise_for_status()
+        text = (r.json().get("message") or {}).get("content", "").strip()
+    except Exception as exc:
+        return "", f"error:{exc}"
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
+    if text:
+        _cache(key, model, system + prompt, text)
+    return text, model
+
+
+def evidence_block(prop: dict, evidence: list[dict], limit: int = 70) -> str:
+    """The ONLY thing the model is allowed to reason from."""
+    lines = [
+        "PROPERTY RECORD",
+        f"  address: {prop.get('address') or 'no street address on the tax roll'}",
+        f"  parcel id: {prop.get('parcel_id') or 'unknown'}",
+        f"  city: {prop.get('city') or 'unknown'}",
+        f"  acreage: {prop.get('acreage') if prop.get('acreage') is not None else 'unknown'}",
+        f"  county assessed total: "
+        f"{'$%s' % format(prop['total_value'], ',.0f') if prop.get('total_value') else 'unknown'}",
+        f"  county land value: "
+        f"{'$%s' % format(prop['land_value'], ',.0f') if prop.get('land_value') else 'unknown'}",
+        f"  county improvement value: "
+        f"{'$%s' % format(prop['imp_value'], ',.0f') if prop.get('imp_value') is not None else 'unknown'}",
+        f"  owner of record: {prop.get('owner_name') or 'unknown'}",
+        f"  flood zone: {prop.get('flood_zone') or 'not checked'}",
+        f"  zoning: {prop.get('zoning') or 'NOT CHECKED - unknown'}",
+        f"  tax status: {prop.get('tax_status') or 'NOT CHECKED - unknown'}",
+        f"  listing status: {prop.get('listing_status') or 'not known to be listed'}",
+        "",
+        "EVIDENCE WE ACTUALLY HOLD (source | confidence | type):",
+    ]
+    seen = set()
+    for e in evidence[:limit]:
+        k = (e.get("field"), e.get("value"))
+        if k in seen:
+            continue
+        seen.add(k)
+        lines.append(f"  - {e.get('field')}: {e.get('value')}   "
+                     f"[{e.get('source')} | {e.get('confidence')} | {e.get('evidence_type')}"
+                     + (f" | as of {e['effective_date']}" if e.get("effective_date") else "")
+                     + "]")
+    sigs = prop.get("distress") or []
+    if sigs:
+        lines.append("")
+        lines.append("SIGNALS WE DERIVED (these are observations, not verified facts):")
+        for s in sigs:
+            lines.append(f"  - {s['label']} ({s['confidence']} confidence). {s['why']}")
+    lines.append("")
+    lines.append("THINGS NOBODY HAS CHECKED YET:")
+    for unknown in _unknowns(prop):
+        lines.append(f"  - {unknown}")
+    return "\n".join(lines)
+
+
+def _unknowns(prop: dict) -> list[str]:
+    out = []
+    if not prop.get("tax_status"):
+        out.append("whether the taxes are current or delinquent")
+    if not prop.get("zoning"):
+        out.append("the zoning district and what uses it allows")
+    out.append("title: deeds, liens, easements, judgements")
+    out.append("the physical condition of anything standing on the parcel")
+    if not prop.get("list_price"):
+        out.append("whether it is for sale, and at what price")
+    if prop.get("flood_zone") is None:
+        out.append("the FEMA flood zone")
+    out.append("legal access - a recorded easement or road frontage")
+    return out
+
+
+def fallback_summary(prop: dict) -> str:
+    """Used when no model is reachable. Describes evidence, invents nothing."""
+    bits = []
+    where = prop.get("address") or f"parcel {prop.get('parcel_id')}"
+    bits.append(f"Here is the simple version of what we hold on {where}.")
+    if prop.get("total_value"):
+        bits.append(f"The county assesses it at ${prop['total_value']:,.0f} "
+                    f"(${prop.get('land_value') or 0:,.0f} land, "
+                    f"${prop.get('imp_value') or 0:,.0f} improvements).")
+    sigs = prop.get("distress") or []
+    if sigs:
+        bits.append("What caught our attention: "
+                    + "; ".join(s["label"].lower() for s in sigs[:4]) + ".")
+    else:
+        bits.append("Nothing in the record stands out as distressed.")
+    bits.append("What nobody has checked yet: " + "; ".join(_unknowns(prop)[:4]) + ".")
+    bits.append("No local AI model is running right now, so this is a plain readout "
+                "of the stored evidence rather than an analysis.")
+    return " ".join(bits)

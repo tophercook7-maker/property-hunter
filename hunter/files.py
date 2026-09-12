@@ -87,7 +87,9 @@ def transcribe(path: Path) -> str | None:
             capture_output=True, text=True, timeout=180)
         txt = path.with_suffix(".txt")
         if out.returncode == 0 and txt.exists():
-            text = txt.read_text().strip()
+            # whisper writes one segment per line; a note reads better as prose
+            text = " ".join(line.strip() for line in txt.read_text().splitlines()
+                            if line.strip())
             txt.unlink(missing_ok=True)
             return text or None
     except (subprocess.TimeoutExpired, OSError):

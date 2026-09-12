@@ -116,6 +116,13 @@ def _wait_and_brief(scan: scanner.Scan) -> None:
     add_alert(None, "briefing", f"{r['greeting']} Here's what I found.",
               " ".join(lines), "info")
     db.log(scan.id, "briefing filed as an alert", source="scheduler")
+    try:
+        from .desktop import refresh
+        out = refresh()
+        db.log(scan.id, f"Desktop folder refreshed: {out.get('written') or out.get('skipped')}",
+               source="scheduler")
+    except Exception as exc:                    # pragma: no cover
+        db.log(scan.id, f"Desktop refresh failed: {exc}", level="error", source="scheduler")
 
 
 def _loop() -> None:

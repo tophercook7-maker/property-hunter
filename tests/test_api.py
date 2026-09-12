@@ -361,3 +361,21 @@ def test_inactive_territory_is_listed_but_refused(client):
     assert r.status_code == 400 and "not switched on" in r.json()["detail"]
     assert client.post("/api/scan", json={"territory": "mars"}).status_code == 400
     assert client.post("/api/scan", json={"mode": "banana"}).status_code == 400
+
+
+# --------------------------------------------------------- desktop folder
+
+def test_desktop_refresh_writes_briefing_and_picks_and_removes_stale_ones(client, seeded, tmp_path, monkeypatch):
+    from hunter import desktop, pdf as pdfmod
+    monkeypatch.setattr(pdfmod, "html_to_pdf", lambda html, timeout=60: b"%PDF-fake " + html[:20].encode())
+    (tmp_path / "PICK 9 - Old House.pdf").write_bytes(b"stale")
+    (tmp_path / "READ ME FIRST.txt").write_text("keep me")
+    out = desktop.refresh(tmp_path)
+    assert "THIS MORNING.txt" in out["written"]
+    assert not (tmp_path / "PICK 9 - Old House.pdf").exists()          # stale pick gone
+    assert (tmp_path / "READ ME FIRST.txt").read_text() == "keep me"     # untouched
+    picks = sorted(p.name for p in tmp_path.glob("PICK *.pdf"))
+    assert picks and picks[0].startswith("PICK 1 - ")
+    text = (tmp_path / "THIS MORNING.txt").read_text()
+    assert "INVESTIGATE FIRST" in text and "NEXT THREE ACTIONS" in text and "not legal" in text
+    assert desktop.refresh(tmp_path / "missing")["skipped"]

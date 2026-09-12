@@ -1057,6 +1057,13 @@ def api_schedule_update(payload: dict = Body(default={})) -> dict:
     return scheduler.update(payload)
 
 
+@app.post("/api/desktop/refresh")
+def api_desktop_refresh() -> dict:
+    """Rewrite the Desktop folder's briefing and pick PDFs now."""
+    from .desktop import refresh
+    return refresh()
+
+
 @app.post("/api/schedule/run-now")
 def api_schedule_run_now() -> dict:
     out = scheduler.run_now(reason="requested from the UI")

@@ -57,12 +57,16 @@ def normalize_address(raw: str | None) -> str:
     if not s:
         return ""
     parts = []
+    seen_type = False
     for tok in s.split(" "):
         low = tok.lower()
-        if low in UNIT_WORDS:
+        if low in UNIT_WORDS or low.startswith("#"):
             break
+        if seen_type and low.isdigit():
+            break                      # "121 Ward St 6": the 6 is a unit ('#' was stripped)
         if low in STREET_TYPES:
             parts.append(STREET_TYPES[low])
+            seen_type = True
         elif low in DIRECTIONS and (parts and len(parts) > 1 or not parts):
             parts.append(DIRECTIONS[low])
         else:

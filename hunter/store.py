@@ -10,12 +10,27 @@ Rules enforced here, not in the UI:
 from __future__ import annotations
 
 import hashlib
+import sqlite3
 from typing import Any, Iterable
 
 from . import db, exclusions, identity
 from .db import jdump, jload, utcnow
+from . import geo
 from .normalize import normalize_address, normalize_owner
 from .sources.base import Record
+
+# A centroid that moves less than this between sources is the same parcel drawn
+# by a different hand - a refinement, not a change.
+COORD_REFINEMENT_M = 60.0
+
+
+def _less_specific_address(old: str | None, new: str | None) -> bool:
+    """'1100 Park' is the same address as '1100 Park Ave' with the suffix missing.
+    A source that knows less must not overwrite one that knows more."""
+    o, n = normalize_address(old), normalize_address(new)
+    if not o or not n or o == n:
+        return False
+    return o.startswith(n + " ") or o == n
 
 # Columns a source is allowed to write straight onto the property row.
 WRITABLE = {
@@ -89,15 +104,51 @@ def ingest(record: Record, *, data_class: str = "real",
             cols.append(k)
             vals.append(v)
         placeholders = ",".join("?" * len(cols))
-        cur = db.ex(f"INSERT INTO properties({','.join(cols)}) VALUES({placeholders})", vals)
+        # Two genuinely different properties can share an address-only key
+        # (units, split lots). Never let that collision lose a record.
+        for attempt in range(1, 6):
+            try:
+                cur = db.ex(f"INSERT INTO properties({','.join(cols)}) VALUES({placeholders})", vals)
+                break
+            except sqlite3.IntegrityError:
+                vals[0] = f"{key}#{attempt}"
+        else:                                                    # pragma: no cover
+            raise
         prop_id = cur.lastrowid
         action = "created"
     else:
         existing = dict(db.q1("SELECT * FROM properties WHERE id=?", (prop_id,)))
         sets, vals = [], []
+        # Coordinates: a small shift is a refinement, never a "change"; and a
+        # record with no parcel id (a register polygon, a case point) never
+        # overrides coordinates we already hold - the parcel centroid wins.
+        if (fields.get("lat") is not None and fields.get("lon") is not None
+                and existing.get("lat") is not None and existing.get("lon") is not None):
+            shift = geo.haversine_m(fields["lon"], fields["lat"], existing["lon"], existing["lat"])
+            if shift < COORD_REFINEMENT_M or not fields.get("parcel_id"):
+                fields.pop("lat"), fields.pop("lon")        # keep what we have
+        # Address: never let a suffix-less form overwrite the fuller one; when
+        # only the unit differs (apartments at one building) keep what we have;
+        # and when the new form is MORE specific, take it quietly - that is a
+        # refinement, not something to alert about.
+        if fields.get("address") and existing.get("address"):
+            old_n, new_n = normalize_address(existing["address"]), normalize_address(fields["address"])
+            if _less_specific_address(existing["address"], fields["address"]) or old_n == new_n:
+                fields.pop("address", None)
+                fields.pop("address_norm", None)
+            elif new_n.startswith(old_n + " "):
+                db.ex("UPDATE properties SET address=?, address_norm=? WHERE id=?",
+                      (fields["address"], new_n, prop_id))
+                fields.pop("address", None)
+                fields.pop("address_norm", None)
         for k, v in fields.items():
             old = existing.get(k)
             if v is None:
+                continue
+            if k == "address_norm":
+                # follows address; recorded through it, not separately
+                sets.append("address_norm=?")
+                vals.append(v)
                 continue
             if old is None or old == "":
                 # A field going from nothing to something is usually just a gap

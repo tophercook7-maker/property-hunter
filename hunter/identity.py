@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from . import db, geo
 from .db import utcnow
-from .normalize import (fuzzy_ratio, normalize_address, normalize_owner,
-                        normalize_parcel, squash)
+from .normalize import (address_number, fuzzy_ratio, normalize_address,
+                        normalize_owner, normalize_parcel, squash)
 
 COORD_MATCH_M = 40.0        # centroids this close are treated as the same parcel
 
@@ -19,6 +19,9 @@ def canonical_key(fields: dict) -> str:
     parcel = normalize_parcel(fields.get("parcel_id"))
     if parcel:
         return f"parcel:{fields.get('county_fips') or '?'}:{parcel}"
+    rpid = squash(fields.get("rpid"))
+    if rpid:
+        return f"rpid:{fields.get('county_fips') or '?'}:{rpid}"
     addr = normalize_address(fields.get("address"))
     if addr:
         return f"addr:{fields.get('county_fips') or '?'}:{addr}"
@@ -45,9 +48,34 @@ def resolve(fields: dict) -> tuple[int | None, str]:
     Returns (property_id or None, how_we_matched).
     """
     county = fields.get("county_fips")
+    parcel = normalize_parcel(fields.get("parcel_id"))
+    incoming_num = address_number(fields.get("address"))
+    incoming_rpid = squash(fields.get("rpid"))
+
+    def _parcel_conflict(candidate_id: int) -> bool:
+        """True when the candidate is provably a different property.
+
+        Three independent tells, any one of which is enough: a different parcel
+        id, a different RPID, or a different house number. Adjacent lots share a
+        wall, a street and a centroid a few metres apart - the house number is
+        what tells 118 Magnolia from 134 Magnolia."""
+        row = db.q1("SELECT parcel_id, rpid, address FROM properties WHERE id=?",
+                    (candidate_id,))
+        if not row:
+            return False
+        other_parcel = normalize_parcel(row["parcel_id"])
+        if parcel and other_parcel and other_parcel != parcel:
+            return True
+        other_rpid = squash(row["rpid"])
+        if incoming_rpid and other_rpid and other_rpid != incoming_rpid:
+            return True
+        other_num = address_number(row["address"])
+        if incoming_num and other_num and other_num != incoming_num:
+            return True
+        return False
+
 
     # 1. parcel id - strongest
-    parcel = normalize_parcel(fields.get("parcel_id"))
     if parcel:
         pid = _by_alias("parcel", parcel)
         if pid:
@@ -61,20 +89,13 @@ def resolve(fields: dict) -> tuple[int | None, str]:
     rpid = squash(fields.get("rpid"))
     if rpid:
         pid = _by_alias("rpid", rpid)
-        if pid:
+        if pid and not _parcel_conflict(pid):
             return pid, "RPID"
 
     # A record that carries its own parcel id must never be folded into a
     # property that already has a *different* parcel id. Two neighbouring lots
     # can share a wall, an address stem and a centroid 5 m apart - they are
     # still two properties.
-    def _parcel_conflict(candidate_id: int) -> bool:
-        if not parcel:
-            return False
-        row = db.q1("SELECT parcel_id FROM properties WHERE id=?", (candidate_id,))
-        other = normalize_parcel(row["parcel_id"]) if row else ""
-        return bool(other) and other != parcel
-
     # 3. normalized address within the same county
     addr = normalize_address(fields.get("address"))
     if addr and len(addr.split()) > 1 and addr[0].isdigit():

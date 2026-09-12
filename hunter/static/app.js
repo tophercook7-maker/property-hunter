@@ -809,7 +809,9 @@ function tabOverview(d){
         ${kv('City water', evVal(d,'city_water') || 'not checked')}
         ${kv('City sewer', evVal(d,'city_sewer') || 'not checked')}
         ${kv('Vacancy register', evVal(d,'vacant_structure') ? '<span class="tag red">ON THE REGISTER</span>' : (evVal(d,'vacant_structure_check') || 'not checked'), true)}
-        ${kv('City liens', evVal(d,'cleanup_lien_total') ? '$'+Number(evVal(d,'cleanup_lien_total')).toLocaleString() : (evVal(d,'cleanup_lien_check') || 'not checked'))}
+        ${kv('City liens', (evVal(d,'cleanup_lien_total') ?? evVal(d,'cleanup_lien_amount')) !== null
+            ? `<span class="tag red">$${Number(evVal(d,'cleanup_lien_total') ?? evVal(d,'cleanup_lien_amount')).toLocaleString()}</span> ${esc(evVal(d,'cleanup_lien')||'')}`
+            : (evVal(d,'cleanup_lien_check') || 'not checked'), true)}
         ${kv('Code cases', evVal(d,'code_case_open') || evVal(d,'code_case') || evVal(d,'code_case_check') || 'not checked')}
         ${kv('Tax status', p.tax_status || 'NOT CHECKED')}
         ${kv('Listing status', p.listing_status || 'not known to be listed')}

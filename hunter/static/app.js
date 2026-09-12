@@ -608,6 +608,13 @@ function propTable(props){
 }
 function propCard(p){
   const sigs = (p.distress||[]).filter(s=>s.kind!=='opportunity').slice(0,3);
+  const w = p.watch_priority ? `<div class="watchbox">
+      <span class="tag gold">&#11088; ${esc(p.watch_priority)}</span>
+      ${p.watch_target_price?`<span class="tag">target ${money(p.watch_target_price)}</span>`:''}
+      ${p.watch_desired_use?`<span class="tag purple">${esc(p.watch_desired_use)}</span>`:''}
+      ${p.watch_notes?`<div class="tiny muted" style="margin-top:4px">${esc(p.watch_notes)}</div>`:''}
+      <button class="btn sm ghost" style="margin-top:4px" onclick="editWatch(${p.id})">edit</button>
+    </div>` : '';
   const icon = p.property_type==='lot'?'&#127807;':p.property_type==='commercial'?'&#127970;':'&#127968;';
   return `<div class="pcard">
     <div class="top">
@@ -628,6 +635,7 @@ function propCard(p){
         ${sigs.map(s=>`<span class="tag" title="${esc(s.why)}">${esc(shortSig(s.label))}</span>`).join('')}
         ${(p.preference_flags||[]).map(f=>`<span class="tag purple" title="You have passed on deals like this before (${esc(f)}). Score unchanged; ranked lower.">&#8595; ${esc(f)}</span>`).join('')}
       </div>
+      ${w}
     </div>
     <div class="acts">
       <button class="btn sm primary" onclick="go('property',${p.id})">OPEN</button>
@@ -662,9 +670,40 @@ window.doCompare = async ()=>{
 };
 window.toggleWatch = async (id, btn)=>{
   const on = btn.textContent.trim()!=='WATCH';
-  await api(`/api/property/${id}/watch`, {method: on?'DELETE':'POST', body: on?undefined:'{}'});
-  btn.innerHTML = on?'WATCH':'&#11088;'; toast(on?'Removed from watchlist':'Added to watchlist');
-  refreshStatus();
+  if(on){
+    await api(`/api/property/${id}/watch`, {method:'DELETE'});
+    btn.innerHTML = 'WATCH'; toast('Removed from watchlist'); refreshStatus(); return;
+  }
+  watchDialog(id, btn);
+};
+window.editWatch = (id)=>{
+  const p = (S.props||[]).find(x=>x.id===id) || {};
+  watchDialog(id, null, {priority:p.watch_priority, notes:p.watch_notes||'',
+                         target_price:p.watch_target_price, desired_use:p.watch_desired_use||''});
+};
+window.watchDialog = async (id, btn, existing)=>{
+  const w = existing || {};
+  const m = modal(`<h3>Watch this property</h3>
+    <p class="tiny muted">The scanner keeps re-reading it and tells you when anything moves.</p>
+    <div class="grid g-form">
+      <div><label class="fl">Priority</label><select id="wPri">
+        ${['low','normal','high','urgent'].map(x=>`<option ${x===(w.priority||'normal')?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div><label class="fl">Target price</label><input type="number" id="wPrice" value="${w.target_price??''}" placeholder="what you'd pay"></div>
+      <div><label class="fl">Desired use</label><select id="wUse">
+        ${['','rental','flip','storage','workshop','office','snow-cone','land bank','personal'].map(x=>`<option value="${x}" ${x===(w.desired_use||'')?'selected':''}>${x||'undecided'}</option>`).join('')}</select></div>
+    </div>
+    <div class="field" style="margin-top:8px"><label class="fl">Notes</label>
+      <textarea id="wNotes" rows="3" placeholder="Why you're watching it, what would make you move">${esc(w.notes||'')}</textarea></div>
+    <div class="row"><button class="btn primary" id="wSave">${existing?'Update':'Watch'}</button>
+      <button class="btn ghost" onclick="this.closest('.modal').remove()">Cancel</button></div>`);
+  $('#wSave').onclick = async ()=>{
+    await api(`/api/property/${id}/watch`,{method:'POST',body:JSON.stringify({
+      priority:$('#wPri').value, notes:$('#wNotes').value,
+      target_price:$('#wPrice').value?Number($('#wPrice').value):null,
+      desired_use:$('#wUse').value||null})});
+    m.remove(); if(btn) btn.innerHTML='&#11088;'; toast(existing?'Watch updated':'Added to watchlist');
+    refreshStatus(); if(S.view==='watch'||S.view==='property') render();
+  };
 };
 window.quickInvestigate = async (id)=>{ go('property',id); setTimeout(()=>runInvestigation(id), 350); };
 
@@ -682,7 +721,7 @@ VIEWS.property = async (v, id)=>{
         <span class="tag ${p.data_class==='demo'?'yellow':'green'}">${p.data_class==='demo'?'DEMO DATA':'REAL DATA'}</span></p>
     </div>
     <div class="row">
-      <button class="btn" onclick="toggleWatch(${p.id},this)">${d.watched?'&#11088;':'WATCH'}</button>
+      <button class="btn" onclick="${d.watched?`watchDialog(${p.id},this,S.current.watch[0]||{})`:`toggleWatch(${p.id},this)`}">${d.watched?'&#11088; watching':'WATCH'}</button>
       <button class="btn" onclick="location.href='/api/property/${p.id}/report.html'">REPORT</button>
       <button class="btn" onclick="downloadPdf(${p.id},this)">PDF</button>
       <button class="btn primary" onclick="runInvestigation(${p.id})">INVESTIGATE</button>
@@ -808,7 +847,17 @@ function tabOverview(d){
       vs "${esc(c.value_b)}" (${esc(c.source_b)}) &mdash; ${esc(c.status)}</div>`).join('')}</div>`:''}
   <div class="banner warn" style="margin-top:14px">${esc(d.disclaimer)}</div>`;
 }
-const kv = (k,v,raw)=>`<dt>${esc(k)}</dt><dd>${raw?v:(v===null||v===undefined||v===''?'<span class="dimmer">&mdash;</span>':esc(v))}</dd>`;
+const TERMS = {'County assessed total':'assessed value','Land value':'assessed value','Improvement value':'assessed value',
+  'Implied market value':'market value','Parcel ID':'parcel','Flood zone':'flood zone','Zoning':'zoning',
+  'Tax status':'delinquent tax','Legal description':'deed','Owner of record':'title'};
+const kv = (k,v,raw)=>`<dt>${esc(k)}${TERMS[k]?` <button class="whats" title="What's this?" onclick="whatsThis('${esc(TERMS[k])}')">?</button>`:''}</dt><dd>${raw?v:(v===null||v===undefined||v===''?'<span class="dimmer">&mdash;</span>':esc(v))}</dd>`;
+window.whatsThis = async (term)=>{
+  const pid = S.current?.property?.id;
+  const r = await api(`/api/education?term=${encodeURIComponent(term)}${pid?`&property_id=${pid}`:''}`);
+  modal(`<h3>&#10067; ${esc(r.term)}</h3><p style="margin:0 0 8px">${esc(r.text)}</p>
+    ${r.example?`<div class="banner info"><b>Here:</b> ${esc(r.example)}</div>`:''}
+    <button class="btn primary sm" onclick="this.closest('.modal').remove()">Got it</button>`);
+};
 
 function tabEvidence(d){
   $('#dbody').innerHTML = `
@@ -870,7 +919,8 @@ function tabMoney(d){
       <div id="rentOut" class="mono tiny" style="margin-top:12px"></div>
     </div>
     <div class="card">
-      <h3>What should I pay? (deal analyzer)</h3>
+      <h3>What should I pay? (deal analyzer) <button class="whats" onclick="whatsThis('mao')">?</button></h3>
+      <div class="tiny dimmer" style="margin-bottom:6px">ARV <button class="whats" onclick="whatsThis('arv')">?</button> = what it would be worth once the work is done.</div>
       ${slider('dArv','Finished value (ARV)',arv,5000,600000,1000,'$')}
       ${slider('dRehab','Rehab',rehab,0,250000,1000,'$')}
       ${slider('dRet','Target return',22,5,50,1,'%')}
@@ -916,11 +966,11 @@ function tabMoney(d){
     const ret = r.returns, inc = r.income;
     $('#rentOut').innerHTML = `
       <div class="line money"><span class="p">${money(r.basis.total_basis)}</span><span>total basis (all-in)</span></div>
-      <div class="line money"><span class="p">${money(inc.noi)}</span><span>NOI per year</span></div>
+      <div class="line money"><span class="p">${money(inc.noi)}</span><span>NOI per year <button class="whats" onclick="whatsThis('noi')">?</button></span></div>
       <div class="line money"><span class="p ${ret.monthly_cash_flow>0?'pos':'neg'}">${money(ret.monthly_cash_flow)}</span><span>cash flow per month</span></div>
-      <div class="line money"><span class="p">${pct(ret.cap_rate)}</span><span>cap rate</span></div>
-      <div class="line money"><span class="p">${pct(ret.cash_on_cash)}</span><span>cash-on-cash</span></div>
-      <div class="line money"><span class="p">${num(ret.dscr)}</span><span>DSCR (under 1.0 does not cover the loan)</span></div>
+      <div class="line money"><span class="p">${pct(ret.cap_rate)}</span><span>cap rate <button class="whats" onclick="whatsThis('cap rate')">?</button></span></div>
+      <div class="line money"><span class="p">${pct(ret.cash_on_cash)}</span><span>cash-on-cash <button class="whats" onclick="whatsThis('cash-on-cash')">?</button></span></div>
+      <div class="line money"><span class="p">${num(ret.dscr)}</span><span>DSCR (under 1.0 does not cover the loan) <button class="whats" onclick="whatsThis('dscr')">?</button></span></div>
       <div class="line money"><span class="p">${money(ret.break_even_rent)}</span><span>break-even rent</span></div>
       <div style="margin-top:9px" class="tiny dimmer">Sensitivity:
         ${r.sensitivity.map(s=>`${esc(s.scenario)} &rarr; ${money(s.cash_flow)}/yr`).join(' &middot; ')}</div>
@@ -1377,6 +1427,8 @@ function tabAI(d){
     const r = await api(url);
     $('#aiOut').innerHTML = `<div class="ai"><h4>${esc(title)}</h4>${esc(r.text||'')
       .replace(/\n(WHAT [A-Z' ]+|WHAT WE DON'T KNOW)\n?/g,'\n<h4>$1</h4>')}
+      ${r.guard_note?`<div class="banner warn" style="margin-top:12px"><b>Guard:</b> ${esc(r.guard_note)}
+        The model tried to state figures it was never given; they were cut before you saw them.</div>`:''}
       <div class="tiny dimmer" style="margin-top:14px">
         ${r.model?`Written by ${esc(r.model)} running locally, using only the stored evidence.`
                  :esc(r.source||'')}</div>

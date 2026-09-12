@@ -123,6 +123,10 @@ UI uses and come back as structured results plus a sentence.
 **Near me** — give it your location (or coordinates) and it lists what we track around
 you, nearest first, with open / watch / visited / directions on each.
 
+**Watch** — priority, target price, desired use and notes on every watched property,
+shown on its card. **❓ What's this?** sits beside every unfamiliar term in the dossier
+and money tab and explains it using the property you are looking at.
+
 **Learning from passes** — when you pass on something and say why, ranked lists later
 sink properties carrying the same kind of problem, and the list says so in a banner.
 Scores never change, nothing is hidden, and it can be switched off.
@@ -149,8 +153,21 @@ Weights live in `hunter/config.py`.
 
 Local only, through Ollama. It is shown the stored evidence and nothing else, it is
 told to say "I don't know", and answers are cached. If no model is running, the app
-falls back to a plain readout of the evidence and says so. It never invents an owner,
-a price, a tax amount, a lien, a zoning district or a source.
+falls back to a plain readout of the evidence and says so.
+
+Asking for honesty is not the same as enforcing it, so there is a **guard**: every
+dollar amount, year and square footage in the model's answer is checked against the
+evidence it was shown. Anything it was never given is cut and replaced with
+`[figure not in our evidence - removed]`, and the page says how many figures were cut.
+
+**Then vs now.** The 2017 and 2023 aerials are compared pixel-wise after a robust
+exposure match. The result is a CALCULATION at LOW confidence ("looks much the same",
+"noticeable change near the parcel") and, above a threshold, a timeline event and an
+alert. It says *that* something changed, never what.
+
+**Command line.** `python -m hunter.cli ask "what should I investigate"`, `status`,
+`picks`, `scan`, `briefing`, `explain <id>`, with `--json` for scripts. Goes through the
+running app if there is one, otherwise straight to the database.
 
 ---
 

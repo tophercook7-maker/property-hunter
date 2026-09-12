@@ -135,6 +135,56 @@ def ask(prompt: str, *, system: str = SYSTEM, use_cache: bool = True,
     return text, model
 
 
+# ------------------------------------------------------------------ guard --
+
+_MONEY = re.compile(r"\$\s?\d[\d,]*(?:\.\d+)?(?:\s?(?:k|m|million|thousand)\b)?", re.I)
+_ANY_NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
+_YEAR = re.compile(r"\b(19[5-9]\d|20[0-4]\d)\b")
+_SQFT = re.compile(r"\b(\d[\d,]{2,})\s?(?:sq\.? ?ft|square feet|sqft)\b", re.I)
+
+
+def _numbers_in(text: str) -> set[str]:
+    """Every number that appears in the evidence, in a comparable form.
+
+    Deliberately permissive: anything the model was shown is fair game, in any
+    formatting. The strictness is applied to the model's OUTPUT, not here."""
+    out = set()
+    for m in _ANY_NUMBER.finditer(text):
+        n = m.group(0).replace(",", "")
+        out.add(n)
+        if "." in n:
+            out.add(n.rstrip("0").rstrip("."))          # 24250.0 -> 24250
+            try:
+                out.add(str(int(round(float(n)))))
+            except ValueError:
+                pass
+    return {n for n in out if n}
+
+
+def guard(text: str, evidence_text: str) -> tuple[str, list[str]]:
+    """Strip figures the model was never given (spec 52).
+
+    Any dollar amount, year or square footage in the answer that does not
+    appear in the evidence block is replaced with a marker, and the list of
+    what was removed is returned so the UI can say so. Prompting for honesty
+    is not the same as enforcing it.
+    """
+    allowed = _numbers_in(evidence_text)
+    # tolerate rounding: "$24,000" for "$24,250" style is a lie too, so no.
+    removed: list[str] = []
+
+    def _check(m, raw_value):
+        if raw_value in allowed:
+            return m.group(0)
+        removed.append(m.group(0).strip().rstrip(",.;:"))
+        return "[figure not in our evidence - removed]"
+
+    out = _MONEY.sub(lambda m: _check(m, re.sub(r"[^\d.]", "", m.group(0)).rstrip(".")), text)
+    out = _SQFT.sub(lambda m: _check(m, m.group(1).replace(",", "")), out)
+    out = _YEAR.sub(lambda m: _check(m, m.group(1)), out)
+    return out, removed
+
+
 def evidence_block(prop: dict, evidence: list[dict], limit: int = 70) -> str:
     """The ONLY thing the model is allowed to reason from."""
     lines = [

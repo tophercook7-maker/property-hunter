@@ -228,7 +228,9 @@ def api_properties(
              s_rental.score AS rental_score, s_land.score AS land_score,
              s_storage.score AS storage_score, s_business.score AS business_score,
              s_workshop.score AS workshop_score, s_snowcone.score AS snowcone_score,
-             (w.property_id IS NOT NULL) AS watched
+             (w.property_id IS NOT NULL) AS watched,
+             w.priority AS watch_priority, w.notes AS watch_notes,
+             w.target_price AS watch_target_price, w.desired_use AS watch_desired_use
       FROM properties p
       LEFT JOIN scores so ON so.property_id=p.id AND so.kind='overall'
       LEFT JOIN scores sr ON sr.property_id=p.id AND sr.kind='risk'
@@ -839,10 +841,10 @@ def api_export_csv(limit: int = 5000) -> str:
 
 
 @app.get("/api/education")
-def api_education(term: str | None = None) -> dict:
+def api_education(term: str | None = None, property_id: int | None = None) -> dict:
     from .education import GLOSSARY, explain_term
     if term:
-        return explain_term(term)
+        return explain_term(term, property_id)
     return {"terms": sorted(GLOSSARY.keys())}
 
 

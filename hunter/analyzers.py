@@ -180,13 +180,19 @@ Rules: only use the evidence above. If something is not in the evidence, say we
 haven't checked it. Do not invent numbers. Do not give legal advice.
 """
     text, model = ("", "")
+    removed: list[str] = []
     if use_ai:
         text, model = ai.ask(prompt)
+        if text:
+            text, removed = ai.guard(text, block)
     return {
         "text": text or ai.fallback_summary(prop),
         "model": model if text else "",
         "source": "local AI reading only the stored evidence" if text
                   else "evidence readout (no AI model running)",
+        "removed_figures": removed,
+        "guard_note": (f"{len(removed)} figure(s) the model made up were removed: "
+                       + ", ".join(removed[:6]) if removed else ""),
         "disclaimer": LEGAL_DISCLAIMER,
     }
 
@@ -207,8 +213,11 @@ exactly what has to happen before an offer would make sense. This is your
 opinion and analysis, not legal advice - say so in your own words at the end.
 """
     text, model = ("", "")
+    removed: list[str] = []
     if use_ai:
         text, model = ai.ask(prompt)
+        if text:
+            text, removed = ai.guard(text, ai.evidence_block(prop, evidence))
     if not text:
         text = (f"If this were my deal I would not make an offer yet. Our read is "
                 f"{dot['verdict']}: {dot['why']} Before an offer would make sense I "
@@ -217,6 +226,9 @@ opinion and analysis, not legal advice - say so in your own words at the end.
                 f"intend to do, and eyes on the property. This is opinion, not legal "
                 f"advice.")
     return {"text": text, "model": model, "verdict": dot["verdict"],
+            "removed_figures": removed,
+            "guard_note": (f"{len(removed)} figure(s) the model made up were removed."
+                           if removed else ""),
             "disclaimer": LEGAL_DISCLAIMER}
 
 

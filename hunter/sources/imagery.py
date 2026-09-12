@@ -110,10 +110,49 @@ class ArkansasImagery(PropertySource):
         if not saved and errors:
             return SourceResult(status=UNAVAILABLE, error="; ".join(errors),
                                 detail="no imagery could be exported")
+        ev += self._then_vs_now(prop)
         return SourceResult(status=OK, detail=f"aerials: {', '.join(saved)}"
                             + (f" | problems: {'; '.join(errors)}" if errors else ""),
                             records=[Record(source=self.name, identity={"id": prop["id"]},
                                             evidence=ev, raw={"saved": saved})])
+
+
+    def _then_vs_now(self, prop: dict) -> list[dict]:
+        """Compare the two flights once both are on disk (spec 13)."""
+        rows = db.q("SELECT id, local_path, captured_at FROM photos WHERE property_id=? "
+                    "AND kind='aerial' ORDER BY captured_at", (prop["id"],))
+        if len(rows) < 2:
+            return []
+        old, new = rows[0], rows[-1]
+        if db.q1("SELECT 1 FROM evidence WHERE property_id=? AND field='aerial_change'",
+                 (prop["id"],)):
+            return []
+        try:
+            from ..imgdiff import compare
+            r = compare(Path(old["local_path"]), Path(new["local_path"]))
+        except Exception as exc:
+            return [self.ev("aerial_change", f"could not compare flights: {exc}",
+                            etype="UNKNOWN", confidence="NONE", source=self.name,
+                            source_name=self.label)]
+        ev = [self.ev("aerial_change",
+                      f"{r['summary']} between {old['captured_at']} and {new['captured_at']} "
+                      f"({r['centre_changed_fraction']*100:.0f}% of the parcel area reads "
+                      f"as different)",
+                      etype="CALCULATION", confidence="LOW", source=self.name,
+                      source_name=self.label,
+                      raw_ref="pixel comparison of the two flights on the same frame. It "
+                              "says something changed, not what - could be a roof, a "
+                              "cleared lot, or just trees. Look at both pictures.")]
+        if r["notable"]:
+            from .. import store
+            store.add_timeline(prop["id"], "imagery",
+                               f"Aerial appearance changed between {old['captured_at']} "
+                               f"and {new['captured_at']}", r["summary"], source=self.name)
+            store.add_alert(prop["id"], "imagery_changed",
+                            f"{prop.get('address') or prop.get('parcel_id')} - looks "
+                            f"different from the air since {old['captured_at']}",
+                            r["summary"], "medium")
+        return ev
 
 
 class ArkansasTerrain(PropertySource):

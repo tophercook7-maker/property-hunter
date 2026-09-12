@@ -44,6 +44,15 @@ DIRECTIONS = {
 
 UNIT_WORDS = {"apt", "unit", "ste", "suite", "lot", "trlr", "bldg", "#"}
 
+# "631 5th" and "631 Fifth St" are one address. City layers use both.
+ORDINALS = {"1st": "FIRST", "2nd": "SECOND", "3rd": "THIRD", "4th": "FOURTH", "5th": "FIFTH",
+            "6th": "SIXTH", "7th": "SEVENTH", "8th": "EIGHTH", "9th": "NINTH", "10th": "TENTH",
+            "11th": "ELEVENTH", "12th": "TWELFTH", "13th": "THIRTEENTH", "14th": "FOURTEENTH",
+            "15th": "FIFTEENTH", "16th": "SIXTEENTH", "17th": "SEVENTEENTH",
+            "18th": "EIGHTEENTH", "19th": "NINETEENTH", "20th": "TWENTIETH"}
+_PAREN = re.compile(r"\([^)]*\)")
+_RPID_TAG = re.compile(r"\bRPID\s*#?\s*\d+\b", re.I)
+
 
 def squash(text: str | None) -> str:
     if not text:
@@ -53,6 +62,8 @@ def squash(text: str | None) -> str:
 
 def normalize_address(raw: str | None) -> str:
     """Return a comparable form: '212 LEISURE TER', '2748 MALVERN AVE'."""
+    if raw:
+        raw = _RPID_TAG.sub(" ", _PAREN.sub(" ", str(raw)))
     s = squash(raw)
     if not s:
         return ""
@@ -64,6 +75,9 @@ def normalize_address(raw: str | None) -> str:
             break
         if seen_type and low.isdigit():
             break                      # "121 Ward St 6": the 6 is a unit ('#' was stripped)
+        if low in ORDINALS:
+            parts.append(ORDINALS[low])
+            continue
         if low in STREET_TYPES:
             parts.append(STREET_TYPES[low])
             seen_type = True

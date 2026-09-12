@@ -117,16 +117,21 @@ def test_a_real_relocation_is_still_a_change():
     assert {c["field"] for c in changes} == {"lat"}
 
 
-def test_rpid_alias_hit_with_a_conflicting_house_number_does_not_merge():
-    """Regression: the guard was defined below the RPID branch that used it."""
-    store.ingest(make_record(parcel_id=None, address="20 Oak St", rpid="77", legal=None,
-                             owner_name=None, lat=34.54, lon=-93.08))
-    # same RPID reused by a source for a different house number - a data error
-    # upstream, but it must not fold two houses together
-    pid, action, _ = store.ingest(make_record(parcel_id=None, address="22 Oak St", rpid="77",
-                                              legal=None, owner_name=None,
-                                              lat=34.54001, lon=-93.08001))
-    assert action == "created"
+def test_same_rpid_is_the_same_parcel_even_when_the_house_number_differs():
+    """The City's RPID is its parcel identifier. Live data showed one parcel spelled
+    '118 Magnolia St' by the county and '134 Magnolia' by the vacancy register;
+    the RPID settles it as one parcel and the disagreement is kept, not hidden."""
+    pid, _, _ = store.ingest(make_record(parcel_id=None, address="20 Oak St", rpid="77", legal=None,
+                                         owner_name=None, lat=34.54, lon=-93.08))
+    pid2, action, _ = store.ingest(make_record(parcel_id=None, address="22 Oak St", rpid="77",
+                                               legal=None, owner_name=None,
+                                               lat=34.54001, lon=-93.08001))
+    assert pid2 == pid and action != "created"
+    assert store.get_property(pid)["address"] == "20 Oak St"      # first spelling kept
+    # a DIFFERENT RPID at the same address is still two parcels
+    pid3, action3, _ = store.ingest(make_record(parcel_id=None, address="20 Oak St", rpid="78",
+                                                legal=None, owner_name=None, lat=34.54, lon=-93.08))
+    assert action3 == "created" and pid3 != pid
 
 
 def test_more_specific_address_is_taken_quietly_and_units_do_not_flip_flop():
@@ -155,3 +160,46 @@ def test_hash_unit_tokens_are_units_and_case_points_never_move_a_parcel():
     p = store.get_property(pid)
     assert (p["lat"], p["lon"]) == (34.4744, -93.0492) and p["address"] == "121 Ward St"
     assert db.q1("SELECT COUNT(*) c FROM changes")["c"] == 0
+
+
+def test_ordinals_parentheticals_and_placeholders_normalise_together():
+    from hunter.normalize import normalize_address as na
+    assert na("631 5th") == na("631 Fifth St") == "631 FIFTH ST" or na("631 5th") == "631 FIFTH"
+    assert na("512 2nd St") == na("512 Second (2nd) St") == "512 SECOND ST"
+    assert na("Howe St Rpid# 41129") == "HOWE ST"
+
+
+def test_a_placeholder_without_a_house_number_never_overwrites_a_real_address():
+    pid, _, _ = store.ingest(make_record(parcel_id=None, address="112 Howe St", rpid="41129",
+                                         legal=None, owner_name=None, lat=34.61, lon=-93.11))
+    _, action, changes = store.ingest(make_record(parcel_id=None, address="Howe St Rpid# 41129",
+                                                  rpid="41129", legal=None, owner_name=None,
+                                                  lat=34.61, lon=-93.11))
+    assert action != "created" and changes == []
+    assert store.get_property(pid)["address"] == "112 Howe St"
+    _, action, changes = store.ingest(make_record(parcel_id=None, address="631 5th", rpid="7",
+                                                  legal=None, owner_name=None, lat=34.62, lon=-93.12))
+    _, action2, changes2 = store.ingest(make_record(parcel_id=None, address="631 Fifth St", rpid="7",
+                                                    legal=None, owner_name=None, lat=34.62, lon=-93.12))
+    assert action2 != "created" and changes2 == []
+
+
+def test_same_rpid_different_house_number_is_one_parcel_with_a_recorded_conflict():
+    county, _, _ = store.ingest(make_record(parcel_id="300-61", address="118 Magnolia St",
+                                            lat=34.63, lon=-93.13))
+    store.store_evidence(county, [])
+    # county record learns its RPID (as the zoning join does)
+    db.ex("UPDATE properties SET rpid='115601' WHERE id=?", (county,))
+    from hunter import identity
+    identity.record_aliases(county, {"rpid": "115601", "county_fips": "05051"}, "hs_gis_zoning")
+    pid, action, _ = store.ingest(make_record(parcel_id=None, address="134 Magnolia", rpid="115601",
+                                              legal=None, owner_name=None, lat=34.63001, lon=-93.13001))
+    assert pid == county and action != "created"          # RPID outranks the house number
+    # and a polygon-based merge across a number disagreement records the conflict
+    reg, _, _ = store.ingest(make_record(parcel_id=None, address="140 Magnolia", rpid="999",
+                                         legal=None, owner_name=None, lat=34.64, lon=-93.14))
+    assert store.adopt_parcel_id(reg, "300-61") == county
+    rows = db.q("SELECT * FROM conflicts WHERE property_id=? AND field='address'", (county,))
+    assert len(rows) == 1 and rows[0]["status"] == "NEEDS VERIFICATION"   # one open conflict, not one per source
+    assert rows[0]["value_b"] == "134 Magnolia" and rows[0]["value_a"] == "118 Magnolia St"
+    assert store.get_property(county)["address"] == "118 Magnolia St"      # county spelling kept

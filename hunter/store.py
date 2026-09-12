@@ -30,7 +30,9 @@ def _less_specific_address(old: str | None, new: str | None) -> bool:
     o, n = normalize_address(old), normalize_address(new)
     if not o or not n or o == n:
         return False
-    return o.startswith(n + " ") or o == n
+    if o[0].isdigit() and not n[0].isdigit():
+        return True                        # 'HOWE ST' must not replace '112 HOWE ST'
+    return o.startswith(n + " ")
 
 # Columns a source is allowed to write straight onto the property row.
 WRITABLE = {
@@ -141,6 +143,22 @@ def ingest(record: Record, *, data_class: str = "real",
                       (fields["address"], new_n, prop_id))
                 fields.pop("address", None)
                 fields.pop("address_norm", None)
+            else:
+                # Two sources, two house numbers, one parcel. Keep what we have,
+                # write the disagreement down where it can be seen (spec 55).
+                from .normalize import address_number
+                if address_number(old_n) and address_number(new_n) and \
+                        address_number(old_n) != address_number(new_n):
+                    if not db.q1("SELECT 1 FROM conflicts WHERE property_id=? AND field='address' "
+                                 "AND status='NEEDS VERIFICATION'", (prop_id,)):
+                        db.ex("INSERT INTO conflicts(property_id,field,value_a,source_a,date_a,"
+                              "value_b,source_b,date_b,status,created_at) "
+                              "VALUES(?,?,?,?,?,?,?,?,?,?)",
+                              (prop_id, "address", existing["address"], "earlier source", None,
+                               fields["address"], record.source, None,
+                               "NEEDS VERIFICATION", utcnow()))
+                    fields.pop("address", None)
+                    fields.pop("address_norm", None)
         for k, v in fields.items():
             old = existing.get(k)
             if v is None:
@@ -343,9 +361,25 @@ def adopt_parcel_id(prop_id: int, parcel_id: str) -> int:
                 "REPLACE(REPLACE(parcel_id,'-',''),' ','')=?", (prop_id, norm))
     if row:
         keep = row["id"]
+        from .normalize import address_number
+        mine = db.q1("SELECT address FROM properties WHERE id=?", (prop_id,))
+        theirs = db.q1("SELECT address FROM properties WHERE id=?", (keep,))
+        a, b = (mine["address"] if mine else None), (theirs["address"] if theirs else None)
         identity.merge_duplicates(keep, prop_id)
         add_timeline(keep, "identity", "Merged a City-register record onto this parcel",
                      f"register record #{prop_id} matched by the parcel polygon")
+        na, nb = address_number(a), address_number(b)
+        if na and nb and na != nb and not db.q1(
+                "SELECT 1 FROM conflicts WHERE property_id=? AND field='address' "
+                "AND status='NEEDS VERIFICATION'", (keep,)):
+            db.ex("INSERT INTO conflicts(property_id,field,value_a,source_a,date_a,value_b,"
+                  "source_b,date_b,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                  (keep, "address", b, "county tax roll", None, a,
+                   "City register (polygon at this location)", None,
+                   "NEEDS VERIFICATION", utcnow()))
+            add_alert(keep, "conflict", f"{b or a} - the City register and the county roll "
+                      f"give different house numbers", f"county says {b!r}, register says {a!r}. "
+                      "Same parcel polygon, different address - check which is right.", "medium")
         return keep
     db.ex("UPDATE properties SET parcel_id=?, canonical_key=? WHERE id=?",
           (parcel_id, f"parcel:05051:{norm}", prop_id))

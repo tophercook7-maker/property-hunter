@@ -67,8 +67,12 @@ def resolve(fields: dict) -> tuple[int | None, str]:
         if parcel and other_parcel and other_parcel != parcel:
             return True
         other_rpid = squash(row["rpid"])
-        if incoming_rpid and other_rpid and other_rpid != incoming_rpid:
-            return True
+        if incoming_rpid and other_rpid:
+            # The City's own parcel identifier settles it either way: the same
+            # RPID is the same parcel even if the two sources spell the address
+            # with different numbers (that disagreement is recorded as a conflict
+            # when the records merge), and a different RPID is a different parcel.
+            return other_rpid != incoming_rpid
         other_num = address_number(row["address"])
         if incoming_num and other_num and other_num != incoming_num:
             return True

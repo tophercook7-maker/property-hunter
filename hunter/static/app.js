@@ -131,8 +131,11 @@ VIEWS.home = async (v)=>{
       </div>
       <div class="row">
         <button class="btn primary big" onclick="go('scan')">SCAN NOW</button>
+        <button class="btn big" onclick="startBatch({top:10})">INVESTIGATE TOP 10</button>
         <button class="btn big" onclick="go('map')">VIEW MAP</button>
       </div>
+    </div>
+    <div id="batchBox"></div>
     </div>
   </div>
 
@@ -181,6 +184,7 @@ VIEWS.home = async (v)=>{
   </div>
 
   <div class="banner warn" style="margin-top:22px">${esc(st.disclaimer)}</div>`;
+  drawBatch();
   const runAsk = async ()=>{
     const q = $('#askQ').value.trim(); if(!q) return;
     $('#askOut').innerHTML = '<div class="row tiny muted" style="margin-top:10px"><span class="spin"></span> thinking&hellip;</div>';
@@ -563,12 +567,15 @@ async function propList(v, cfg){
         <button class="btn sm ghost" style="margin-left:8px" onclick="toggleLearning(false)">turn off</button></div>`:''}
       <div class="spread" style="margin-bottom:10px">
         <span class="muted tiny">${r.total.toLocaleString()} match &middot; showing ${r.count}</span>
-        <span class="row"><button class="btn sm ghost" id="cmpBtn">Compare selected (0)</button></span>
+        <span class="row">
+          <button class="btn sm primary" onclick='startBatch({ids:${JSON.stringify(r.properties.map(p=>p.id))}})'>INVESTIGATE ALL ${r.count} SHOWN</button>
+          <button class="btn sm ghost" id="cmpBtn">Compare selected (0)</button></span>
       </div>
+      <div id="batchBox"></div>
       ${S.table ? propTable(r.properties) : `<div class="grid g3">${r.properties.map(propCard).join('')}</div>`}`
       : `<div class="card muted">Nothing matches. ${cfg.q.watchlist?'Add something to the watchlist.':'Try a scan, or loosen the filter.'}</div>`;
     const cb = $('#cmpBtn'); if(cb) cb.onclick = doCompare;
-    updateCmpBtn();
+    updateCmpBtn(); drawBatch();
   };
   $('#sort').onchange = ()=>load();
   $('#nlgo').onclick = ()=>runNL(false);
@@ -650,6 +657,35 @@ function propCard(p){
 const recCls = r => ({'BUY CANDIDATE':'green','INVESTIGATE':'blue','WATCH':'yellow',
   'NEGOTIATE':'purple','PASS':'','DO NOT TOUCH':'red'})[r]||'';
 const shortSig = l => l.length>34 ? l.slice(0,32)+'…' : l;
+
+/* ---------------------------------------------------------- batch investigate */
+window.startBatch = async (payload)=>{
+  const r = await api('/api/investigate/batch',{method:'POST',body:JSON.stringify(payload)});
+  if(!r.started) return toast(r.reason||'could not start');
+  toast(`Investigating ${r.count} properties. PDFs land in ${r.folder.split('/').slice(-2).join('/')}`, 5000);
+  drawBatch(true);
+};
+window.stopBatch = async ()=>{ await api('/api/investigate/batch/stop',{method:'POST',body:'{}'}); toast('Stopping after the current one'); };
+let batchTimer = null;
+async function drawBatch(poll){
+  const box = $('#batchBox'); if(!box) return;
+  const s = await api('/api/investigate/batch/status');
+  if(!s.running && !s.started_at){ box.innerHTML=''; return; }
+  const n = s.done + s.failed, pct = s.total? Math.round(100*n/s.total) : 0;
+  box.innerHTML = `<div class="card" style="margin:12px 0">
+    <div class="spread"><b>${s.running?'Investigating':'Investigated'} ${n} of ${s.total}</b>
+      ${s.running?`<span class="row"><span class="spin"></span><span class="tiny muted">${esc(s.current||'')}</span>
+        <button class="btn sm ghost" onclick="stopBatch()">Stop</button></span>`
+        :`<span class="tiny muted">done${s.failed?` &middot; ${s.failed} failed`:''} &middot; PDFs + index in Desktop / 🏠 Property Hunter / Investigations</span>`}</div>
+    <div class="bar" style="width:100%;flex:none;margin:8px 0"><i style="width:${pct}%"></i></div>
+    ${(s.results||[]).slice(-6).reverse().map(x=>`<div class="line">
+      <span class="tag ${x.error?'red':x.verdict==='DEAL'?'green':x.verdict==='TRAP'?'red':'yellow'}">${esc(x.error?'failed':x.verdict||'')}</span>
+      <span><a href="#property/${x.id}" onclick="go('property',${x.id})">${esc(x.address)}</a>
+        <span class="dimmer tiny">${esc(x.recommendation||x.error||'')}${x.pdf?' &middot; PDF':''}</span></span></div>`).join('')}
+  </div>`;
+  clearTimeout(batchTimer);
+  if(s.running || poll) batchTimer = setTimeout(()=>drawBatch(s.running), 2500);
+}
 
 window.toggleLearning = async (on)=>{
   await api('/api/decisions/learning',{method:'POST',body:JSON.stringify({enabled:on})});

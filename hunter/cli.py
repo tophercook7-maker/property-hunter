@@ -150,6 +150,34 @@ def cmd_briefing(a):
     return None
 
 
+def cmd_investigate(a):
+    base = _server()
+    payload = {"ids": a.ids} if a.ids else {"top": a.top}
+    if a.all:
+        payload = {"top": 5000}
+    if base:
+        r = httpx.post(f"{base}/api/investigate/batch", json=payload, timeout=30).json()
+        if a.json:
+            return r
+        print("started" if r.get("started") else f"not started: {r.get('reason')}")
+        if r.get("started"):
+            print(f"  {r['count']} properties; PDFs land in {r['folder']}")
+            print(f"  progress: {base}/#props  or  python -m hunter.cli status")
+        return None
+    _local()
+    from . import batch
+    import time
+    r = batch.start(a.ids or [p["id"] for p in __import__("hunter.api", fromlist=["api_properties"])
+                    .api_properties(limit=5000 if a.all else a.top)["properties"]])
+    while batch.is_running():
+        s = batch.status()
+        print(f"  {s['done'] + s['failed']}/{s['total']}  {s['current'] or ''}", end="\r")
+        time.sleep(2)
+    s = batch.status()
+    print(f"\ninvestigated {s['done']} ({s['failed']} failed) -> {s['folder']}")
+    return None
+
+
 def cmd_explain(a):
     base = _server()
     if base:
@@ -191,6 +219,11 @@ def main(argv=None) -> int:
     s.add_argument("--enrich-top", type=int, default=10)
     s.set_defaults(fn=cmd_scan)
     sub.add_parser("briefing", help="the morning report").set_defaults(fn=cmd_briefing)
+    s = sub.add_parser("investigate", help="run the full investigation on many properties")
+    s.add_argument("ids", nargs="*", type=int, help="property ids (default: the top N)")
+    s.add_argument("--top", type=int, default=10)
+    s.add_argument("--all", action="store_true", help="every property (hours)")
+    s.set_defaults(fn=cmd_investigate)
     s = sub.add_parser("explain", help="plain-English briefing on one property")
     s.add_argument("id", type=int)
     s.add_argument("--no-ai", action="store_true")

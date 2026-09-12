@@ -464,6 +464,42 @@ def api_investigate(prop_id: int) -> dict:
     return investigate(prop_id)
 
 
+@app.post("/api/investigate/batch")
+def api_investigate_batch(payload: dict = Body(default={})) -> dict:
+    """Investigate many at once. Give ids, or top:N, or the same filters as
+    /api/properties (property_type, city, min_score, has_distress...)."""
+    from . import batch
+    if "ids" in payload:
+        ids = payload.get("ids") or []          # an explicit empty list means nothing
+    else:
+        ids = None
+    if ids is None:
+        top = int(payload.get("top") or 0)
+        filters = {k: v for k, v in payload.items()
+                   if k in ("property_type", "city", "min_value", "max_value", "min_acres",
+                            "max_acres", "min_score", "has_distress", "no_flood", "road_frontage",
+                            "watchlist", "recommendation", "q", "sort")}
+        res = api_properties(limit=top or 2000, **filters)
+        ids = [p["id"] for p in res["properties"]]
+    return batch.start(ids, make_pdf=bool(payload.get("pdf", True)))
+
+
+@app.get("/api/investigate/batch/status")
+def api_investigate_batch_status() -> dict:
+    from . import batch
+    s = batch.status()
+    if not s["running"] and not s["started_at"]:
+        s["last"] = db.setting("last_batch")
+    return s
+
+
+@app.post("/api/investigate/batch/stop")
+def api_investigate_batch_stop() -> dict:
+    from . import batch
+    batch.stop()
+    return {"stopping": True}
+
+
 @app.get("/api/property/{prop_id}/investigation")
 def api_investigation(prop_id: int) -> dict:
     row = db.q1("SELECT * FROM investigations WHERE property_id=? ORDER BY id DESC LIMIT 1",

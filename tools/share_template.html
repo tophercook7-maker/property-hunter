@@ -1,0 +1,406 @@
+<title>Garland County Property Hunter</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#E8ECEF; --surface:#FFFFFF; --surface2:#F3F5F7; --ink:#172029; --muted:#5F6E7B; --rule:#D3DAE0;
+  --accent:#0E7C73; --accent-ink:#FFFFFF; --accent-soft:#D6EEEB;
+  --deal:#2E7D4F; --deal-soft:#DCEFE3; --watch:#B0771A; --watch-soft:#F6EAD2; --pass:#B3433B; --pass-soft:#F5DDDB;
+  --shadow:0 12px 32px rgba(23,32,41,.16);
+  --display:"Barlow Condensed","Arial Narrow",Impact,sans-serif; --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif; --mono:"IBM Plex Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --ground:#101519; --surface:#171E24; --surface2:#1E262D; --ink:#E4E9ED; --muted:#93A0AB; --rule:#2A343D;
+  --accent:#3BB8AC; --accent-ink:#0B1214; --accent-soft:#163A37;
+  --deal:#5CC48A; --deal-soft:#1B3A2A; --watch:#E0A64A; --watch-soft:#3D2E14; --pass:#E2746B; --pass-soft:#42221F;
+  --shadow:0 12px 32px rgba(0,0,0,.5);
+}}
+:root[data-theme="dark"]{
+  --ground:#101519; --surface:#171E24; --surface2:#1E262D; --ink:#E4E9ED; --muted:#93A0AB; --rule:#2A343D;
+  --accent:#3BB8AC; --accent-ink:#0B1214; --accent-soft:#163A37;
+  --deal:#5CC48A; --deal-soft:#1B3A2A; --watch:#E0A64A; --watch-soft:#3D2E14; --pass:#E2746B; --pass-soft:#42221F;
+  --shadow:0 12px 32px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.45;margin:0}
+a{color:var(--accent)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:.01em;margin:0;text-wrap:balance}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+
+/* top bar */
+.top{background:var(--surface);border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:20}
+.top-in{max-width:1400px;margin:0 auto;padding:14px 24px;display:flex;align-items:flex-end;gap:28px;flex-wrap:wrap}
+.top h1{font-size:34px;line-height:1;text-transform:uppercase;letter-spacing:.02em}
+.top h1 small{display:block;font-family:var(--body);font-weight:500;font-size:12px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-bottom:5px}
+.stats{display:flex;gap:22px;margin-left:auto}
+.stat{display:flex;flex-direction:column;align-items:flex-start}
+.stat b{font-family:var(--display);font-size:26px;line-height:1;font-weight:600}
+.stat span{font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+
+/* honesty strip */
+.strip{max-width:1400px;margin:16px auto 0;padding:0 24px}
+.strip-in{background:var(--surface);border:1px solid var(--rule);border-left:4px solid var(--accent);padding:12px 16px;display:grid;grid-template-columns:1fr 1fr;gap:6px 32px;font-size:13px}
+.strip-in p{margin:0}
+.strip-in b{font-weight:600}
+@media (max-width:820px){.strip-in{grid-template-columns:1fr}}
+
+/* tabs */
+.tabs{max-width:1400px;margin:18px auto 0;padding:0 24px;display:flex;gap:4px;border-bottom:1px solid var(--rule)}
+.tab{background:none;border:0;border-bottom:3px solid transparent;padding:8px 14px 10px;font-family:var(--display);font-size:20px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:var(--muted);margin-bottom:-1px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab .n{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--muted);margin-left:6px}
+
+main{max-width:1400px;margin:0 auto;padding:18px 24px 60px}
+
+/* investigated cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--rule);padding:14px 16px 12px;text-align:left;display:flex;flex-direction:column;gap:8px;position:relative;transition:transform .12s ease,box-shadow .12s ease}
+.card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.card .rank{position:absolute;top:10px;right:12px;font-family:var(--display);font-size:30px;line-height:1;color:var(--rule);font-weight:700}
+.card h3{font-size:22px;line-height:1.05;padding-right:44px}
+.card .own{color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:12.5px}
+.kv dt{color:var(--muted);margin:0}.kv dd{margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-size:11px;font-weight:500;padding:2px 7px;border:1px solid var(--rule);background:var(--surface2);color:var(--ink);white-space:nowrap}
+.chip.d{border-color:var(--pass);color:var(--pass);background:var(--pass-soft)}
+.chip.o{border-color:var(--deal);color:var(--deal);background:var(--deal-soft)}
+.chip.r{border-color:var(--watch);color:var(--watch);background:var(--watch-soft)}
+.chip.c{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.verdict{display:inline-flex;align-items:center;gap:6px;font-family:var(--display);font-size:16px;letter-spacing:.04em;text-transform:uppercase;font-weight:600}
+.verdict i{width:10px;height:10px;border-radius:50%;display:inline-block;background:currentColor}
+.v-deal{color:var(--deal)} .v-trap{color:var(--pass)} .v-caution{color:var(--watch)}
+.card .foot{border-top:1px solid var(--rule);padding-top:8px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;margin-top:auto}
+.score{font-family:var(--display);font-weight:700;font-size:22px;line-height:1}
+.score small{font-family:var(--body);font-weight:500;font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-left:4px}
+
+/* all-properties layout */
+.wrap{display:grid;grid-template-columns:270px 1fr;gap:18px;align-items:start}
+@media (max-width:900px){.wrap{grid-template-columns:1fr}}
+.rail{background:var(--surface);border:1px solid var(--rule);padding:14px;display:flex;flex-direction:column;gap:14px;position:sticky;top:78px}
+@media (max-width:900px){.rail{position:static}}
+.rail label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.rail input[type=text],.rail select{font:inherit;font-size:13px;color:var(--ink);background:var(--surface2);border:1px solid var(--rule);padding:7px 9px;width:100%}
+.checks{display:flex;flex-direction:column;gap:5px;font-size:13px}
+.checks label{flex-direction:row;align-items:center;gap:8px;color:var(--ink)}
+.checks input{accent-color:var(--accent)}
+.checks .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted)}
+canvas#dots{width:100%;height:auto;display:block;background:var(--surface2);border:1px solid var(--rule)}
+.rail .note{font-size:11.5px;color:var(--muted);line-height:1.4}
+.rail .clear{align-self:flex-start;background:none;border:1px solid var(--rule);padding:5px 10px;font-size:12px}
+
+.tablebox{background:var(--surface);border:1px solid var(--rule);overflow-x:auto}
+.tbar{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--rule);font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.tbar b{color:var(--ink);font-family:var(--mono);font-weight:500}
+table{border-collapse:collapse;width:100%;min-width:900px}
+th,td{padding:8px 10px;text-align:left;vertical-align:top;border-bottom:1px solid var(--rule)}
+th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap;background:var(--surface);position:sticky;top:0;cursor:pointer;user-select:none}
+th.r,td.r{text-align:right}
+th[data-dir]::after{content:" ▲";font-size:9px}th[data-dir="desc"]::after{content:" ▼";font-size:9px}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--surface2)}
+td .addr{font-weight:600}
+td .sub{display:block;color:var(--muted);font-size:11.5px}
+td.own{max-width:220px}
+td.own div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.rec{font-family:var(--display);font-size:14px;letter-spacing:.05em;font-weight:600}
+.rec-INVESTIGATE{color:var(--deal)} .rec-WATCH{color:var(--watch)} .rec-PASS{color:var(--pass)} .rec-UNSCORED{color:var(--muted)}
+.bar{display:inline-block;width:46px;height:6px;background:var(--rule);vertical-align:middle;margin-right:6px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.more{display:block;width:100%;background:var(--surface2);border:0;border-top:1px solid var(--rule);padding:10px;font-size:13px}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgba(10,14,18,.45);z-index:30}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100vw);background:var(--surface);border-left:1px solid var(--rule);z-index:31;overflow-y:auto;box-shadow:var(--shadow);display:flex;flex-direction:column}
+.dh{padding:18px 22px 14px;border-bottom:1px solid var(--rule);display:flex;gap:12px;align-items:flex-start;position:sticky;top:0;background:var(--surface)}
+.dh h2{font-size:30px;line-height:1;text-transform:uppercase}
+.dh .sub{color:var(--muted);font-size:12.5px;margin-top:4px}
+.dh .x{margin-left:auto;background:none;border:1px solid var(--rule);width:34px;height:34px;font-size:18px;line-height:1;flex:none}
+.db{padding:16px 22px 40px;display:flex;flex-direction:column;gap:20px}
+.sec h3{font-size:18px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;color:var(--ink)}
+.money{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.money div{background:var(--surface2);border:1px solid var(--rule);padding:8px 10px}
+.money b{display:block;font-family:var(--display);font-size:24px;line-height:1.05;font-weight:600}
+.money span{font-size:11px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.money div.hi{border-color:var(--accent)}
+.money div.lien b{color:var(--pass)}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:13px}
+.facts dt{color:var(--muted);margin:0;white-space:nowrap}.facts dd{margin:0;overflow-wrap:anywhere}
+.scores{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;font-size:12.5px}
+.scores div{display:grid;grid-template-columns:78px 1fr 34px;align-items:center;gap:8px}
+.scores .bar{width:100%;margin:0}
+.scores .risk i{background:var(--pass)}
+.sig{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.sig div{display:flex;gap:8px;align-items:flex-start}
+.sig .tag{flex:none;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;margin-top:2px;border:1px solid}
+.tag.d{color:var(--pass);border-color:var(--pass)} .tag.o{color:var(--deal);border-color:var(--deal)} .tag.r{color:var(--watch);border-color:var(--watch)} .tag.c{color:var(--accent);border-color:var(--accent)}
+.finds{display:flex;flex-direction:column;gap:8px}
+.find{display:grid;grid-template-columns:96px 1fr;gap:10px;font-size:13px;border-top:1px solid var(--rule);padding-top:8px}
+.find .st{font-size:11px;color:var(--muted);letter-spacing:.03em;text-transform:uppercase;line-height:1.3;padding-top:2px}
+.find .ev{font-family:var(--mono);font-size:10.5px;color:var(--muted);display:block;margin-top:2px}
+.find.FACT .ev{color:var(--accent)} .find.UNKNOWN{color:var(--muted)}
+.verdictbox{border:1px solid var(--rule);border-left:4px solid var(--deal);padding:10px 14px;background:var(--surface2)}
+.verdictbox.trap{border-left-color:var(--pass)} .verdictbox.caution{border-left-color:var(--watch)}
+.verdictbox p{margin:6px 0 0;font-size:13px}
+.list{margin:0;padding-left:18px;font-size:13px}
+.list li{margin:3px 0}
+.links{display:flex;flex-wrap:wrap;gap:8px}
+.links a{font-size:12.5px;padding:6px 10px;border:1px solid var(--accent);text-decoration:none;font-weight:500}
+.links a:hover{background:var(--accent-soft)}
+.warn{font-size:12.5px;color:var(--muted);border:1px dashed var(--rule);padding:8px 10px}
+@media (prefers-reduced-motion: reduce){.card{transition:none}}
+</style>
+
+<header class="top"><div class="top-in">
+  <h1><small>Garland County, Arkansas · Hot Springs Village &amp; Diamondhead excluded</small>Property Hunter</h1>
+  <div class="stats" id="stats"></div>
+</div></header>
+
+<div class="strip"><div class="strip-in">
+  <p><b>What this is.</b> Every property Property Hunter has found in Garland County from public records: the Arkansas GIS tax roll (owner, assessed values, parcel), the City of Hot Springs vacant-structure register, cleanup/demolition liens, 2025 code cases, zoning and FEMA flood maps.</p>
+  <p><b>What it is not.</b> There are no asking prices here; none of these are listed for sale. Delinquent taxes have <b>not been checked</b> (the county's tax site is login-only). "Implied market" is Arkansas' assessed value × 5. Scores are a ranking aid, not a valuation. Nothing here is an offer, and paying someone's taxes never makes you the owner.</p>
+</div></div>
+
+<div class="tabs" role="tablist">
+  <button class="tab" role="tab" aria-selected="true" data-view="inv">Investigated <span class="n" id="n-inv"></span></button>
+  <button class="tab" role="tab" aria-selected="false" data-view="all">All properties <span class="n" id="n-all"></span></button>
+</div>
+
+<main>
+  <section id="view-inv">
+    <p class="eyebrow" style="margin:0 0 10px">The 21 investigated so far, highest overall score first, each run through all 17 investigation stages. Click one for the findings.</p>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section id="view-all" hidden>
+    <div class="wrap">
+      <aside class="rail">
+        <canvas id="dots" width="480" height="400" aria-label="Dot map of where the properties sit"></canvas>
+        <p class="note" id="dotnote"></p>
+        <label>Search address, owner or parcel<input type="text" id="q" placeholder="e.g. Glade, Monolith, 400-29150"></label>
+        <label>City<select id="city"></select></label>
+        <label>Our call<select id="rec"><option value="">Any</option><option>INVESTIGATE</option><option>WATCH</option><option>PASS</option><option>UNSCORED</option></select></label>
+        <div><span class="eyebrow">Only show</span>
+        <div class="checks" id="flags"></div></div>
+        <button class="clear" id="clear">Clear filters</button>
+      </aside>
+      <div class="tablebox">
+        <div class="tbar"><span>Showing <b id="shown"></b> of <b id="total"></b></span><span id="sortnote"></span><span style="margin-left:auto">Click a column to sort · click a row for the full record</span></div>
+        <table>
+          <thead><tr>
+            <th data-k="s" class="r" data-dir="desc">Score</th>
+            <th data-k="a">Address</th>
+            <th data-k="o">Owner of record</th>
+            <th data-k="tv" class="r">Assessed</th>
+            <th data-k="mk" class="r">Implied market</th>
+            <th data-k="lien" class="r">City lien</th>
+            <th data-k="z">Zoning</th>
+            <th>Flags</th>
+            <th data-k="rec">Call</th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <button class="more" id="more" hidden></button>
+        <div class="empty" id="empty" hidden>Nothing matches those filters.</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="drawer-root"></div>
+
+<script type="application/json" id="data">__DATA__</script>
+<script>
+const DATA = JSON.parse(document.getElementById('data').textContent);
+const LABELS = __LABELS__;
+const FLAGS = [
+  ['vac','On the City vacant-structure register', r=>r.vac],
+  ['lien','City cleanup / demolition lien', r=>r.lien>0],
+  ['cc','Open 2025 code case', r=>r.cc],
+  ['ab','Absentee owner', r=>r.ab],
+  ['land','Land only (no building value)', r=>r.d.includes('vacant_land')],
+  ['ent','Company / trust / estate owner', r=>r.d.some(k=>['entity_owner','trust_owner','estate_owner','institutional_owner'].includes(k))],
+  ['inv','Already investigated', r=>!!r.inv],
+];
+const fmt$ = v => v==null ? '—' : '$'+Math.round(v).toLocaleString('en-US');
+const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const title = s => String(s||'').toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+DATA.forEach(r=>{ r.mk = r.tv==null?null:r.tv*5; r.o = r.o||''; });
+
+/* stats */
+const inv = DATA.filter(r=>r.inv);
+const totalLien = DATA.reduce((a,r)=>a+r.lien,0);
+document.getElementById('stats').innerHTML = [
+  [DATA.length.toLocaleString(),'properties found'],
+  [DATA.filter(r=>r.rec==='INVESTIGATE').length,'worth a look'],
+  [DATA.filter(r=>r.vac).length,'on vacant register'],
+  [fmt$(totalLien),'in City liens'],
+].map(([b,s])=>`<div class="stat"><b>${b}</b><span>${s}</span></div>`).join('');
+document.getElementById('n-inv').textContent = inv.length;
+document.getElementById('n-all').textContent = DATA.length.toLocaleString();
+
+/* tabs */
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected', x===t));
+  document.getElementById('view-inv').hidden = t.dataset.view!=='inv';
+  document.getElementById('view-all').hidden = t.dataset.view!=='all';
+  if(t.dataset.view==='all') drawDots();
+}));
+
+/* investigated cards */
+function chips(r, max){
+  const out=[];
+  if(r.vac) out.push(['d','Vacant register']);
+  if(r.lien>0) out.push(['d','Lien '+fmt$(r.lien)]);
+  if(r.cc) out.push(['d','Open code case']);
+  if(r.ab) out.push(['d','Absentee']);
+  if(r.d.includes('vacant_land')) out.push(['o','Land only']);
+  if(r.d.includes('opportunity_zone')) out.push(['o','Opp. zone']);
+  if(r.f==='AE') out.push(['r','Flood AE']);
+  if(r.d.some(k=>['entity_owner','trust_owner','estate_owner'].includes(k))) out.push(['c','Entity owner']);
+  return out.slice(0,max).map(([k,t])=>`<span class="chip ${k}">${t}</span>`).join('');
+}
+const vclass = v => v==='DEAL'?'v-deal':v==='TRAP'?'v-trap':'v-caution';
+document.getElementById('cards').innerHTML = inv.map((r,i)=>`
+  <button class="card" data-id="${r.i}">
+    <span class="rank">${i+1}</span>
+    <h3>${esc(r.a)}</h3>
+    <div class="own">${esc(r.o)} · ${esc(r.c)}</div>
+    <dl class="kv"><dt>Assessed</dt><dd class="num">${fmt$(r.tv)}</dd><dt>Implied market</dt><dd class="num">${fmt$(r.mk)}</dd><dt>City lien</dt><dd class="num">${r.lien>0?fmt$(r.lien):'none on record'}</dd><dt>Taxes owed</dt><dd>not checked</dd></dl>
+    <div class="chips">${chips(r,5)}</div>
+    <div class="foot"><span class="verdict ${vclass(r.inv.verdict)}"><i></i>${esc(r.inv.verdict||'?')} · ${esc(r.inv.conf||'')} confidence</span><span class="score">${r.s??'—'}<small>score</small></span></div>
+  </button>`).join('');
+document.getElementById('cards').addEventListener('click',e=>{const c=e.target.closest('.card'); if(c) openDrawer(+c.dataset.id);});
+
+/* filters */
+const cities = [...new Set(DATA.map(r=>r.c))].sort();
+document.getElementById('city').innerHTML = '<option value="">Any</option>'+cities.map(c=>`<option>${esc(c)}</option>`).join('');
+document.getElementById('flags').innerHTML = FLAGS.map(([k,t,fn])=>`<label><input type="checkbox" data-f="${k}"> ${t}<span class="cnt">${DATA.filter(fn).length}</span></label>`).join('');
+let sortK='s', sortDir='desc', limit=150, view=[];
+function state(){ try{ return JSON.parse(localStorage.getItem('ph-filters')||'{}'); }catch(e){ return {}; } }
+function apply(){
+  const q=document.getElementById('q').value.trim().toLowerCase();
+  const city=document.getElementById('city').value, rec=document.getElementById('rec').value;
+  const on=[...document.querySelectorAll('#flags input:checked')].map(i=>FLAGS.find(f=>f[0]===i.dataset.f)[2]);
+  view = DATA.filter(r=> (!city||r.c===city) && (!rec||r.rec===rec) && on.every(fn=>fn(r)) &&
+    (!q || (r.a||'').toLowerCase().includes(q) || r.o.toLowerCase().includes(q) || (r.pid||'').includes(q) || (r.m||'').toLowerCase().includes(q)));
+  const dir = sortDir==='asc'?1:-1;
+  view.sort((x,y)=>{ let a=x[sortK], b=y[sortK]; if(a==null&&b==null) return 0; if(a==null) return 1; if(b==null) return -1;
+    if(typeof a==='string') return a.localeCompare(b)*dir; return (a-b)*dir; });
+  limit=150; renderRows(); drawDots();
+  try{ localStorage.setItem('ph-filters', JSON.stringify({q,city,rec,on:[...document.querySelectorAll('#flags input:checked')].map(i=>i.dataset.f)})); }catch(e){}
+}
+function renderRows(){
+  const tb=document.getElementById('rows');
+  tb.innerHTML = view.slice(0,limit).map(r=>`<tr data-id="${r.i}">
+    <td class="r num"><span class="bar"><i style="width:${r.s||0}%"></i></span>${r.s??'—'}</td>
+    <td><span class="addr">${esc(r.a||'(no address)')}</span><span class="sub">${esc(r.c)} · <span class="num">${esc(r.pid||'no parcel id')}</span></span></td>
+    <td class="own"><div title="${esc(r.o)}">${esc(r.o)||'<em>unknown</em>'}</div>${r.m?`<span class="sub" title="${esc(r.m)}">${esc(r.m)}</span>`:''}</td>
+    <td class="r num">${fmt$(r.tv)}</td>
+    <td class="r num">${fmt$(r.mk)}</td>
+    <td class="r num">${r.lien>0?fmt$(r.lien):'<span style="color:var(--muted)">—</span>'}</td>
+    <td class="num">${esc(r.z||'—')}</td>
+    <td><div class="chips">${chips(r,3)}</div></td>
+    <td><span class="rec rec-${r.rec}">${r.rec}</span></td></tr>`).join('');
+  document.getElementById('shown').textContent = Math.min(limit,view.length).toLocaleString();
+  document.getElementById('total').textContent = DATA.length.toLocaleString();
+  const more=document.getElementById('more'); more.hidden = view.length<=limit;
+  more.textContent = `Show ${Math.min(150, view.length-limit)} more (${(view.length-limit).toLocaleString()} left)`;
+  document.getElementById('empty').hidden = view.length>0;
+  const names={s:'score',a:'address',o:'owner',tv:'assessed value',mk:'implied market',lien:'City lien',z:'zoning',rec:'our call'};
+  document.getElementById('sortnote').textContent = `sorted by ${names[sortK]} ${sortDir==='desc'?'high to low':'low to high'} · ${view.length.toLocaleString()} match`;
+}
+document.getElementById('more').addEventListener('click',()=>{limit+=150;renderRows();});
+document.getElementById('rows').addEventListener('click',e=>{const tr=e.target.closest('tr'); if(tr) openDrawer(+tr.dataset.id);});
+document.querySelectorAll('th[data-k]').forEach(th=>th.addEventListener('click',()=>{
+  const k=th.dataset.k; if(sortK===k) sortDir = sortDir==='asc'?'desc':'asc'; else { sortK=k; sortDir = (k==='a'||k==='o'||k==='z'||k==='rec')?'asc':'desc'; }
+  document.querySelectorAll('th[data-k]').forEach(t=>t.removeAttribute('data-dir')); th.dataset.dir=sortDir; apply();
+}));
+['q','city','rec'].forEach(id=>document.getElementById(id).addEventListener('input',apply));
+document.getElementById('flags').addEventListener('change',apply);
+document.getElementById('clear').addEventListener('click',()=>{document.getElementById('q').value='';document.getElementById('city').value='';document.getElementById('rec').value='';document.querySelectorAll('#flags input').forEach(i=>i.checked=false);apply();});
+(function restore(){ const s=state(); if(s.q) document.getElementById('q').value=s.q; if(s.city&&cities.includes(s.city)) document.getElementById('city').value=s.city; if(s.rec) document.getElementById('rec').value=s.rec; (s.on||[]).forEach(k=>{const i=document.querySelector(`#flags input[data-f="${k}"]`); if(i) i.checked=true;}); })();
+
+/* dot map */
+const pts = DATA.filter(r=>r.lat&&r.lon);
+const lats=pts.map(r=>r.lat), lons=pts.map(r=>r.lon);
+const bb={n:Math.max(...lats),s:Math.min(...lats),e:Math.max(...lons),w:Math.min(...lons)};
+function drawDots(){
+  const cv=document.getElementById('dots'); if(!cv || document.getElementById('view-all').hidden) return;
+  const ctx=cv.getContext('2d'), W=cv.width, H=cv.height, pad=14;
+  const css=getComputedStyle(document.documentElement);
+  ctx.clearRect(0,0,W,H);
+  const cosLat=Math.cos((bb.n+bb.s)/2*Math.PI/180);
+  const sx=(W-2*pad)/((bb.e-bb.w)*cosLat), sy=(H-2*pad)/(bb.n-bb.s), sc=Math.min(sx,sy);
+  const ox=pad+((W-2*pad)-(bb.e-bb.w)*cosLat*sc)/2, oy=pad+((H-2*pad)-(bb.n-bb.s)*sc)/2;
+  const X=r=>ox+(r.lon-bb.w)*cosLat*sc, Y=r=>oy+(bb.n-r.lat)*sc;
+  const inView=new Set(view.map(r=>r.i));
+  ctx.fillStyle=css.getPropertyValue('--rule').trim();
+  pts.forEach(r=>{ if(!inView.has(r.i)){ ctx.fillRect(X(r)-1.5,Y(r)-1.5,3,3);} });
+  ctx.fillStyle=css.getPropertyValue('--accent').trim();
+  pts.forEach(r=>{ if(inView.has(r.i)){ ctx.beginPath(); ctx.arc(X(r),Y(r),2.6,0,7); ctx.fill(); } });
+  ctx.strokeStyle=css.getPropertyValue('--pass').trim(); ctx.lineWidth=1.5;
+  pts.forEach(r=>{ if(r.inv&&inView.has(r.i)){ ctx.beginPath(); ctx.arc(X(r),Y(r),5,0,7); ctx.stroke(); } });
+  ctx.fillStyle=css.getPropertyValue('--muted').trim(); ctx.font='11px IBM Plex Mono, monospace';
+  ctx.fillText('N ▲', W-34, 16);
+  document.getElementById('dotnote').textContent = `${view.length.toLocaleString()} matching (teal) of ${pts.length.toLocaleString()} plotted by tax-roll coordinates · red rings = investigated. Downtown Hot Springs is the dense cluster.`;
+}
+if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',drawDots); }
+
+/* drawer */
+const TYPE_NOTE={FACT:'fact from a source',OBSERVATION:'observation',CALCULATION:'calculation',ESTIMATE:'estimate',AI_OPINION:'AI opinion, low confidence',UNKNOWN:'not yet known',CONFLICTING:'sources disagree'};
+function openDrawer(id){
+  const r=DATA.find(x=>x.i===id); if(!r) return; closeDrawer();
+  const sigs=r.d.map(k=>{const [lab,kind]=LABELS[k]||[k,'risk']; const cls={distress:'d',opportunity:'o',risk:'r',conflict:'c'}[kind]||'r'; return `<div><span class="tag ${cls}">${kind}</span><span>${esc(lab)}</span></div>`;}).join('');
+  const inv=r.inv;
+  const gm=`https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lon}`;
+  const html=`<div class="scrim" id="scrim"></div><aside class="drawer" role="dialog" aria-label="${esc(r.a)}">
+    <div class="dh"><div><h2>${esc(r.a||'(no address)')}</h2><div class="sub">${esc(r.c)}, Garland County · parcel <span class="num">${esc(r.pid||'unknown')}</span></div></div><button class="x" id="dx" aria-label="Close">×</button></div>
+    <div class="db">
+      <div class="money">
+        <div><b class="num">${fmt$(r.tv)}</b><span>County assessed</span></div>
+        <div class="hi"><b class="num">${fmt$(r.mk)}</b><span>Implied market (×5)</span></div>
+        <div class="lien"><b class="num">${r.lien>0?fmt$(r.lien):'none'}</b><span>City lien on record</span></div>
+      </div>
+      <div class="warn">Asking price: none, not listed for sale. Delinquent taxes: <b>not checked</b> (login-only county site). No purchase price exists yet; the number you pay is whatever the owner, the City, or a tax sale will take.</div>
+      <div class="sec"><h3>Who and what</h3><dl class="facts">
+        <dt>Owner of record</dt><dd>${esc(r.o)||'<em>not in the record</em>'}</dd>
+        <dt>Tax bill goes to</dt><dd>${esc(r.m)||'<em>not held</em>'}${r.ab?' <span class="chip d">absentee</span>':''}</dd>
+        <dt>Land / building</dt><dd class="num">${fmt$(r.lv)} / ${fmt$(r.iv)}</dd>
+        <dt>Acreage</dt><dd class="num">${r.ac!=null?r.ac.toFixed(3)+' ac':'—'}</dd>
+        <dt>Footprint</dt><dd class="num">${r.sq?Math.round(r.sq).toLocaleString()+' sq ft (mapped)':'—'}</dd>
+        <dt>Zoning</dt><dd>${esc(r.zf||'not in a City zoning layer (likely unincorporated)')}</dd>
+        <dt>Flood zone</dt><dd>${esc(r.f||'not checked yet')}</dd>
+        <dt>Our call</dt><dd><span class="rec rec-${r.rec}">${r.rec}</span></dd>
+      </dl></div>
+      <div class="sec"><h3>Scores <span class="eyebrow" style="font-family:var(--body);letter-spacing:.06em">0–100, ranking aid only</span></h3><div class="scores">
+        ${[['Overall','s'],['Risk','r'],['Rental','rent'],['Land play','land'],['Storage','stor'],['Business','biz'],['Workshop','wk']].map(([n,k])=>`<div class="${k==='r'?'risk':''}"><span>${n}</span><span class="bar"><i style="width:${r[k]||0}%"></i></span><span class="num" style="text-align:right">${r[k]??'—'}</span></div>`).join('')}
+      </div></div>
+      ${sigs?`<div class="sec"><h3>Signals</h3><div class="sig">${sigs}</div></div>`:''}
+      ${inv?`<div class="sec"><h3>Investigation · ${esc(inv.at.replace('T',' '))} UTC</h3>
+        <div class="verdictbox ${inv.verdict==='TRAP'?'trap':inv.verdict==='DEAL'?'':'caution'}"><span class="verdict ${vclass(inv.verdict)}"><i></i>${esc(inv.verdict)} · ${esc(inv.conf)} confidence</span><p>${esc(inv.why)}</p>${(inv.stops||[]).length?`<p><b>Hard stops:</b> ${esc(inv.stops.join('; '))}</p>`:''}</div>
+        <div class="finds" style="margin-top:12px">${inv.findings.map(f=>`<div class="find ${esc(f.type)}"><span class="st">${esc(f.stage)}</span><span>${esc(f.text)}<span class="ev">${esc(TYPE_NOTE[f.type]||f.type)} · ${esc(f.conf)} · ${esc(f.src)}</span></span></div>`).join('')}</div>
+        <h3 style="margin-top:16px">Still unknown</h3><ul class="list">${(inv.open||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+        <h3 style="margin-top:12px">Next steps</h3><ol class="list">${(inv.next||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ol>
+      </div>`:`<div class="sec"><h3>Investigation</h3><p class="warn">Not investigated yet. The top 20 have been; this one only has the scan-level record above.</p></div>`}
+      <div class="sec"><h3>Check it yourself</h3><div class="links">
+        <a href="${gm}" target="_blank" rel="noopener">Google Maps</a>
+        <a href="https://www.arkansastaxsearch.com/garland.html" target="_blank" rel="noopener">Garland tax search (login)</a>
+        <a href="https://www.cosl.org/" target="_blank" rel="noopener">State Lands (COSL)</a>
+        <a href="https://gis.arkansas.gov/" target="_blank" rel="noopener">AR GIS parcel viewer</a>
+      </div></div>
+    </div></aside>`;
+  document.getElementById('drawer-root').innerHTML=html;
+  document.getElementById('scrim').addEventListener('click',closeDrawer);
+  document.getElementById('dx').addEventListener('click',closeDrawer);
+  document.getElementById('dx').focus();
+  document.body.style.overflow='hidden';
+}
+function closeDrawer(){ document.getElementById('drawer-root').innerHTML=''; document.body.style.overflow=''; }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDrawer(); });
+
+apply();
+</script>

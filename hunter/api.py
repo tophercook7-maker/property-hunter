@@ -1263,6 +1263,23 @@ app.mount("/files", StaticFiles(directory=FILES_DIR), name="files")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 
+@app.get("/share", response_class=HTMLResponse)
+def share_page() -> HTMLResponse:
+    """The self-contained shareable website (built by tools/build_share.py)."""
+    p = Path(STATIC) / "share.html"
+    if not p.exists():
+        return HTMLResponse("<p>Not built yet. Run: python3 tools/build_share.py</p>", status_code=404)
+    return HTMLResponse(p.read_text(), headers={"Cache-Control": "no-store"})
+
+
+@app.post("/api/share/rebuild")
+def api_share_rebuild() -> dict:
+    """Rebuild the shareable website from the database (Desktop copy too)."""
+    import importlib, sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    return importlib.import_module("tools.build_share").build()
+
+
 @app.get("/", response_class=HTMLResponse)
 def index() -> HTMLResponse:
     # Cache-bust the assets on their own mtimes so a reload always gets the

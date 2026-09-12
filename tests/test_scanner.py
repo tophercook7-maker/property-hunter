@@ -129,3 +129,20 @@ def test_an_adapter_returning_an_unknown_field_cannot_break_enrichment(boundarie
     assert s.stage("access").status == "done"
     row = db.q1("SELECT road_class FROM properties WHERE parcel_id='300-9'")
     assert row["road_class"] == "local street"
+
+
+def test_a_property_merged_away_mid_scan_does_not_crash_later_stages(boundaries):
+    """Regression: parcel_ids merged 18 register records onto county records and
+    the distress stage then KeyError'd on the deleted ids."""
+    from hunter import identity
+    a, _, _ = store.ingest(make_record(parcel_id="300-51", address="1 Merge St"))
+    b, _, _ = store.ingest(make_record(parcel_id=None, address="1 Merge", rpid="5", legal=None,
+                                       owner_name=None, lat=34.60, lon=-93.10))
+    s = scanner.Scan(mode="city_registers"); s.save()
+    s.touched = [a, b]
+    identity.merge_duplicates(a, b)                      # b is gone now
+    s._distress()                                        # must not raise
+    assert s.stage("distress").status == "done"
+    assert set(s.touched) == {a}
+    s._scoring()
+    assert s.stage("scoring").status == "done"

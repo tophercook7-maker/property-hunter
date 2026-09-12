@@ -442,14 +442,29 @@ class Scan:
                 self.tick("parcel_ids", n, len(ids), f"{matched} matched, {merged} merged")
         src.record_attempt(SimpleResult(OK if (matched or merged) else "unavailable",
                                         f"{matched} matched, {merged} merged, {missed} not found"))
+        self._prune_touched()
         self.stats["properties_matched"] = len(set(self.touched))
         self.finish("parcel_ids", "done",
                     f"{matched} learned their parcel id, {merged} merged onto the county "
                     f"record, {missed} not in the City's roll copy")
 
+    def _prune_touched(self) -> None:
+        """Merges delete rows; a touched id that no longer exists must not crash a
+        later stage."""
+        if not self.touched:
+            return
+        ids = list(set(self.touched))
+        alive = set()
+        for i in range(0, len(ids), 500):
+            chunk = ids[i:i + 500]
+            alive |= {r["id"] for r in db.q(
+                f"SELECT id FROM properties WHERE id IN ({','.join('?' * len(chunk))})", chunk)}
+        self.touched = [i for i in self.touched if i in alive]
+
     def _distress(self) -> None:
+        self._prune_touched()
         ids = [i for i in set(self.touched)
-               if not (db.q1("SELECT excluded FROM properties WHERE id=?", (i,)) or {})["excluded"]]
+               if not (db.q1("SELECT excluded FROM properties WHERE id=?", (i,)) or {"excluded": 1})["excluded"]]
         self.begin("distress", total=len(ids))
         candidates = 0
         for n, pid in enumerate(ids, 1):

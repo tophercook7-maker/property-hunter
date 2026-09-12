@@ -58,7 +58,7 @@ def test_scan_records_itself_in_the_database():
 def test_presets_are_real_where_clauses():
     for key, preset in scanner.PRESETS.items():
         assert preset["label"] and preset["description"]
-        if key not in ("seeds", "full"):
+        if key not in ("seeds", "full", "city_registers"):
             w = preset["where"]
             assert w and ("parceltype" in w or "ownername" in w or "value" in w)
 
@@ -106,3 +106,26 @@ def test_seeds_are_stored_as_unverified_leads_not_as_facts():
     assert ev[0]["confidence"] == "NONE"
     assert "nothing about its current condition" in ev[0]["raw_ref"]
     assert "has not been re-confirmed" in ev[0]["raw_ref"]
+
+
+def test_an_adapter_returning_an_unknown_field_cannot_break_enrichment(boundaries, monkeypatch):
+    """Regression: a City adapter returned 'utilities_water', which is not a
+    properties column, and the UPDATE took the whole scan down."""
+    from hunter.sources.base import Record, SourceResult
+    from hunter.sources import get_source
+    s = scanner.Scan(mode="seeds")
+    s.save()
+    s._ingest([make_record(parcel_id="300-9", address="9 Test St")])
+    src = get_source("ar_gis_roads")
+    monkeypatch.setattr(src, "enrich", lambda p, **kw: SourceResult(
+        status=OK, detail="ok", records=[Record(source="ar_gis_roads", identity={"id": p["id"]},
+                                                fields={"not_a_column": "x", "road_class": "local street"},
+                                                evidence=[])]))
+    for name in ("ar_gis_footprints", "fema_nfhl", "hs_gis_zoning", "ar_gis_terrain",
+                 "ar_gis_imagery", "osm_overpass"):
+        monkeypatch.setattr(get_source(name), "enrich",
+                            lambda p, **kw: SourceResult(status="unavailable", detail="off"))
+    s._enrich()
+    assert s.stage("access").status == "done"
+    row = db.q1("SELECT road_class FROM properties WHERE parcel_id='300-9'")
+    assert row["road_class"] == "local street"

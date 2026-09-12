@@ -250,13 +250,77 @@ def api_properties(
         LEFT JOIN watchlist w ON w.property_id=p.id
         WHERE {' AND '.join(where)}""", params)["c"]
     props = [_prop_row(r) for r in rows]
+    suggestions = []
+    if q and not props and not bbox:
+        # Fuzzy fallback (spec 56): a misspelt street should still find the house.
+        suggestions = _fuzzy(q)
+        if suggestions:
+            ids = [s["id"] for s in suggestions]
+            rows = db.q(sql.replace(f"WHERE {' AND '.join(where)}",
+                                    "WHERE p.excluded=0 AND p.id IN (" + ",".join("?" * len(ids)) + ")"),
+                        (*ids, limit, offset))
+            props = [_prop_row(r) for r in rows]
+            order = {pid: i for i, pid in enumerate(ids)}
+            props.sort(key=lambda x: order.get(x["id"], 999))
+            total = len(props)
     influence = learning.apply(props, sort)
     return {"total": total, "count": len(props), "properties": props,
+            "did_you_mean": suggestions,
             "preferences": {**influence,
                             "note": ("Your preferences have influenced this ranking. "
                                      "Scores are unchanged - properties that look like "
                                      "deals you have passed on before sit lower in the list."
                                      if influence["influenced"] else "")}}
+
+
+def _fuzzy(q: str, limit: int = 8) -> list[dict]:
+    """Closest addresses / owners / parcels when an exact search finds nothing."""
+    import difflib
+    from .normalize import normalize_address, normalize_owner, normalize_parcel, street_only
+
+    def sim(a: str, b: str) -> float:
+        """Best of whole-string, street-only and single-token similarity, so a
+        lone misspelt street name still finds '2748 MALVERN AVE'."""
+        if not a or not b:
+            return 0.0
+        best = difflib.SequenceMatcher(None, a, b).ratio()
+        so = street_only(b)
+        if so:
+            best = max(best, difflib.SequenceMatcher(None, a, so).ratio())
+        for tok in b.split(" "):
+            if len(tok) >= 4:
+                best = max(best, difflib.SequenceMatcher(None, a, tok).ratio() * 0.97)
+        return best
+
+    needle_addr = normalize_address(q)
+    needle_owner = normalize_owner(q)
+    needle_parcel = normalize_parcel(q)
+    rows = db.q("SELECT id,address,address_norm,owner_norm,parcel_id FROM properties "
+                "WHERE excluded=0")
+    scored = []
+    for r in rows:
+        best, why = 0.0, ""
+        if needle_addr and r["address_norm"]:
+            s = sim(needle_addr, r["address_norm"])
+            # a matching house number is a strong hint
+            if needle_addr.split(" ")[0].isdigit() and \
+                    needle_addr.split(" ")[0] == r["address_norm"].split(" ")[0]:
+                s += 0.15
+            if s > best:
+                best, why = s, "address"
+        if needle_owner and r["owner_norm"]:
+            s = sim(needle_owner, r["owner_norm"])
+            if s > best:
+                best, why = s, "owner"
+        if needle_parcel and r["parcel_id"]:
+            s = difflib.SequenceMatcher(None, needle_parcel, normalize_parcel(r["parcel_id"])).ratio()
+            if s > best:
+                best, why = s, "parcel"
+        if best >= 0.62:
+            scored.append((best, r["id"], r["address"] or r["parcel_id"], why))
+    scored.sort(reverse=True)
+    return [{"id": i, "label": lbl, "matched_on": why, "similarity": round(sc, 2)}
+            for sc, i, lbl, why in scored[:limit]]
 
 
 @app.get("/api/search/natural")

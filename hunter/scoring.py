@@ -66,6 +66,29 @@ def _known(prop: dict, field: str):
     return ev["value"] if ev else None
 
 
+def _zone(prop: dict) -> str:
+    """'C-G', 'RN-2', ... or '' when unknown."""
+    z = (prop.get("zoning") or "").strip().upper()
+    return z.split(" ")[0] if z else ""
+
+
+def _zone_line(sheet: "Sheet", prop: dict, commercial_ok: tuple, industrial_ok: tuple,
+               residential_penalty: int, use: str) -> None:
+    z = _zone(prop)
+    if not z:
+        sheet.unknown("zoning")
+        return
+    if z.startswith(commercial_ok) or z in ("CBD", "C-MU"):
+        sheet.add(14, f"Zoned {z} - a {use} fits a commercial district", "")
+    elif z.startswith(industrial_ok):
+        sheet.add(10, f"Zoned {z} - industrial, workable for a {use}", "")
+    elif z.startswith("RN") or z in ("R-S", "R-R"):
+        sheet.add(residential_penalty, f"Zoned {z} - residential; a {use} would need a "
+                                       f"conditional-use permit or a rezoning", "")
+    elif z in ("INST", "AFC"):
+        sheet.add(-8, f"Zoned {z} - not a district for a {use}", "")
+
+
 # ------------------------------------------------------------------ overall
 
 def overall(prop: dict) -> Sheet:
@@ -91,6 +114,15 @@ def overall(prop: dict) -> Sheet:
     for key in ("institutional_owner", "estate_owner", "government_owner"):
         if key in sig:
             s.add(w[key], sig[key]["label"], sig[key]["why"])
+    if "vacant_structure" in sig:
+        s.add(14, "On the City's vacant-structure register", sig["vacant_structure"]["why"])
+    if "cleanup_lien" in sig:
+        s.add(7, sig["cleanup_lien"]["label"], "A lien means a motivated situation - and a "
+                                                 "known cost you can price in.")
+    if "code_case_open" in sig:
+        s.add(6, "Open code case - the City is already leaning on the owner", "")
+    if "city_water" in sig:
+        s.add(3, "City water already at the address", "")
     if "stale_assessment" in sig:
         s.add(w["stale_assessment"], "County record has not been touched in years",
               sig["stale_assessment"]["why"])
@@ -131,6 +163,8 @@ def overall(prop: dict) -> Sheet:
         s.unknown("tax / delinquency status")
     if not prop.get("zoning"):
         s.unknown("zoning")
+    if "historic_district" in sig:
+        s.add(-4, "Historic district - design review on exterior work", "")
     return s
 
 
@@ -159,6 +193,15 @@ def rental(prop: dict) -> Sheet:
     road = (_known(prop, "road_access") or "").lower()
     if any(k in road for k in ("highway", "interstate")):
         s.add(-5, "Fronting a busy highway is worse for a rental than for a business", "")
+    z = _zone(prop)
+    if z.startswith("RN") or z in ("R-S", "R-R"):
+        s.add(5, f"Zoned {z} - a rental is a normal use here", "")
+    elif z.startswith(("C-", "I-")):
+        s.add(-4, f"Zoned {z} - check that a dwelling is still a permitted use", "")
+    if "vacant_structure" in sig:
+        s.add(6, "Vacant per the City - no tenant to work around, but expect the worst inside", "")
+    if "cleanup_lien" in sig:
+        s.add(-3, "A City lien rides on it - price it into the basis", "")
     s.unknown("actual market rent for this street")
     s.unknown("condition and rehab cost")
     return s
@@ -242,7 +285,13 @@ def storage(prop: dict) -> Sheet:
             s.add(-12, f"{g:.0f}% grade - storage rows want flat pads", "")
     if (prop.get("city") or "").lower() not in ("", "unincorporated", "rural"):
         s.add(6, "Close to town where the demand is", "")
-    s.unknown("zoning - storage is almost never permitted by right in a residential district")
+    z = _zone(prop)
+    if not z:
+        s.unknown("zoning - storage is almost never permitted by right in a residential district")
+    elif z.startswith("I-") or z in ("C-G", "C-R"):
+        s.add(12, f"Zoned {z} - a district where storage can be permitted", "")
+    elif z.startswith("RN") or z in ("R-S", "R-R"):
+        s.add(-16, f"Zoned {z} - residential; storage would need a rezoning", "")
     s.unknown("utilities and drainage")
     return s
 
@@ -265,7 +314,9 @@ def business(prop: dict) -> Sheet:
         s.add(7, "Room for parking", "")
     if (prop.get("city") or "").lower() not in ("", "unincorporated", "rural"):
         s.add(8, "In the city - customers, utilities, internet", "")
-    s.unknown("zoning and permitted use")
+    _zone_line(s, prop, ("C-",), ("I-",), -12, "business")
+    if "historic_district" in _signals(prop):
+        s.add(-3, "Historic district - signage and facade changes need review", "")
     s.unknown("electrical service size")
     s.unknown("internet availability")
     return s
@@ -291,8 +342,8 @@ def workshop(prop: dict) -> Sheet:
         s.add(-20, "No access for freight or customers", "")
     if (prop.get("city") or "").lower() not in ("", "unincorporated", "rural"):
         s.add(7, "In town - better odds on business internet", "")
+    _zone_line(s, prop, ("C-G", "C-MU", "C-R"), ("I-",), -8, "workshop")
     s.unknown("electrical panel size - 3D printers and tools add up")
-    s.unknown("zoning for light manufacturing / home occupation")
     s.unknown("internet service at this address")
     return s
 
@@ -328,7 +379,7 @@ def snowcone(prop: dict) -> Sheet:
         s.add(-6, f"Existing food businesses nearby: {competitors}", "")
     if "flood_zone" in sig:
         s.add(-8, "Flood zone - a seasonal setup in a flood area is a bad idea", "")
-    s.unknown("zoning for a seasonal food use")
+    _zone_line(s, prop, ("C-",), ("I-MU",), -14, "seasonal food stand")
     s.unknown("health department permit requirements")
     s.unknown("water and wastewater at the site")
     s.unknown("real traffic counts")
@@ -373,6 +424,12 @@ def risk(prop: dict) -> Sheet:
         s.add(20, "Possible lack of legal access", "")
     if "unknown_owner" in sig:
         s.add(16, "Owner of record unclear", "")
+    if "code_case_open" in sig:
+        s.add(10, "Open code-enforcement case", "")
+    if "cleanup_lien" in sig:
+        s.add(8, "City lien to pay off or negotiate", "")
+    if "septic_likely" in sig:
+        s.add(6, "Probably on septic - inspection needed", "")
     for key in ("record_says_building_map_says_none", "map_says_building_record_says_vacant"):
         if key in sig:
             s.add(8, "Sources disagree about what is standing here", "")

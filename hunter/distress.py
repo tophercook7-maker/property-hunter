@@ -150,6 +150,70 @@ def analyse(prop: dict) -> list[dict]:
             "common areas.",
             "MEDIUM", "Check the plat to see what this piece actually is.", "risk")
 
+    # --- City of Hot Springs records (read from the City GIS) -----------
+    def latest(field):
+        return store.latest_evidence(pid, field)
+
+    if latest("vacant_structure"):
+        add("vacant_structure", "On the City's vacant-structure register",
+            "The City itself has recorded this building as vacant. That is the strongest "
+            "distress signal there is - and the City may already be moving toward "
+            "condemnation.", "HIGH",
+            "Ask Planning & Development whether a condemnation or demolition order is pending.")
+    # cleanup_lien_total is written when a parcel is checked one at a time;
+    # cleanup_lien_amount when the whole register is read. Either counts.
+    lien = latest("cleanup_lien_total") or latest("cleanup_lien_amount")
+    if lien:
+        try:
+            amt = float(lien["value"])
+        except (TypeError, ValueError):
+            amt = 0.0
+        add("cleanup_lien", f"The City holds a cleanup / demolition lien of ${amt:,.0f}",
+            "The City already spent money mowing, clearing or demolishing here and put a "
+            "lien on the parcel. The owner stopped caring; the lien has to be paid or "
+            "negotiated.", "HIGH",
+            "Get the payoff figure with interest from the City before you price the deal.")
+    if latest("code_case_open"):
+        add("code_case_open", "An open 2025 code-enforcement case",
+            "The City has an active case against this property right now.", "HIGH",
+            "Ask Code Enforcement what the violation is and what it would take to close it.")
+    elif latest("code_case"):
+        add("code_case_history", "A 2025 code-enforcement case, since closed",
+            "Somebody complained, the City came out, and it was resolved. Worth knowing "
+            "what it was.", "MEDIUM", "Ask Code Enforcement for the case file.", "distress")
+    if latest("vacant_per_lien_record"):
+        add("vacant_per_lien_record", "Marked vacant on the City's lien record",
+            "The lien clerk noted it as vacant when the lien was filed.", "MEDIUM",
+            "Confirm with a drive-by.")
+    if latest("city_owned"):
+        add("city_owned", "Owned by the City of Hot Springs",
+            "City land is sold, if at all, by a public process - not a normal sale.",
+            "HIGH", "Ask the City Manager's office whether it is surplus.", "opportunity")
+    if latest("historic_district"):
+        add("historic_district", "Inside a historic district",
+            "Exterior changes go through design review. Slower and pricier, but the "
+            "neighbourhood is protected too.", "HIGH",
+            "Read the district guidelines before planning any exterior work.", "risk")
+    ov = latest("overlay")
+    if ov:
+        add("overlay_district", f"Inside an overlay district ({ov['value']})",
+            "The base zoning is modified here - what you may build follows the overlay.",
+            "HIGH", "Ask Planning what the overlay allows.", "risk")
+    if latest("opportunity_zone"):
+        add("opportunity_zone", "Inside a federal Opportunity Zone",
+            "Capital-gains treatment on investment here can be favourable.", "MEDIUM",
+            "Ask a CPA before counting on it.", "opportunity")
+    water = latest("city_water")
+    if water and "at this address" in (water["value"] or ""):
+        add("city_water", "City water meter at the address",
+            "Water service exists. One less thing to bring in.", "HIGH",
+            "Check whether the account is current.", "opportunity")
+    sewer = latest("city_sewer")
+    if sewer and "septic likely" in (sewer["value"] or ""):
+        add("septic_likely", "No City sewer main nearby - septic likely",
+            "A septic system means an inspection and possibly a replacement.", "MEDIUM",
+            "Ask the Health Department for the septic permit history.", "risk")
+
     if not prop.get("address"):
         add("no_address", "No situs address on the tax roll",
             "Unaddressed parcels are usually raw land, remnants, or land that has "

@@ -15,6 +15,12 @@ class ManualSource(PropertySource):
     """Base for human-in-the-loop sources. Still does a real reachability probe."""
     access = MANUAL
     probe_url = ""
+    priority = 2
+
+    def manual_task(self, prop_id=None):
+        t = super().manual_task(prop_id)
+        t["priority"] = self.priority
+        return t
 
     def health_check(self) -> SourceResult:
         url = self.probe_url or self.url
@@ -88,31 +94,31 @@ class CommissionerOfStateLands(ManualSource):
 
 class HotSpringsVacantStructures(ManualSource):
     name = "hs_vacant_structures"
-    label = "City of Hot Springs - vacant structure records"
+    label = "City of Hot Springs - confirm vacancy / condemnation with the office"
     kind = "vacancy"
-    url = "https://www.cityhs.net/"
-    probe_url = "https://www.cityhs.net/"
-    why_manual = ("The City publishes vacant-structure and condemnation activity "
-                  "through department pages, agendas and PDFs rather than a data feed. "
-                  "Vacancy is the single strongest distress signal we can get, so it is "
-                  "worth asking the City directly - Neighborhood Services keeps the list.")
-    what_to_check = ("Ask Hot Springs Neighborhood Services / Code Enforcement for the "
-                     "current vacant-structure list and confirm whether this address is "
-                     "on it, since when, and whether it has been condemned.")
+    url = "https://www.hotspringsar.gov/153/Planning-Development"
+    probe_url = url
+    priority = 3
+    why_manual = ("The City's vacant-structure register is read automatically from its GIS "
+                  "(hs_gis_vacant). What the map cannot say is whether a condemnation or "
+                  "demolition order is pending - only the office can.")
+    what_to_check = ("Ask Planning & Development / Code Enforcement whether this address "
+                     "has a condemnation or demolition order, and what would clear it.")
 
 
 class HotSpringsCodeEnforcement(ManualSource):
     name = "hs_code_enforcement"
-    label = "City of Hot Springs - code enforcement & cleanup liens"
+    label = "City of Hot Springs - confirm lien payoff & older code history"
     kind = "code"
-    url = "https://www.cityhs.net/"
-    probe_url = "https://www.cityhs.net/"
-    why_manual = ("Code cases and cleanup (nuisance abatement) liens appear in Board "
-                  "agendas and department records, not in a queryable database.")
-    what_to_check = ("Request the code-enforcement history and any cleanup/nuisance "
-                     "liens filed against this parcel. A cleanup lien is money the City "
-                     "already spent mowing or clearing the lot - it usually means the "
-                     "owner stopped caring, and it has to be paid or negotiated.")
+    url = "https://www.hotspringsar.gov/153/Planning-Development"
+    probe_url = url
+    priority = 3
+    why_manual = ("City housing liens and 2025 code cases are read automatically from the "
+                  "City GIS (hs_gis_liens, hs_gis_code_cases). The map does not carry the "
+                  "current payoff figure with interest, or cases before 2025.")
+    what_to_check = ("Ask for the lien payoff amount as of today and the full code history. "
+                     "A cleanup lien is money the City already spent on the lot - it has to "
+                     "be paid or negotiated before a clean transfer.")
 
 
 class GarlandRecorder(ManualSource):
@@ -131,17 +137,18 @@ class GarlandRecorder(ManualSource):
 
 class HotSpringsZoning(ManualSource):
     name = "hs_planning_zoning"
-    label = "City of Hot Springs - Planning & Zoning"
+    label = "City of Hot Springs - Planning & Zoning (confirm the use)"
     kind = "zoning"
-    url = "https://www.cityhs.net/162/Planning-Development"
+    url = "https://www.hotspringsar.gov/153/Planning-Development"
     probe_url = url
-    why_manual = ("Zoning districts, permitted uses, setbacks and whether a use needs a "
-                  "conditional-use permit are decided by the City, not inferred from a "
-                  "map. Assuming zoning approval is how people lose money.")
-    what_to_check = ("Confirm the zoning district for this parcel and ask directly "
-                     "whether your intended use (rental, storage, workshop, 3D printing, "
-                     "retail, seasonal food stand) is permitted by right, permitted with "
-                     "a conditional-use permit, or not permitted.")
+    priority = 3
+    why_manual = ("The zoning district is read automatically from the City GIS "
+                  "(hs_gis_zoning). Whether YOUR intended use is permitted by right, needs "
+                  "a conditional-use permit, or is not allowed is decided by Planning, not "
+                  "by a map. Assuming approval is how people lose money.")
+    what_to_check = ("Tell Planning the district shown here and ask whether your intended "
+                     "use (rental, storage, workshop, 3D printing, retail, seasonal food "
+                     "stand) is permitted by right, conditional, or not permitted.")
 
 
 class PublicListings(ManualSource):

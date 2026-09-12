@@ -160,3 +160,23 @@ def test_state_imagery_exports_a_real_jpeg_and_terrain_reads_elevation(tmp_path,
     assert terr.status == "ok", terr.error
     raw = terr.records[0].raw
     assert 0 <= raw["slope_pct"] < 60 and 100 < raw["elevation_m"] < 400
+
+
+def test_city_of_hot_springs_gis_answers_and_knows_111_isabelle():
+    """The City registers are real and 111 Isabelle St is inside the zoning map."""
+    from hunter.sources import hot_springs as hs
+    for src, low in ((hs.HS_VACANT, 100), (hs.HS_LIENS, 100), (hs.HS_CODE, 50),
+                     (hs.HS_ZONING, 10000)):
+        h = src.health_check()
+        assert h.status == "ok", h.error
+        n = int(h.detail.split(" ")[0].replace(",", ""))
+        assert n >= low, f"{src.name}: only {n} records"
+    p = {"id": 1, "lat": 34.498931, "lon": -93.024005, "address_norm": "111 ISABELLE ST",
+         "rpid": None}
+    z = hs.HS_ZONING.enrich(p)
+    assert z.status == "ok" and z.records[0].fields.get("zoning", "").startswith("R-R")
+    assert z.records[0].fields.get("rpid") == "51362"
+    u = hs.HS_UTILITIES.enrich(p)
+    assert u.status == "ok"
+    assert any(e["field"] == "city_water" and "at this address" in e["value"]
+               for e in u.records[0].evidence)

@@ -53,6 +53,12 @@ PRESETS = {
         "description": "Commercial and industrial parcels.",
         "where": "parceltype LIKE 'C%' OR parceltype LIKE 'I%'",
     },
+    "city_registers": {
+        "label": "City distress registers",
+        "description": "Only the parcels the City itself lists as vacant, liened, or "
+                       "under a code case - then the county record for each.",
+        "where": "",
+    },
     "full": {
         "label": "Everything",
         "description": "Every parcel in the county. Slow - thousands of requests.",
@@ -65,10 +71,12 @@ STAGES = [
     ("discovery", "Reading county parcel records"),
     ("identity", "Matching records to properties we already know"),
     ("exclusion", "Applying the Hot Springs Village / Diamondhead exclusions"),
+    ("city_registers", "Reading the City's vacancy, lien and code registers"),
     ("distress", "Looking for distress signals"),
     ("structures", "Checking for buildings on the ground"),
     ("flood", "Checking FEMA flood zones"),
     ("access", "Checking road access"),
+    ("city", "Checking City zoning, utilities, liens and vacancy"),
     ("terrain", "Reading the lay of the land"),
     ("imagery", "Pulling aerial photos"),
     ("context", "Checking what is nearby"),
@@ -189,6 +197,7 @@ class Scan:
             records = self._discovery()
             self._ingest(records)
             self._exclusion()
+            self._city_registers()
             self._distress()
             self._enrich()
             self._manual()
@@ -231,6 +240,13 @@ class Scan:
         if self.mode == "seeds":
             from .seeds import seed_where
             where = seed_where()
+        elif self.mode == "city_registers":
+            # The registers are ingested in their own stage; here we only read the
+            # tax-roll record for the addresses they name, so nothing is discovered
+            # from the roll at large.
+            self.finish("discovery", "skipped",
+                        "parcel records are matched from the City registers instead")
+            return []
         else:
             where = preset.get("where", "")
         try:
@@ -295,6 +311,42 @@ class Scan:
                     f"{excluded} of this batch excluded "
                     f"({total_excluded} excluded overall)")
 
+    CITY_REGISTERS = ("hs_gis_vacant", "hs_gis_liens", "hs_gis_code_cases")
+
+    def _city_registers(self) -> None:
+        """The City's three distress registers are small (a few hundred rows each),
+        so every scan reads all of them and folds them onto the properties we know
+        - or creates the property if the tax roll had not surfaced it yet."""
+        self.begin("city_registers")
+        details, total_new, total_seen = [], 0, 0
+        for name in self.CITY_REGISTERS:
+            src = get_source(name)
+            if not src or not src.enabled():
+                continue
+            res = src.discover()
+            src.record_attempt(res)
+            if res.status != OK:
+                self._count_source(False)
+                details.append(f"{src.label.split(' - ')[-1]}: unavailable")
+                self.log(f"{name}: {res.detail}", level="warn", source=name, stage="city_registers")
+                continue
+            self._count_source(True)
+            new = seen = 0
+            for rec in res.records:
+                pid, action, _ = store.ingest(rec)
+                self.touched.append(pid)
+                if action == "created":
+                    new += 1
+                else:
+                    seen += 1
+            total_new += new
+            total_seen += seen
+            details.append(f"{len(res.records)} {src.label.split(' - ')[-1]} ({new} new)")
+        self.stats["properties_matched"] = len(set(self.touched))
+        self.stats["new_properties"] += total_new
+        self.finish("city_registers", "done" if details else "skipped",
+                    "; ".join(details) or "no City registers enabled")
+
     def _distress(self) -> None:
         ids = [i for i in set(self.touched)
                if not (db.q1("SELECT excluded FROM properties WHERE id=?", (i,)) or {})["excluded"]]
@@ -320,6 +372,7 @@ class Scan:
                 ("structures", "ar_gis_footprints", {}, 180.0),
                 ("flood", "fema_nfhl", {}, 180.0),
                 ("access", "ar_gis_roads", {}, 180.0),
+                ("city", "hs_gis_zoning", {}, 240.0),
                 ("terrain", "ar_gis_terrain", {}, 120.0),
                 ("imagery", "ar_gis_imagery", {}, 180.0),
                 # Overpass is a shared free service and answers in ~45 s, so it
@@ -335,6 +388,10 @@ class Scan:
             ok = fail = skipped = 0
             last_detail = ""
             deadline = time.monotonic() + budget
+            city_srcs = ([get_source(n) for n in ("hs_gis_zoning", "hs_gis_utilities",
+                                                   "hs_gis_liens", "hs_gis_vacant",
+                                                   "hs_gis_code_cases", "hs_gis_city_property")]
+                         if key == "city" else [src])
             for n, pid in enumerate(stage_ids, 1):
                 if time.monotonic() > deadline:
                     skipped = len(stage_ids) - n + 1
@@ -345,16 +402,21 @@ class Scan:
                 p = store.get_property(pid)
                 if not p:
                     continue
-                res = src.enrich(p, **kwargs)
+                res = self._enrich_many(city_srcs, p, kwargs) if key == "city" \
+                    else src.enrich(p, **kwargs)
                 if res.status == OK:
                     ok += 1
                     last_detail = res.detail
                     for rec in res.records:
                         store.store_evidence(pid, rec.evidence)
-                        if rec.fields:
-                            sets = ",".join(f"{k}=?" for k in rec.fields)
+                        # Only real property columns are written. An adapter that
+                        # returns something else must not be able to kill a scan.
+                        cols = {k: v for k, v in (rec.fields or {}).items()
+                                if k in store.WRITABLE and v is not None}
+                        if cols:
+                            sets = ",".join(f"{k}=?" for k in cols)
                             db.ex(f"UPDATE properties SET {sets} WHERE id=?",
-                                  (*rec.fields.values(), pid))
+                                  (*cols.values(), pid))
                         store.snapshot(pid, source_name, rec.raw or rec.fields)
                 else:
                     fail += 1
@@ -366,6 +428,27 @@ class Scan:
                         f"{ok} checked, {fail} could not be checked"
                         + (f", {skipped} skipped (took too long)" if skipped else "")
                         + (f" - last: {last_detail}" if last_detail else ""))
+
+    @staticmethod
+    def _enrich_many(sources, p: dict, kwargs) -> "SimpleResult":
+        """Run several adapters on one property and merge their records."""
+        merged = SimpleResult(OK, "")
+        details = []
+        for src in sources:
+            if not src:
+                continue
+            res = src.enrich(p, **kwargs)
+            src.record_attempt(res)
+            if res.status == OK:
+                merged.records += res.records
+                if res.detail:
+                    details.append(res.detail[:40])
+                for rec in res.records:
+                    store.store_timeline(p["id"], rec.timeline)
+        merged.detail = "; ".join(details[:3])
+        if not merged.records:
+            merged.status = "unavailable"
+        return merged
 
     def _top_candidates(self, n: int) -> list[int]:
         rows = db.q("""SELECT id FROM properties
@@ -459,6 +542,7 @@ class Scan:
 class SimpleResult:
     def __init__(self, status, detail):
         self.status, self.detail, self.error, self.records = status, detail, "", []
+        self.manual_tasks = []
 
 
 # ------------------------------------------------------------------ runner --

@@ -78,7 +78,7 @@ function renderNav(){
     n.appendChild(b);
   });
 }
-function go(view, arg){ S.view=view; S.arg=arg; renderNav();
+function go(view, arg){ if(view!=='scan') S.funnelDrawn=false; S.view=view; S.arg=arg; renderNav();
   location.hash = arg?`${view}/${arg}`:view; render(); }
 
 /* ------------------------------------------------------------------ boot */
@@ -311,6 +311,7 @@ function streamScan(){
 }
 function drawScan(d){
   const box = $('#scanBody'); if(!box) return;
+  const firstPaint = !S.funnelDrawn;
   if(!d || !d.stages){ box.innerHTML = '<div class="card muted">No scan has been run yet.</div>'; return; }
   const st = d.stats||{};
   const funnel = d.funnel || [
@@ -340,7 +341,7 @@ function drawScan(d){
       <div class="funnel">
         ${funnel.map((f,i)=>`
           ${i?'<span class="arw">&darr;</span>':''}
-          <div class="step" style="animation-delay:${i*60}ms">
+          <div class="step" style="${S.funnelDrawn?'animation:none':`animation-delay:${i*60}ms`}">
             <b>${(f.value??0).toLocaleString()}</b><span>${esc(f.label)}</span></div>`).join('')}
       </div>
       ${d.status==='complete'?`<div class="row" style="margin-top:14px">
@@ -348,6 +349,7 @@ function drawScan(d){
         <button class="btn" onclick="go('home')">Top picks</button></div>`:''}
     </div>
   </div>`;
+  if(firstPaint) S.funnelDrawn = true;
 }
 const statusWord = s => ({waiting:'waiting', running:'working', done:'done',
   failed:'failed', unavailable:'source unavailable', skipped:'skipped'})[s]||s;
@@ -790,6 +792,7 @@ function tabOverview(d){
       <dl class="kv">
         ${kv('Owner of record', p.owner_name || 'unknown')}
         ${kv('Parcel ID', p.parcel_id)}
+        ${kv('RPID', p.rpid || 'not matched yet')}
         ${kv('Legal description', p.legal)}
         ${kv('Subdivision', p.subdivision)}
         ${kv('Acreage', p.acreage)}
@@ -802,7 +805,12 @@ function tabOverview(d){
         ${kv('Property type', p.property_type)}
         ${kv('Building footprint', p.building_sqft?Math.round(p.building_sqft).toLocaleString()+' sqft':'not measured')}
         ${kv('Flood zone', p.flood_zone || 'NOT CHECKED')}
-        ${kv('Zoning', p.zoning || 'NOT CHECKED')}
+        ${kv('Zoning', p.zoning ? `${esc(p.zoning)}${evVal(d,'zoning_plain')?` <span class="dimmer">(${esc(evVal(d,'zoning_plain'))})</span>`:''}` : 'NOT CHECKED', true)}
+        ${kv('City water', evVal(d,'city_water') || 'not checked')}
+        ${kv('City sewer', evVal(d,'city_sewer') || 'not checked')}
+        ${kv('Vacancy register', evVal(d,'vacant_structure') ? '<span class="tag red">ON THE REGISTER</span>' : (evVal(d,'vacant_structure_check') || 'not checked'), true)}
+        ${kv('City liens', evVal(d,'cleanup_lien_total') ? '$'+Number(evVal(d,'cleanup_lien_total')).toLocaleString() : (evVal(d,'cleanup_lien_check') || 'not checked'))}
+        ${kv('Code cases', evVal(d,'code_case_open') || evVal(d,'code_case') || evVal(d,'code_case_check') || 'not checked')}
         ${kv('Tax status', p.tax_status || 'NOT CHECKED')}
         ${kv('Listing status', p.listing_status || 'not known to be listed')}
         ${kv('Road', p.road_class || 'not checked')}
@@ -847,9 +855,11 @@ function tabOverview(d){
       vs "${esc(c.value_b)}" (${esc(c.source_b)}) &mdash; ${esc(c.status)}</div>`).join('')}</div>`:''}
   <div class="banner warn" style="margin-top:14px">${esc(d.disclaimer)}</div>`;
 }
+const evVal = (d, field) => { const e = (d.evidence||[]).find(x=>x.field===field); return e ? e.value : null; };
 const TERMS = {'County assessed total':'assessed value','Land value':'assessed value','Improvement value':'assessed value',
   'Implied market value':'market value','Parcel ID':'parcel','Flood zone':'flood zone','Zoning':'zoning',
-  'Tax status':'delinquent tax','Legal description':'deed','Owner of record':'title'};
+  'Tax status':'delinquent tax','Legal description':'deed','Owner of record':'title',
+  'City liens':'cleanup lien','Vacancy register':'condemnation','RPID':'rpid'};
 const kv = (k,v,raw)=>`<dt>${esc(k)}${TERMS[k]?` <button class="whats" title="What's this?" onclick="whatsThis('${esc(TERMS[k])}')">?</button>`:''}</dt><dd>${raw?v:(v===null||v===undefined||v===''?'<span class="dimmer">&mdash;</span>':esc(v))}</dd>`;
 window.whatsThis = async (term)=>{
   const pid = S.current?.property?.id;

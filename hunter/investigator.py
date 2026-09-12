@@ -128,9 +128,39 @@ def _manual(prop, source_name: str, extra: str = "") -> tuple[list, str, str]:
             "manual")
 
 
+def _city(prop, source_name: str) -> tuple[list, str, bool]:
+    """Run one City GIS adapter, store what it says, return findings + whether it
+    answered. The City map answers for parcels inside city limits; outside it
+    the honest answer is 'the City has nothing on this' and the county has no
+    equivalent."""
+    src = get_source(source_name)
+    if not src:
+        return [], "City adapter not registered", False
+    res = src.enrich(prop)
+    src.record_attempt(res)
+    if res.status != OK:
+        return [_f(f"Could not read the City layer: {res.detail}", "NONE", "UNKNOWN",
+                   source_name)], res.detail, False
+    findings = []
+    for rec in res.records:
+        store.store_evidence(prop["id"], rec.evidence)
+        store.store_timeline(prop["id"], rec.timeline)
+        if rec.fields:
+            sets = ",".join(f"{k}=?" for k in rec.fields if k in ("zoning", "rpid"))
+            vals = [v for k, v in rec.fields.items() if k in ("zoning", "rpid")]
+            if sets:
+                db.ex(f"UPDATE properties SET {sets} WHERE id=?", (*vals, prop["id"]))
+        for e in rec.evidence:
+            findings.append(_f(str(e["value"]), e["confidence"], e["evidence_type"],
+                               e["source"], e.get("source_url") or ""))
+    return findings, res.detail, True
+
+
 # --------------------------------------------------------------- handlers --
 
 def _identity(p):
+    # City-owned check rides along here - ownership by the City changes everything.
+    _city(p, "hs_gis_city_property")
     aliases = db.q("SELECT alias_type, alias_value FROM property_aliases "
                    "WHERE property_id=? ORDER BY alias_type", (p["id"],))
     dupes = db.q("SELECT id,address FROM properties WHERE id!=? AND address_norm=? "
@@ -178,6 +208,8 @@ def _cosl(p):
 
 def _vacancy(p):
     findings = []
+    city, detail, ok = _city(p, "hs_gis_vacant")
+    findings += city
     fp = store.latest_evidence(p["id"], "structure_present")
     if fp:
         findings.append(_f(fp["value"], fp["confidence"], fp["evidence_type"], fp["source"]))
@@ -205,20 +237,33 @@ def _vacancy(p):
         findings.append(_f("The improvement value is low enough that the building may "
                            "be in poor shape - that often goes with vacancy.",
                            "LOW", "OBSERVATION"))
-    f2, d2, s2 = _manual(p, "hs_vacant_structures")
-    return findings + f2, d2, "manual"
+    on_register = bool(store.latest_evidence(p["id"], "vacant_structure"))
+    if on_register:
+        f2, d2, _ = _manual(p, "hs_vacant_structures",
+                            "It IS on the register - find out what the City intends.")
+        return findings + f2, f"ON the City vacant-structure register; {d2}", "done"
+    return findings, ("not on the City register" if ok else detail), "done" if ok else "manual"
 
 
 def _code(p):
-    return _manual(p, "hs_code_enforcement")
+    findings, detail, ok = _city(p, "hs_gis_code_cases")
+    if store.latest_evidence(p["id"], "code_case_open") or \
+            store.latest_evidence(p["id"], "code_case"):
+        f2, d2, _ = _manual(p, "hs_code_enforcement", "There is a 2025 case on file.")
+        return findings + f2, f"{detail}; {d2}", "done"
+    return findings, detail if ok else detail, "done" if ok else "manual"
 
 
 def _liens(p):
-    findings, detail, status = _manual(p, "garland_recorder",
-                                       "Liens and judgements are recorded documents.")
-    findings.insert(0, _f("No lien information is held. That is a gap, not a clean "
-                          "title.", "HIGH", "UNKNOWN"))
-    return findings, detail, status
+    findings, detail, ok = _city(p, "hs_gis_liens")
+    has_lien = bool(store.latest_evidence(p["id"], "cleanup_lien_total"))
+    f2, d2, _ = _manual(p, "garland_recorder",
+                        "City housing liens are read from the City GIS; mortgages, "
+                        "judgements and tax liens are recorded at the Circuit Clerk.")
+    findings.append(_f("Mortgages, judgements and tax liens are NOT in the City layer - "
+                       "the Circuit Clerk's index is the only complete answer.",
+                       "HIGH", "UNKNOWN"))
+    return findings + f2, (f"{detail}; " if ok else "") + d2, "manual"
 
 
 def _gis(p):
@@ -260,8 +305,14 @@ def _gis(p):
 
 
 def _zoning(p):
-    return _manual(p, "hs_planning_zoning",
-                   "Never assume a use is allowed until the City says it is.")
+    findings, detail, ok = _city(p, "hs_gis_zoning")
+    if ok and (store.get_property(p["id"]) or {}).get("zoning"):
+        f2, d2, _ = _manual(p, "hs_planning_zoning",
+                            "The district is known; whether YOUR use is permitted is not.")
+        return findings + f2, f"{detail}; confirm the use with Planning", "done"
+    f2, d2, _ = _manual(p, "hs_planning_zoning",
+                        "Outside the City map - ask whether county rules or covenants apply.")
+    return findings + f2, d2, "manual"
 
 
 def _flood(p):
@@ -286,6 +337,20 @@ def _flood(p):
 
 
 def _utilities(p):
+    findings, detail, ok = _city(p, "hs_gis_utilities")
+    if ok:
+        water = store.latest_evidence(p["id"], "city_water")
+        if water and "at this address" in (water["value"] or ""):
+            findings.append(_f("City water is at the address. Sewer, power and internet "
+                               "still have to be asked about.", "HIGH", "OBSERVATION"))
+            store.add_task(p["id"], {
+                "title": "MANUAL VERIFICATION REQUIRED - power, gas and internet",
+                "detail": "City water is confirmed from the meter layer. Ask Entergy about "
+                          "service size and the ISPs about availability.",
+                "why": "3D printers and a workshop need a real electrical service.",
+                "where_to_look": "Entergy / local ISPs", "manual": 1, "priority": 3,
+                "source": "utilities"})
+            return findings, f"{detail}; power/internet still to ask", "done"
     store.add_task(p["id"], {
         "title": "MANUAL VERIFICATION REQUIRED - utilities at the road",
         "detail": "Find out what is actually available at this parcel: city water, "

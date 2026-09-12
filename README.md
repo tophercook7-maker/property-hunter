@@ -49,6 +49,15 @@ seeded, invented or padded.
 | **Arkansas GIS Office — aerial imagery** | 2023 9-inch and 2017 1-foot orthoimagery exported per parcel, so every dossier opens on a real then-and-now aerial with its source and year. |
 | **Arkansas GIS Office — 1 m elevation model** | Slope and aspect at the parcel, feeding the land and storage scores. |
 | **OpenStreetMap (Overpass)** | What businesses and traffic anchors are nearby (competition for a food stand). |
+| **City of Hot Springs GIS — vacant-structure register** | The City's own list of vacant structures (~250 parcels), read as polygons with the City's edit date. 19 of the 21 investigation seeds are on it today. |
+| **City of Hot Springs GIS — housing / cleanup / demolition liens** | ~263 parcels with lien type, amount, date, and the clerk's notes on water, sewer and vacancy. |
+| **City of Hot Springs GIS — 2025 code-enforcement cases** | ~159 addressed cases with status (In Progress / Complied / …) and filed / closed dates. |
+| **City of Hot Springs GIS — zoning (2024 update) & overlays** | The zoning district and ordinance at the parcel, plus historic districts, the Malvern overlay, planned-development districts and Opportunity Zones; also the RPID via the address join. |
+| **City of Hot Springs GIS — water meters & sewer mains** | Whether a City water meter sits at the address and whether a sewer main runs nearby. |
+| **City of Hot Springs GIS — city-owned property** | Parcels the City itself owns, and whether it marks them vacant. |
+
+The City publishes these as open ArcGIS feature services under a use-at-your-own-risk
+disclaimer, which is quoted on every piece of evidence taken from them.
 
 ### A human has to look
 
@@ -61,10 +70,10 @@ raises a **MANUAL VERIFICATION REQUIRED** task you can complete and attach evide
 | **Garland County Assessor (actDataScout)** | Answers automated requests with HTTP 403. We do not work around that. |
 | **Garland County Tax Collector** | Delinquency is behind a search form, not a feed. Tax status is too important to guess. |
 | **Commissioner of State Lands (COSL)** | Certified-delinquent parcels and auctions live in an interactive catalogue and a separate auction site. |
-| **Hot Springs vacant-structure records** | Published through department pages and agendas, not a database. |
-| **Hot Springs code enforcement & cleanup liens** | Board agendas and department records. |
+| **Hot Springs — confirm vacancy / condemnation** | The register is read automatically; whether a condemnation or demolition *order* is pending is only known to the office. Low priority. |
+| **Hot Springs — lien payoff & pre-2025 code history** | Lien amounts are read automatically; the payoff with interest and older cases are not. Low priority. |
 | **Garland County Circuit Clerk (deeds, liens)** | Title is the legal truth and reading it is a judgement call. This is exactly where not to guess. |
-| **Hot Springs Planning & Zoning** | Zoning is decided by the City, never inferred from a map. |
+| **Hot Springs Planning & Zoning — confirm the use** | The district is read automatically; whether *your* use is permitted by right, conditional, or not is Planning's call. Low priority. |
 | **Public listing portals / MLS** | Their terms prohibit automated collection. We don't scrape them. |
 
 We honour `robots.txt`, identify ourselves with a real User-Agent, rate-limit every
@@ -109,6 +118,9 @@ your name on it — a neighbour's remark never becomes a fact.
 **Own it** — once you actually buy one: purchase, loan and value tracking; renovation
 projects with budget-vs-actual per task; a money ledger; leases; and before / during /
 after photos lined up side by side. "My properties" totals it into a portfolio view.
+
+**Fuzzy search** — "111 Isabel Street", "Malvurn" or "Tucker Aquisitions" still find the
+right property; the response says what it matched on.
 
 **Look at it** — a local vision model (llava through Ollama) reads the aerials and your
 own photos. Every output is stored as AI_OPINION at LOW confidence and phrased as a

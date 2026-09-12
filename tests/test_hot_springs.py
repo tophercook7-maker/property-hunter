@@ -96,6 +96,16 @@ def test_register_discovery_creates_properties_by_address_and_rpid(boundaries, m
     assert store.get_property(pid)["rpid"] == "51362"
 
 
+def test_a_neighbours_case_point_never_attaches_by_proximity(prop, monkeypatch):
+    """2025-00000844 at 107 Leeper St sat 20 m from 516 S Patterson St."""
+    other = {"attributes": {**CASE_OPEN["attributes"], "Address": "107 LEEPER ST"},
+             "geometry": CASE_OPEN["geometry"]}
+    monkeypatch.setattr(hs, "_query", _fake_query(
+        {("Addressing_Points_for_Housing_Cases_2025", 33): [other]}))
+    res = hs.HS_CODE.enrich(prop)
+    assert res.records[0].evidence[0]["field"] == "code_case_check"
+
+
 def test_open_and_closed_code_cases_are_told_apart(prop, monkeypatch):
     closed = {"attributes": {**CASE_OPEN["attributes"], "Status": "Complied",
                              "Closed": "2025-07-01"}, "geometry": CASE_OPEN["geometry"]}
@@ -274,7 +284,8 @@ def test_leaving_the_vacant_register_is_observed_and_alerted(boundaries, monkeyp
     from hunter.sources.base import SourceResult, Record
     # a house that was on the register last time
     pid, _, _ = store.ingest(make_record(parcel_id="300-21", address="120 Iowa St"))
-    store.store_evidence(pid, [{"field": "vacant_structure", "value": "on the register",
+    store.store_evidence(pid, [{"field": "vacant_structure",
+                                "value": "on the City's vacant-structure register (RPID 43160)",
                                 "evidence_type": "FACT", "confidence": "HIGH",
                                 "source": "hs_gis_vacant"}])
     # this run: the register is empty
@@ -437,3 +448,36 @@ def test_a_known_numbered_address_outranks_the_point_lookup_for_case_points(boun
     assert f["parcel_id"] == "400-68500-004-000"
     pid, action, _ = store.ingest(make_record(**{**f, "rpid": None, "legal": None, "owner_name": None}))
     assert pid == county and action != "created"
+
+
+def test_a_record_landing_on_a_different_row_is_not_a_removal(boundaries, monkeypatch):
+    """Removal is keyed on the record (case number / RPID), never on which of our
+    rows it resolved to this time."""
+    from hunter import scanner
+    from hunter.sources import get_source
+    from hunter.sources.base import SourceResult, Record
+    a, _, _ = store.ingest(make_record(parcel_id="300-22", address="516 S Patterson St"))
+    store.store_evidence(a, [{"field": "code_case_open",
+                              "value": "code case 2025-00000844 - In Progress, filed 2025-04-16",
+                              "evidence_type": "FACT", "confidence": "HIGH",
+                              "source": "hs_gis_code_cases"}])
+    live = Record(source="hs_gis_code_cases", identity={}, fields={"address": "107 Leeper St",
+                  "county_fips": "05051", "lat": 34.9, "lon": -93.4},
+                  raw={"attributes": {"Enforcement": "2025-00000844", "Status": "In Progress",
+                                      "Address": "107 LEEPER ST"}})
+    def fake(records):
+        return lambda **kw: SourceResult(status="ok", records=records, detail="x")
+    for name in scanner.Scan.CITY_REGISTERS:
+        monkeypatch.setattr(get_source(name), "discover",
+                            fake([live] if name == "hs_gis_code_cases" else []))
+    s = scanner.Scan(mode="city_registers"); s.save(); s._city_registers()
+    assert not db.q1("SELECT 1 FROM alerts WHERE kind='register_removed'")
+    # but a case that is genuinely gone from the open list IS a removal
+    closed = Record(source="hs_gis_code_cases", identity={}, fields={"address": "107 Leeper St",
+                    "county_fips": "05051", "lat": 34.9, "lon": -93.4},
+                    raw={"attributes": {"Enforcement": "2025-00000844", "Status": "Complied",
+                                        "Address": "107 LEEPER ST"}})
+    monkeypatch.setattr(get_source("hs_gis_code_cases"), "discover",
+                        lambda **kw: SourceResult(status="ok", records=[closed], detail="x"))
+    s2 = scanner.Scan(mode="city_registers"); s2.save(); s2._city_registers()
+    assert db.q1("SELECT 1 FROM alerts WHERE kind='register_removed' AND property_id=?", (a,))

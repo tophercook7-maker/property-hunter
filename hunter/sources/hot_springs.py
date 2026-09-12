@@ -200,7 +200,8 @@ class HotSpringsCleanupLiens(_City):
         amt = a.get("Amount") or 0
         ev = [self.fact("cleanup_lien",
                         f"{kind} of ${amt:,.2f} filed {eff or 'date unknown'}", eff=eff,
-                        note="A City lien is money the City already spent on this property. "
+                        note=f"[key lien:{a.get('RPID')}:{a.get('Date_of_Lien')}:{a.get('Amount')}] "
+                             "A City lien is money the City already spent on this property. "
                              "It has to be paid or negotiated before a clean transfer."),
               self.fact("cleanup_lien_amount", round(float(amt), 2), eff=eff)]
         fields = {}
@@ -341,11 +342,12 @@ class HotSpringsCodeCases(_City):
                            extra=_envelope(prop["lat"], prop["lon"], 35))
         except Exception as exc:
             return SourceResult(status=UNAVAILABLE, error=str(exc), detail=str(exc))
-        # points sit on the address, so also accept an exact address match
+        # A case is filed against an ADDRESS. A point 20 m away is the neighbour's
+        # case (2025-00000844 at 107 Leeper St landed on 516 S Patterson St by
+        # proximity). Match by address only; a property with no address gets none.
         norm = prop.get("address_norm")
-        hits = [f for f in feats if not norm or normalize_address(f["attributes"].get("Address")) == norm
-                or geo.haversine_m(prop["lon"], prop["lat"], f["geometry"]["x"] if f.get("geometry") else prop["lon"],
-                                   f["geometry"]["y"] if f.get("geometry") else prop["lat"]) < 25]
+        hits = [f for f in feats
+                if norm and normalize_address(f["attributes"].get("Address")) == norm]
         if not hits:
             return SourceResult(status=OK, detail="no 2025 code case at this address",
                                 records=[Record(source=self.name, identity={"id": prop["id"]},

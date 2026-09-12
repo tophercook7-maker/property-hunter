@@ -7,6 +7,7 @@ the funnel numbers at the end are counted, never invented.
 """
 from __future__ import annotations
 
+import re
 import threading
 import time
 import traceback
@@ -18,6 +19,7 @@ from .config import DEFAULT_TERRITORY, TERRITORIES
 from .db import jdump, utcnow
 from .sources import all_sources, get_source, register_all
 from .sources.base import AUTOMATED, MANUAL_ONLY, OK
+from .sources.hot_springs import OPEN_STATUSES
 
 # Discovery presets: real WHERE clauses against the parcel layer.
 # Each one is a different way of asking "show me something interesting".
@@ -319,13 +321,43 @@ class Scan:
                        "hs_gis_liens": ("cleanup_lien", "City lien parcels"),
                        "hs_gis_code_cases": ("code_case_open", "2025 open code cases")}
 
-    def _register_removals(self, name: str, present: set[int]) -> int:
-        """Properties that carried this register's evidence last time but are not
-        on it now. A house coming off the vacant register, or a lien parcel
-        dropping off the lien layer, is a change worth telling Topher about -
-        phrased as what we observed, not as what it means."""
+    @staticmethod
+    def register_keys(name: str, records) -> set[str]:
+        """The identity of each live register record, independent of which of
+        our property rows it lands on."""
+        keys = set()
+        for rec in records:
+            a = (rec.raw or {}).get("attributes") or {}
+            if name == "hs_gis_vacant" and a.get("RPID") is not None:
+                keys.add(f"rpid:{a['RPID']}")
+            elif name == "hs_gis_liens":
+                keys.add(f"lien:{a.get('RPID')}:{a.get('Date_of_Lien')}:{a.get('Amount')}")
+            elif name == "hs_gis_code_cases":
+                if (a.get("Status") or "").strip().lower() in OPEN_STATUSES:
+                    keys.add(f"case:{a.get('Enforcement')}")
+        return keys
+
+    @staticmethod
+    def evidence_key(name: str, ev: dict) -> str | None:
+        v = ev.get("value") or ""
+        if name == "hs_gis_vacant":
+            m = re.search(r"RPID (\d+)", v)
+            return f"rpid:{m.group(1)}" if m else None
+        if name == "hs_gis_code_cases":
+            m = re.search(r"code case (\S+)", v)
+            return f"case:{m.group(1)}" if m else None
+        if name == "hs_gis_liens":
+            return ev.get("raw_ref_key")
+        return None
+
+    def _register_removals(self, name: str, live_keys: set[str]) -> int:
+        """A register record that was on file and is not on the register now.
+        Keyed on the record itself - a case number, a register RPID - so that a
+        record simply landing on a different property row can never look like
+        a removal. Liens carry no stable number in their sentence, so they are
+        keyed on (RPID, date, amount) stored beside the evidence."""
         field, label = self.REGISTER_FIELDS[name]
-        rows = db.q("""SELECT DISTINCT e.property_id, p.address, p.parcel_id
+        rows = db.q("""SELECT e.id, e.property_id, e.value, e.raw_ref, p.address, p.parcel_id
                        FROM evidence e JOIN properties p ON p.id=e.property_id
                        WHERE e.field=? AND e.source=? AND p.excluded=0
                        AND NOT EXISTS (SELECT 1 FROM evidence r WHERE r.property_id=e.property_id
@@ -333,11 +365,13 @@ class Scan:
                     (field, name, field + "_removed"))
         n = 0
         for r in rows:
-            if r["property_id"] in present:
+            ev = {"value": r["value"], "raw_ref_key": _lien_key_from(r["raw_ref"])}
+            key = self.evidence_key(name, ev)
+            if key is None or key in live_keys:
                 continue
             store.store_evidence(r["property_id"], [{
                 "field": field + "_removed",
-                "value": f"no longer on the City's {label} as of this scan",
+                "value": f"no longer on the City's {label} as of this scan ({key})",
                 "evidence_type": "OBSERVATION", "confidence": "MEDIUM", "source": name,
                 "source_name": f"City of Hot Springs GIS ({label})",
                 "raw_ref": "It left the layer. That could mean resolved, demolished, sold, "
@@ -370,16 +404,14 @@ class Scan:
                 continue
             self._count_source(True)
             new = seen = 0
-            present: set[int] = set()
             for rec in res.records:
                 pid, action, _ = store.ingest(rec)
                 self.touched.append(pid)
-                present.add(pid)
                 if action == "created":
                     new += 1
                 else:
                     seen += 1
-            gone = self._register_removals(name, present)
+            gone = self._register_removals(name, self.register_keys(name, res.records))
             if gone:
                 details.append(f"{gone} came off the {self.REGISTER_FIELDS[name][1]}")
                 self.stats["changes"] += gone
@@ -663,6 +695,11 @@ class Scan:
 
     def _count_source(self, ok: bool) -> None:
         self.stats["sources_ok" if ok else "sources_unavailable"] += 1
+
+
+def _lien_key_from(raw_ref: str | None) -> str | None:
+    m = re.search(r"\[key (lien:[^\]]+)\]", raw_ref or "")
+    return m.group(1) if m else None
 
 
 class SimpleResult:

@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 from .. import db, geo
 from ..http import arcgis_query
 from ..normalize import normalize_address, title_case
+from .ar_parcels import LAYER as STATE_LAYER, SERVICE as STATE_SERVICE
 from .base import AUTOMATED, OK, UNAVAILABLE, PropertySource, Record, SourceResult, register
 
 ORG = "https://services1.arcgis.com/lCwVhIwyitVebu0v/arcgis/rest/services"
@@ -545,36 +546,87 @@ class HotSpringsCityProperty(_City):
 
 # ------------------------------------------------------- parcel lookup ---
 
-def parcel_at(lat: float, lon: float) -> dict | None:
+def parcel_at(lat: float, lon: float, address_norm: str | None = None) -> dict | None:
     """Which county parcel contains this point, per the City's roll copy.
 
     Cached in the database by ~1 m coordinate cell: register polygons do not
     move, so after the first scan this is a local read, not a request.
     """
     key = f"{lat:.5f},{lon:.5f}"
-    db.connect().execute(
+    conn = db.connect()
+    conn.execute(
         "CREATE TABLE IF NOT EXISTS parcel_lookup (cell TEXT PRIMARY KEY, parcel_id TEXT, "
         "owner_name TEXT, total_value REAL, land_value REAL, imp_value REAL, legal TEXT, "
         "parcel_type TEXT, mailing TEXT, looked_up_at TEXT)")
+    try:
+        conn.execute("ALTER TABLE parcel_lookup ADD COLUMN source TEXT")
+    except Exception:
+        pass
     row = db.q1("SELECT * FROM parcel_lookup WHERE cell=?", (key,))
-    if row:
-        return dict(row) if row["parcel_id"] else None
+    if row and row["parcel_id"]:
+        return dict(row)
+    if row and row["parcel_id"] is None and (row["source"] or "") == "both":
+        return None                     # both layers already said no
+    a, source = {}, None
     try:
         feats = _query("Housing_Liens_WFL1", 0, where="1=1",
                        out_fields="ParcelId,OwnerName,MailingAdd,ParcelLgl,ImpValue,LandValue,"
                                   "TotalValue,ParcelType",
                        extra=_point_geom(lat, lon))
+        if feats:
+            a, source = feats[0]["attributes"] or {}, "hs_roll_copy"
     except Exception:
         return None                      # do not cache a failure
-    a = (feats[0]["attributes"] if feats else {}) or {}
+    if not a:
+        # The City's roll copy has no polygon here. The State's parcel layer
+        # covers the whole county - same tax-roll data, fresher, no mailing
+        # address. Register centroids can sit in the street, so after the
+        # point misses, look ~35 m around and take the polygon whose address
+        # matches the record's; with no address to check, only a lone candidate.
+        try:
+            data = arcgis_query(STATE_SERVICE, STATE_LAYER, where="1=1",
+                                out_fields="parcelid,ownername,parcellgl,impvalue,landvalue,"
+                                           "totalvalue,parceltype,adrlabel",
+                                extra=_point_geom(lat, lon))
+            f = (data.get("features") or [])
+            if not f:
+                d = 35.0 / 111000.0
+                env = {"geometry": json.dumps({"xmin": lon - d, "ymin": lat - d, "xmax": lon + d,
+                                               "ymax": lat + d, "spatialReference": {"wkid": 4326}}),
+                       "geometryType": "esriGeometryEnvelope", "inSR": 4326,
+                       "spatialRel": "esriSpatialRelIntersects"}
+                near = arcgis_query(STATE_SERVICE, STATE_LAYER, where="1=1",
+                                    out_fields="parcelid,ownername,parcellgl,impvalue,landvalue,"
+                                               "totalvalue,parceltype,adrlabel",
+                                    extra=env).get("features") or []
+                if address_norm and address_norm[:1].isdigit():
+                    # register addresses come without a suffix ('214 HOLLY'); the
+                    # State layer says '214 HOLLY ST' - the fuller form still matches
+                    def same(label):
+                        n = normalize_address(label)
+                        return n == address_norm or n.startswith(address_norm + " ")
+                    f = [x for x in near if same(x["attributes"].get("adrlabel"))]
+                elif len(near) == 1:
+                    f = near
+            if f:
+                b = f[0]["attributes"] or {}
+                a = {"ParcelId": b.get("parcelid"), "OwnerName": b.get("ownername"),
+                     "ParcelLgl": b.get("parcellgl"), "ImpValue": b.get("impvalue"),
+                     "LandValue": b.get("landvalue"), "TotalValue": b.get("totalvalue"),
+                     "ParcelType": b.get("parceltype"), "MailingAdd": None}
+                source = "ar_gis_parcels"
+        except Exception:
+            return None
     rec = {"cell": key, "parcel_id": (a.get("ParcelId") or "").strip() or None,
            "owner_name": (a.get("OwnerName") or "").strip() or None,
            "total_value": a.get("TotalValue"), "land_value": a.get("LandValue"),
            "imp_value": a.get("ImpValue"), "legal": (a.get("ParcelLgl") or "").strip() or None,
            "parcel_type": (a.get("ParcelType") or "").strip() or None,
            "mailing": (a.get("MailingAdd") or "").strip() or None,
-           "looked_up_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-    db.ex("INSERT OR REPLACE INTO parcel_lookup VALUES (?,?,?,?,?,?,?,?,?,?)",
+           "looked_up_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+           "source": source or "both"}
+    db.ex("INSERT OR REPLACE INTO parcel_lookup(cell,parcel_id,owner_name,total_value,land_value,"
+          "imp_value,legal,parcel_type,mailing,looked_up_at,source) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
           tuple(rec.values()))
     return rec if rec["parcel_id"] else None
 
@@ -608,7 +660,7 @@ def attach_parcel(fields: dict) -> dict:
             return fields
     if fields.get("lat") is None:
         return fields
-    hit = parcel_at(fields["lat"], fields["lon"])
+    hit = parcel_at(fields["lat"], fields["lon"], norm)
     if not hit:
         return fields
     # Identity only. The roll copy's owner and values are older than the State
@@ -656,16 +708,21 @@ class HotSpringsOwnerMailing(_City):
                                out_fields=self.ROLL_FIELDS)
             elif prop.get("lat") is not None:
                 # A register polygon told us WHERE it is but not which parcel it is.
-                # The roll copy is a polygon layer, so the centroid answers that.
-                feats = _query(self.svc, self.lid, where="1=1", out_fields=self.ROLL_FIELDS,
-                               extra=_point_geom(prop["lat"], prop["lon"]))
+                # parcel_at() asks the City's roll copy, then the State's parcel layer.
+                hit = parcel_at(prop["lat"], prop["lon"], prop.get("address_norm"))
+                feats = [{"attributes": {"ParcelId": hit["parcel_id"], "OwnerName": hit["owner_name"],
+                                         "MailingAdd": hit["mailing"], "AdrLabel": None,
+                                         "ParcelLgl": hit["legal"], "TotalValue": hit["total_value"],
+                                         "LandValue": hit["land_value"], "ImpValue": hit["imp_value"],
+                                         "ParcelType": hit["parcel_type"], "SourceDate": None,
+                                         "_source": hit.get("source")}}] if hit else []
             else:
                 return SourceResult(status=UNAVAILABLE, detail="no parcel id or coordinates")
         except Exception as exc:
             return SourceResult(status=UNAVAILABLE, error=str(exc), detail=str(exc))
         if not feats:
-            return SourceResult(status=OK, detail="parcel not in the City's copy of the roll",
-                                records=[])
+            return SourceResult(status=OK, detail="parcel not in the City's roll copy or the "
+                                                  "State parcel layer", records=[])
         a = feats[0]["attributes"]
         fields: dict = {}
         if not pid and a.get("ParcelId"):
@@ -685,9 +742,11 @@ class HotSpringsOwnerMailing(_City):
         eff = _ms(a.get("SourceDate"))
         ev = []
         if fields.get("parcel_id"):
+            via = ("the State parcel layer" if a.get("_source") == "ar_gis_parcels"
+                   else "the City's roll copy")
             ev.append(self.fact("parcel_id", fields["parcel_id"], eff=eff,
-                                note="matched by the parcel polygon that contains this "
-                                     "property's location"))
+                                note=f"matched by the parcel polygon in {via} that contains "
+                                     f"this property's location"))
             if fields.get("owner_name"):
                 ev.append(self.fact("owner_name", fields["owner_name"], eff=eff))
         if not mail["raw"] or mail["raw"] in ("AR 00000",):

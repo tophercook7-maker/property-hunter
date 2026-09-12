@@ -481,3 +481,44 @@ def test_a_record_landing_on_a_different_row_is_not_a_removal(boundaries, monkey
                         lambda **kw: SourceResult(status="ok", records=[closed], detail="x"))
     s2 = scanner.Scan(mode="city_registers"); s2.save(); s2._city_registers()
     assert db.q1("SELECT 1 FROM alerts WHERE kind='register_removed' AND property_id=?", (a,))
+
+
+def test_state_parcel_layer_is_the_fallback_when_the_city_copy_has_no_polygon(boundaries, monkeypatch):
+    from hunter.sources import hot_springs as hsmod
+    monkeypatch.setattr(hsmod, "_query", _fake_query({}))                 # City copy: nothing here
+    monkeypatch.setattr(hsmod, "arcgis_query", lambda *a, **k: {"features": [{"attributes": {
+        "parcelid": "100-04807-000", "ownername": "GIACALONE, CHRISTOPHER S", "parcellgl": "PT NW SW",
+        "impvalue": 12100.0, "landvalue": 11900.0, "totalvalue": 24000.0, "parceltype": "AI"}}]})
+    hit = hsmod.parcel_at(34.5723, -93.0291)
+    assert hit["parcel_id"] == "100-04807-000" and hit["source"] == "ar_gis_parcels"
+    assert hit["mailing"] is None
+    pid, _, _ = store.ingest(make_record(parcel_id=None, address="212 Leisure Ter", rpid="1",
+                                         legal=None, owner_name=None, total_value=None,
+                                         land_value=None, imp_value=None, parcel_type=None,
+                                         lat=34.5723, lon=-93.0291))
+    res = hsmod.HS_OWNER_MAILING.enrich(store.get_property(pid))
+    assert res.status == "ok" and res.records[0].fields["parcel_id"] == "100-04807-000"
+    ev = {e["field"]: e for e in res.records[0].evidence}
+    assert "State parcel layer" in ev["parcel_id"]["raw_ref"]
+    assert "absentee_owner" not in ev and "owner_mailing_address" not in ev   # the State layer has no mailing
+    # cached: the second call makes no request to either layer
+    monkeypatch.setattr(hsmod, "arcgis_query", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no")))
+    assert hsmod.parcel_at(34.5723, -93.0291)["parcel_id"] == "100-04807-000"
+
+
+def test_a_centroid_in_the_street_finds_the_parcel_next_to_it_by_address(boundaries, monkeypatch):
+    """214 Holly's register centroid sits in the road; the State layer has
+    214 HOLLY ST, 215 HOLLY ST and 330 HOLLY ST within 20 m. The address decides."""
+    from hunter.sources import hot_springs as hsmod
+    monkeypatch.setattr(hsmod, "_query", _fake_query({}))
+    near = [{"attributes": {"parcelid": p, "adrlabel": a, "ownername": "O", "totalvalue": 1,
+                            "landvalue": 1, "impvalue": 0, "parcellgl": "", "parceltype": "RI"}}
+            for p, a in (("400-28500-025-000", "214  HOLLY ST"), ("400-16675-006-000", "330  HOLLY ST"),
+                         ("400-29200-020-000", "215  HOLLY ST"))]
+    def fake_state(service, layer, **kw):
+        return {"features": [] if kw.get("extra", {}).get("geometryType") == "esriGeometryPoint" else near}
+    monkeypatch.setattr(hsmod, "arcgis_query", fake_state)
+    hit = hsmod.parcel_at(34.52837, -93.05465, "214 HOLLY")          # suffix-less, as registers spell it
+    assert hit and hit["parcel_id"] == "400-28500-025-000"
+    # three candidates and no address to check -> honestly nothing
+    assert hsmod.parcel_at(34.52900, -93.05500, None) is None

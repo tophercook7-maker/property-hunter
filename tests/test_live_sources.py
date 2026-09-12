@@ -137,3 +137,26 @@ def test_seed_addresses_resolve_against_the_live_parcel_layer():
     n = arcgis_count(SERVICE, LAYER, f"countyfips='{GARLAND}' AND ({seed_where()})")
     assert n > 0, "none of the investigation seeds matched a real parcel"
     assert n <= len(SEED_ADDRESSES) * 4
+
+
+def test_state_imagery_exports_a_real_jpeg_and_terrain_reads_elevation(tmp_path, monkeypatch):
+    """The dossier hero image and the slope score both rest on these two services."""
+    from conftest import make_record
+    from hunter import db, store
+    from hunter.sources import imagery as im
+    monkeypatch.setattr(im, "FILES_DIR", tmp_path)
+    db.init_db()
+    pid, _, _ = store.ingest(make_record(parcel_id="300-06186-000", lat=34.498931,
+                                         lon=-93.024005, acreage=2.154))
+    prop = store.get_property(pid)
+    res = im.AR_IMAGERY.enrich(prop, force=True)
+    assert res.status == "ok", res.error
+    assert sorted(res.records[0].raw["saved"]) == ["2017", "2023"]
+    files = list(tmp_path.rglob("*.jpg"))
+    assert len(files) == 2 and all(f.read_bytes()[:3] == b"\xff\xd8\xff" for f in files)
+    assert all(f.stat().st_size > 20_000 for f in files), "suspiciously small aerial"
+
+    terr = im.AR_TERRAIN.enrich(prop)
+    assert terr.status == "ok", terr.error
+    raw = terr.records[0].raw
+    assert 0 <= raw["slope_pct"] < 60 and 100 < raw["elevation_m"] < 400

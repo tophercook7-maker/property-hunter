@@ -311,3 +311,9 @@ label.fl{font-size:11.5px;color:var(--dim);display:block;margin-bottom:4px}
 .baempty{margin-top:6px;height:90px;border:1px dashed var(--line2);border-radius:6px;display:grid;
   place-items:center;font-size:11.5px;color:var(--dimmer);text-align:center;padding:6px}
 audio::-webkit-media-controls-panel{background:var(--panel2)}
+
+/* Aerial hero on the dossier */
+.hero{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:14px}
+.heroimg{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.heroimg img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block}
+.heroimg figcaption{padding:9px 12px;font-size:12.5px}

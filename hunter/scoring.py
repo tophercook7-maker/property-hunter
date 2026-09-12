@@ -191,7 +191,23 @@ def land(prop: dict) -> Sheet:
             s.add(10, f"County values the dirt at about ${per_acre:,.0f}/acre", "")
     s.unknown("utilities at the road")
     s.unknown("zoning and setbacks")
-    s.unknown("topography and drainage")
+    slope = _known(prop, "slope_pct")
+    if slope is None:
+        s.unknown("topography and drainage")
+    else:
+        try:
+            g = float(slope)
+        except (TypeError, ValueError):
+            g = None
+        if g is not None:
+            if g < 5:
+                s.add(8, f"Nearly flat ({g:.0f}% grade) - cheap to build on", "")
+            elif g < 10:
+                s.add(3, f"Gentle slope ({g:.0f}%)", "")
+            elif g < 20:
+                s.add(-6, f"Moderate slope ({g:.0f}%) - grading and drainage cost money", "")
+            else:
+                s.add(-15, f"Steep ({g:.0f}%) - retaining walls or serious dirt work", "")
     return s
 
 
@@ -214,6 +230,16 @@ def storage(prop: dict) -> Sheet:
         s.add(-20, "No road access", "")
     if "flood_zone" in sig:
         s.add(-16, "You cannot put customers' belongings in a flood zone", "")
+    slope = _known(prop, "slope_pct")
+    try:
+        g = float(slope) if slope is not None else None
+    except (TypeError, ValueError):
+        g = None
+    if g is not None:
+        if g < 5:
+            s.add(8, "Flat enough for long storage buildings and drive aisles", "")
+        elif g >= 12:
+            s.add(-12, f"{g:.0f}% grade - storage rows want flat pads", "")
     if (prop.get("city") or "").lower() not in ("", "unincorporated", "rural"):
         s.add(6, "Close to town where the demand is", "")
     s.unknown("zoning - storage is almost never permitted by right in a residential district")

@@ -121,3 +121,15 @@ def arcgis_count(service_url: str, layer: int, where: str = "1=1") -> int:
     data = arcgis_query(service_url, layer, where=where,
                         extra={"returnCountOnly": "true"})
     return int(data.get("count", 0))
+
+
+def fetch_bytes(url: str, timeout: float | None = None) -> bytes:
+    """Raw bytes (images) from a host we already talk to; still rate-limited."""
+    _throttle(_host(url))
+    with httpx.Client(timeout=timeout or HTTP_TIMEOUT, follow_redirects=True,
+                      headers={"User-Agent": USER_AGENT}) as c:
+        r = c.get(url)
+    if r.status_code in (401, 403, 407, 429):
+        raise Blocked(f"HTTP {r.status_code} from {url}")
+    r.raise_for_status()
+    return r.content

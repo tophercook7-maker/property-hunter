@@ -45,7 +45,10 @@ seeded, invented or padded.
 | **US Census TIGERweb** | The official Hot Springs Village CDP and Diamondhead city boundary polygons — so the exclusion is point-in-polygon, not a hopeful text match. |
 | **FEMA National Flood Hazard Layer** | The mapped flood zone at a parcel's centroid. |
 | **Arkansas GIS Office — building footprints** | Whether a building is actually standing there, and roughly how big its footprint is. |
-| **OpenStreetMap (Overpass)** | Road class at the parcel (a traffic proxy), and what businesses are nearby. |
+| **Arkansas GIS Office — 911 road centerlines** | Whether a mapped road touches the parcel and what class it is, including highway aliases (Central Ave is also AR 7). ~0.4 s a lookup. |
+| **Arkansas GIS Office — aerial imagery** | 2023 9-inch and 2017 1-foot orthoimagery exported per parcel, so every dossier opens on a real then-and-now aerial with its source and year. |
+| **Arkansas GIS Office — 1 m elevation model** | Slope and aspect at the parcel, feeding the land and storage scores. |
+| **OpenStreetMap (Overpass)** | What businesses and traffic anchors are nearby (competition for a food stand). |
 
 ### A human has to look
 
@@ -106,6 +109,19 @@ your name on it — a neighbour's remark never becomes a fact.
 **Own it** — once you actually buy one: purchase, loan and value tracking; renovation
 projects with budget-vs-actual per task; a money ledger; leases; and before / during /
 after photos lined up side by side. "My properties" totals it into a portfolio view.
+
+**Look at it** — a local vision model (llava through Ollama) reads the aerials and your
+own photos. Every output is stored as AI_OPINION at LOW confidence and phrased as a
+possibility — "possible roof concern visible", never a fact, never a dollar figure.
+It miscounts buildings often enough to prove the point; it is a prompt to go and look.
+
+**Ask** — `GET /api/ask?q=...` is the door for Daniel. "What changed?", "What should I
+investigate?", "Show me everything under $50,000", "Find me land for storage", "Why did
+the score change on property 63?" are routed deterministically to the same functions the
+UI uses and come back as structured results plus a sentence.
+
+**Near me** — give it your location (or coordinates) and it lists what we track around
+you, nearest first, with open / watch / visited / directions on each.
 
 **Learning from passes** — when you pass on something and say why, ranked lists later
 sink properties carrying the same kind of problem, and the list says so in a banner.
@@ -186,6 +202,11 @@ POST /api/property/{id}/photo|voice|document   multipart uploads (field mode)
 GET  /api/property/{id}/report.pdf       via local headless Chrome; 501 if absent
 POST /api/property/{id}/ledger|lease     portfolio bookkeeping
 GET/POST /api/decisions/learning         pass reasons, how they are used, on/off
+GET  /api/ask?q=...                      plain question -> intent + structured answer
+GET  /api/near?lat&lon&radius_m          nearest tracked properties (field mode)
+POST /api/property/{id}/imagery          pull the 2017/2023 aerials + slope
+POST /api/photo/{id}/analyse             local vision read, stored as LOW-confidence opinion
+GET/POST/DELETE /api/filters/saved       saved list filters
 ```
 
 Full interactive docs at `/docs` while the app is running.

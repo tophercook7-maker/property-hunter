@@ -181,6 +181,25 @@ def _vacancy(p):
     fp = store.latest_evidence(p["id"], "structure_present")
     if fp:
         findings.append(_f(fp["value"], fp["confidence"], fp["evidence_type"], fp["source"]))
+    # Make sure the aerials are on file, then let the local vision model look at
+    # the newest one. Its output is AI_OPINION at LOW confidence, nothing more.
+    src = get_source("ar_gis_imagery")
+    if src:
+        res = src.enrich(p)
+        if res.status == OK:
+            for rec in res.records:
+                store.store_evidence(p["id"], rec.evidence)
+        newest = db.q1("SELECT id FROM photos WHERE property_id=? AND kind='aerial' "
+                       "ORDER BY captured_at DESC LIMIT 1", (p["id"],))
+        if newest:
+            from .vision import analyse_photo_record
+            v = analyse_photo_record(newest["id"])
+            if "error" in v:
+                findings.append(_f(f"Could not read the aerial: {v['error']}", "NONE", "UNKNOWN"))
+            else:
+                for obs in v["observations"][:4]:
+                    findings.append(_f(obs + " - LOW CONFIDENCE", "LOW", "AI_OPINION",
+                                       "local_vision_model"))
     sig = {s["key"] for s in (p.get("distress") or [])}
     if "low_improvement_value" in sig:
         findings.append(_f("The improvement value is low enough that the building may "
@@ -204,6 +223,15 @@ def _liens(p):
 
 def _gis(p):
     findings = []
+    src = get_source("ar_gis_terrain")
+    if src and not store.latest_evidence(p["id"], "slope_pct"):
+        res = src.enrich(p)
+        if res.status == OK and res.records:
+            store.store_evidence(p["id"], res.records[0].evidence)
+    terr = store.latest_evidence(p["id"], "terrain")
+    if terr:
+        findings.append(_f(f"Terrain: {terr['value']}", terr["confidence"],
+                           terr["evidence_type"], terr["source"], terr["source_url"] or ""))
     for field in ("acreage_from_geometry", "parcel_perimeter_m", "coordinates",
                   "building_footprint_sqft"):
         ev = store.latest_evidence(p["id"], field)

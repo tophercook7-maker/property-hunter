@@ -16,8 +16,9 @@ from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
                                PlainTextResponse, Response, StreamingResponse)
 from fastapi.staticfiles import StaticFiles
 
-from . import (analyzers, db, distress, exclusions, files, finance, learning,
-               nlsearch, pdf, reports, scanner, scheduler, scoring, seeds, store)
+from . import (analyzers, ask as askmod, db, distress, exclusions, files, finance,
+               geo, learning, nlsearch, pdf, reports, scanner, scheduler, scoring,
+               seeds, store, vision)
 from .ai import status as ai_status
 from .config import (APP_NAME, APPROVAL_REQUIRED_ACTIONS, DEFAULT_TERRITORY,
                      EXCLUSIONS, FILES_DIR, FINANCE_DEFAULTS, LEGAL_DISCLAIMER,
@@ -843,6 +844,118 @@ def api_education(term: str | None = None) -> dict:
     if term:
         return explain_term(term)
     return {"terms": sorted(GLOSSARY.keys())}
+
+
+# --------------------------------------------------------------------- ask
+
+@app.get("/api/ask")
+def api_ask(q: str, use_ai: bool = False) -> dict:
+    """Daniel's door: a plain question in, structured results out."""
+    if not q.strip():
+        raise HTTPException(400, "ask something")
+    return askmod.ask(q, use_ai=use_ai)
+
+
+@app.post("/api/ask")
+def api_ask_post(payload: dict = Body(...)) -> dict:
+    return api_ask(payload.get("q", ""), bool(payload.get("use_ai", False)))
+
+
+# -------------------------------------------------------------------- near
+
+@app.get("/api/near")
+def api_near(lat: float, lon: float, radius_m: float = 1500, limit: int = 25) -> dict:
+    """Field mode: what is around me, nearest first."""
+    d = radius_m / 111000.0
+    rows = db.q("""SELECT p.*, so.score AS overall_score, sr.score AS risk_score,
+                          (w.property_id IS NOT NULL) AS watched
+                   FROM properties p
+                   LEFT JOIN scores so ON so.property_id=p.id AND so.kind='overall'
+                   LEFT JOIN scores sr ON sr.property_id=p.id AND sr.kind='risk'
+                   LEFT JOIN watchlist w ON w.property_id=p.id
+                   WHERE p.excluded=0 AND p.lat BETWEEN ? AND ? AND p.lon BETWEEN ? AND ?""",
+                (lat - d, lat + d, lon - d * 1.25, lon + d * 1.25))
+    out = []
+    for r in rows:
+        pr = _prop_row(r)
+        pr["distance_m"] = round(geo.haversine_m(lon, lat, pr["lon"], pr["lat"]))
+        if pr["distance_m"] <= radius_m:
+            pr["marker"] = _marker(pr)
+            out.append(pr)
+    out.sort(key=lambda x: x["distance_m"])
+    return {"count": len(out[:limit]), "radius_m": radius_m, "properties": out[:limit]}
+
+
+# ------------------------------------------------------------------ imagery
+
+@app.post("/api/property/{prop_id}/imagery")
+def api_fetch_imagery(prop_id: int, force: bool = False) -> dict:
+    p = _require(prop_id)
+    results = {}
+    for name in ("ar_gis_imagery", "ar_gis_terrain"):
+        src = get_source(name)
+        if not src:
+            continue
+        res = src.enrich(p, force=force) if name == "ar_gis_imagery" else src.enrich(p)
+        src.record_attempt(res)
+        for rec in res.records:
+            store.store_evidence(prop_id, rec.evidence)
+            store.snapshot(prop_id, name, rec.raw or {})
+        results[name] = {"status": res.status, "detail": res.detail, "error": res.error}
+    if "ar_gis_terrain" in results and results["ar_gis_terrain"]["status"] == "ok":
+        scoring.compute(store.get_property(prop_id))
+    return {"results": results,
+            "photos": db.rows_to_dicts(db.q(
+                "SELECT * FROM photos WHERE property_id=? AND kind='aerial' ORDER BY captured_at",
+                (prop_id,)))}
+
+
+@app.post("/api/photo/{photo_id}/analyse")
+def api_analyse_photo(photo_id: int) -> dict:
+    res = vision.analyse_photo_record(photo_id)
+    if "error" in res:
+        raise HTTPException(503, res["error"])
+    return res
+
+
+@app.get("/api/vision/status")
+def api_vision_status() -> dict:
+    m = vision.available_model()
+    return {"model": m, "ready": bool(m),
+            "detail": ("ready" if m else "no local vision model running - pull llava "
+                                          "with Ollama to enable image observations")}
+
+
+# ---------------------------------------------------------------- filters
+
+@app.get("/api/filters/saved")
+def api_saved_filters() -> dict:
+    return {"filters": db.setting("saved_filters", []) or []}
+
+
+@app.post("/api/filters/saved")
+def api_save_filter(payload: dict = Body(...)) -> dict:
+    name = (payload.get("name") or "").strip()[:60]
+    if not name:
+        raise HTTPException(400, "name required")
+    saved = [f for f in (db.setting("saved_filters", []) or []) if f.get("name") != name]
+    saved.append({"name": name, "params": payload.get("params") or {}, "saved_at": utcnow()})
+    db.set_setting("saved_filters", saved)
+    return {"filters": saved}
+
+
+@app.delete("/api/filters/saved/{name}")
+def api_delete_filter(name: str) -> dict:
+    saved = [f for f in (db.setting("saved_filters", []) or []) if f.get("name") != name]
+    db.set_setting("saved_filters", saved)
+    return {"filters": saved}
+
+
+@app.get("/api/cities")
+def api_cities() -> dict:
+    return {"cities": [r["city"] for r in db.q(
+        "SELECT DISTINCT city FROM properties WHERE excluded=0 AND city IS NOT NULL "
+        "ORDER BY city")]}
 
 
 # ---------------------------------------------------------------- schedule

@@ -56,6 +56,7 @@ const NAV = [
   {k:'land',     t:'Cheap land',   i:'&#127807;'},
   {k:'snowcone', t:'Snow-cone sites',i:'&#127847;'},
   {k:'watch',    t:'Watchlist',    i:'&#11088;', badge:'watchlist'},
+  {k:'field',    t:'Near me',      i:'&#128205;'},
   {g:'Work'},
   {k:'tasks',  t:'To do',       i:'&#9989;', badge:'open_tasks'},
   {k:'alerts', t:'Alerts',      i:'&#128276;', badge:'alerts'},
@@ -146,6 +147,14 @@ VIEWS.home = async (v)=>{
     ${stat(c.excluded,'excluded by rule','red')}
   </div>
 
+  <div class="card" style="margin-top:16px">
+    <div class="row">
+      <input type="text" id="askQ" placeholder="Ask: what changed? what should I investigate? find me land for storage&hellip;" style="flex:1;min-width:240px">
+      <button class="btn primary sm" id="askGo">Ask</button>
+    </div>
+    <div id="askOut"></div>
+  </div>
+
   <h2>&#9733; Topher picks</h2>
   <div class="grid g3" id="picks">${
     picks.picks.length ? picks.picks.map(pickCard).join('')
@@ -172,6 +181,20 @@ VIEWS.home = async (v)=>{
   </div>
 
   <div class="banner warn" style="margin-top:22px">${esc(st.disclaimer)}</div>`;
+  const runAsk = async ()=>{
+    const q = $('#askQ').value.trim(); if(!q) return;
+    $('#askOut').innerHTML = '<div class="row tiny muted" style="margin-top:10px"><span class="spin"></span> thinking&hellip;</div>';
+    const r = await api(`/api/ask?q=${encodeURIComponent(q)}`);
+    $('#askOut').innerHTML = `<div class="banner info" style="margin:10px 0 0">
+      <div class="tiny dimmer">${esc(r.intent.replace('_',' '))}${r.interpreted?.length?` &middot; ${r.interpreted.map(esc).join(' &middot; ')}`:''}</div>
+      <div style="white-space:pre-wrap">${esc(r.answer)}</div>
+      ${(r.results||[]).filter(x=>x&&x.address).slice(0,6).map(x=>`<div class="line">
+        <span class="score ${scoreCls(x.overall||x.score||0)}">${num(x.overall??x.score,0)}</span>
+        <span><a href="#property/${x.id}" onclick="go('property',${x.id})">${esc(x.address)}</a>
+          <span class="dimmer tiny">${esc(x.recommendation||'')} ${x.signals?'&middot; '+x.signals.slice(0,2).map(esc).join('; '):''}</span></span></div>`).join('')}
+      </div>`;
+  };
+  $('#askGo').onclick = runAsk; $('#askQ').onkeydown = e=>{ if(e.key==='Enter') runAsk(); };
 };
 const stat = (n,l,cls='')=>`<div class="stat ${cls}"><div class="n">${n??0}</div><div class="l">${l}</div></div>`;
 const pickCard = p=>`
@@ -459,6 +482,8 @@ async function propList(v, cfg){
       <button class="btn primary sm" id="nlgo">Search</button>
       <button class="btn sm ghost" id="nlai" title="Let the local model interpret it">AI</button>
       <span style="flex:1"></span>
+      <button class="btn sm ghost" id="moreF">Filters</button>
+      <button class="btn sm ghost" id="viewT" title="table / cards">&#9776;</button>
       <select id="sort" style="width:170px">
         <option value="overall">Best overall</option><option value="newest">Newest</option>
         <option value="cheapest">Cheapest</option><option value="acreage">Most acreage</option>
@@ -469,9 +494,58 @@ async function propList(v, cfg){
       <button class="btn sm" id="exp">Export CSV</button>
     </div>
     <div id="interp"></div>
+    <div id="moreBox" class="hide" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+      <div class="row">
+        <div><label class="fl">Min value</label><input type="number" id="fMin" style="width:120px" placeholder="$"></div>
+        <div><label class="fl">Max value</label><input type="number" id="fMax" style="width:120px" placeholder="$"></div>
+        <div><label class="fl">Min acres</label><input type="number" id="fAcMin" style="width:100px" step="0.1"></div>
+        <div><label class="fl">Min score</label><input type="number" id="fScore" style="width:100px" min="0" max="100"></div>
+        <div><label class="fl">City</label><select id="fCity" style="width:170px"><option value="">Any</option></select></div>
+        <div><label class="fl">Type</label><select id="fType" style="width:130px"><option value="">Any</option>
+          <option value="house">House</option><option value="lot">Lot</option><option value="commercial">Commercial</option></select></div>
+        <div><label class="fl">Our call</label><select id="fRec" style="width:150px"><option value="">Any</option>
+          ${['BUY CANDIDATE','INVESTIGATE','WATCH','NEGOTIATE','PASS','DO NOT TOUCH'].map(r=>`<option>${r}</option>`).join('')}</select></div>
+        <label class="chk" style="align-self:flex-end"><input type="checkbox" id="fDist"> distress only</label>
+        <label class="chk" style="align-self:flex-end"><input type="checkbox" id="fFlood"> no flood</label>
+        <label class="chk" style="align-self:flex-end"><input type="checkbox" id="fRoad"> has road</label>
+        <button class="btn sm primary" id="fApply" style="align-self:flex-end">Apply</button>
+        <button class="btn sm ghost" id="fSave" style="align-self:flex-end">Save filter</button>
+      </div>
+      <div class="row" id="savedRow" style="margin-top:8px"></div>
+    </div>
   </div>
   <div id="listBox"></div>`;
   if(cfg.q.sort) $('#sort').value = cfg.q.sort;
+  S.table = S.table || false;
+  $('#moreF').onclick = ()=>$('#moreBox').classList.toggle('hide');
+  $('#viewT').onclick = ()=>{ S.table = !S.table; load(currentExtra()); };
+  api('/api/cities').then(c=>{ const sel=$('#fCity'); if(!sel) return;
+    c.cities.forEach(x=>{ const o=document.createElement('option'); o.textContent=x; sel.appendChild(o); }); });
+  const currentExtra = ()=>{
+    const e = {};
+    if($('#fMin').value) e.min_value=$('#fMin').value; if($('#fMax').value) e.max_value=$('#fMax').value;
+    if($('#fAcMin').value) e.min_acres=$('#fAcMin').value; if($('#fScore').value) e.min_score=$('#fScore').value;
+    if($('#fCity').value) e.city=$('#fCity').value; if($('#fType').value) e.property_type=$('#fType').value;
+    if($('#fRec').value) e.recommendation=$('#fRec').value;
+    if($('#fDist').checked) e.has_distress='true'; if($('#fFlood').checked) e.no_flood='true';
+    if($('#fRoad').checked) e.road_frontage='true';
+    return e;
+  };
+  $('#fApply').onclick = ()=>load(currentExtra());
+  $('#fSave').onclick = async ()=>{
+    const name = prompt('Name this filter'); if(!name) return;
+    await api('/api/filters/saved',{method:'POST',body:JSON.stringify({name, params:{...currentExtra(), sort:$('#sort').value}})});
+    drawSaved();
+  };
+  const drawSaved = async ()=>{
+    const r = await api('/api/filters/saved'); const row = $('#savedRow'); if(!row) return;
+    row.innerHTML = r.filters.length ? '<span class="tiny dimmer">Saved:</span> ' + r.filters.map(f=>
+      `<span class="tag" style="cursor:pointer" onclick='applySaved(${JSON.stringify(f.params)})'>${esc(f.name)}
+        <b style="cursor:pointer;margin-left:4px" onclick="event.stopPropagation();delSaved('${esc(f.name)}')">&times;</b></span>`).join('') : '';
+  };
+  window.applySaved = (params)=>{ const p={...params}; if(p.sort){ $('#sort').value=p.sort; delete p.sort; } load(p); };
+  window.delSaved = async (name)=>{ await api('/api/filters/saved/'+encodeURIComponent(name),{method:'DELETE'}); drawSaved(); };
+  drawSaved();
   const load = async (extra, interp)=>{
     const box = $('#listBox');
     box.innerHTML = '<div class="grid g3"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';
@@ -489,7 +563,7 @@ async function propList(v, cfg){
         <span class="muted tiny">${r.total.toLocaleString()} match &middot; showing ${r.count}</span>
         <span class="row"><button class="btn sm ghost" id="cmpBtn">Compare selected (0)</button></span>
       </div>
-      <div class="grid g3">${r.properties.map(propCard).join('')}</div>`
+      ${S.table ? propTable(r.properties) : `<div class="grid g3">${r.properties.map(propCard).join('')}</div>`}`
       : `<div class="card muted">Nothing matches. ${cfg.q.watchlist?'Add something to the watchlist.':'Try a scan, or loosen the filter.'}</div>`;
     const cb = $('#cmpBtn'); if(cb) cb.onclick = doCompare;
     updateCmpBtn();
@@ -517,6 +591,21 @@ async function propList(v, cfg){
   await load();
 }
 
+function propTable(props){
+  return `<div class="card pad0"><div class="wrap-x"><table class="ev">
+    <tr><th>Address</th><th>City</th><th>Type</th><th>Acres</th><th>Assessed</th><th>Owner</th>
+        <th>Score</th><th>Risk</th><th>Our call</th><th>Signals</th><th></th></tr>
+    ${props.map(p=>`<tr>
+      <td><a href="#property/${p.id}" onclick="go('property',${p.id})">${esc(p.address||'No street address')}</a></td>
+      <td>${esc(p.city||'')}</td><td>${esc(p.property_type||'')}</td><td>${num(p.acreage)}</td>
+      <td>${money(p.total_value)}</td><td class="tiny">${esc(p.owner_name||'')}</td>
+      <td><span class="score ${scoreCls(p.overall_score||0)}">${num(p.overall_score,0)}</span></td>
+      <td>${num(p.risk_score,0)}</td><td><span class="tag ${recCls(p.recommendation)}">${esc(p.recommendation||'')}</span></td>
+      <td class="tiny">${(p.distress||[]).length}</td>
+      <td><label class="chk tiny"><input type="checkbox" ${S.compare.has(p.id)?'checked':''} onchange="toggleCompare(${p.id},this.checked)"> cmp</label></td>
+    </tr>`).join('')}
+  </table></div></div>`;
+}
 function propCard(p){
   const sigs = (p.distress||[]).filter(s=>s.kind!=='opportunity').slice(0,3);
   const icon = p.property_type==='lot'?'&#127807;':p.property_type==='commercial'?'&#127970;':'&#127968;';
@@ -643,7 +732,19 @@ VIEWS.property = async (v, id)=>{
 
 function tabOverview(d){
   const p = d.property, wc = d.why_cheap;
+  const aerials = (d.photos||[]).filter(x=>x.kind==='aerial').sort((x,y)=>(y.captured_at||'').localeCompare(x.captured_at||''));
   $('#dbody').innerHTML = `
+  ${aerials.length ? `<div class="hero">
+      ${aerials.slice(0,2).map(ph=>`<figure class="heroimg">
+        <a href="${esc(ph.url)}" target="_blank" rel="noopener"><img src="${esc(ph.url)}" alt="aerial ${esc(ph.captured_at)}"></a>
+        <figcaption><b>Aerial, flown ${esc(ph.captured_at)}</b> &middot; <span class="dimmer">${esc(ph.source)}</span>
+          ${ph.caption&&ph.caption.includes('AI (low confidence)')?`<div class="tiny" style="margin-top:3px">${esc(ph.caption.split('AI (low confidence): ')[1]||'')} <span class="tag orange">AI &middot; low confidence</span></div>`:''}
+          <button class="btn sm ghost" onclick="lookAt(${ph.id},this)">Look at it</button></figcaption></figure>`).join('')}
+      ${aerials.length>=2?'<div class="tiny dimmer" style="grid-column:1/-1">Then and now: the same frame flown six years apart. What is missing, new, or overgrown?</div>':''}
+    </div>`
+    : `<div class="banner info" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <span>No aerial photos on file yet. The State publishes 2017 and 2023 imagery for every parcel.</span>
+        <button class="btn sm primary" onclick="getAerials(${p.id},this)">Get aerials</button></div>`}
   <div class="grid g2">
     <div class="card">
       <h3>Snapshot</h3>
@@ -1042,8 +1143,9 @@ function tabField(d){
 const photoTile = ph => `
   <figure class="ptile">
     <a href="${esc(ph.url)}" target="_blank" rel="noopener"><img src="${esc(ph.url)}" loading="lazy" alt="${esc(ph.caption||ph.kind)}"></a>
-    <figcaption><span class="tag ${{before:'orange',during:'yellow',after:'green'}[ph.kind]||''}">${esc(ph.kind)}</span>
-      ${ph.caption?esc(ph.caption):''}<div class="tiny dimmer">${esc((ph.created_at||'').slice(0,10))} &middot; ${esc(ph.source||'')}</div></figcaption>
+    <figcaption><span class="tag ${{before:'orange',during:'yellow',after:'green',aerial:'blue'}[ph.kind]||''}">${esc(ph.kind)}</span>
+      ${ph.caption?esc(ph.caption):''}<div class="tiny dimmer">${esc((ph.captured_at||ph.created_at||'').slice(0,10))} &middot; ${esc(ph.source||'')}</div>
+      <button class="btn sm ghost" style="margin-top:4px" onclick="lookAt(${ph.id},this)">Look at it</button></figcaption>
   </figure>`;
 const noteRow = n => `
   <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">
@@ -1306,6 +1408,23 @@ function tabAI(d){
   };
 }
 
+window.getAerials = async (id, btn)=>{
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> fetching';
+  try{ const r = await api(`/api/property/${id}/imagery`,{method:'POST',body:'{}'});
+    const bad = Object.values(r.results).filter(x=>x.status!=='ok');
+    toast(bad.length?('Some imagery unavailable: '+bad.map(x=>x.detail).join('; ')):'Aerials and terrain on file.'); render(); }
+  catch(e){ toast('Imagery: '+e.message); btn.disabled=false; btn.textContent='Get aerials'; }
+};
+window.lookAt = async (photoId, btn)=>{
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> looking';
+  try{ const r = await api(`/api/photo/${photoId}/analyse`,{method:'POST',body:'{}'});
+    modal(`<h3>What the model saw <span class="tag orange">AI &middot; low confidence</span></h3>
+      <p class="tiny muted">${esc(r.caveat)}</p>
+      <ul>${r.observations.map(o=>`<li>${esc(o)}</li>`).join('')||'<li>Nothing notable stood out.</li>'}</ul>
+      <div class="tiny dimmer">${esc(r.model)}${r.cached?' (cached)':''}</div>
+      <button class="btn primary" style="margin-top:10px" onclick="this.closest('.modal').remove();render()">Close</button>`); }
+  catch(e){ toast('Vision: '+(e.message||'unavailable'), 5000); btn.disabled=false; btn.textContent='Look at it'; }
+};
 window.downloadPdf = async (id, btn)=>{
   const old = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
   try{
@@ -1340,6 +1459,54 @@ window.runInvestigation = async (id)=>{
 };
 
 /* ------------------------------------------------------------- tax & misc */
+VIEWS.field = async (v)=>{
+  v.innerHTML = `<h1>Near me</h1>
+  <p class="lede">Driving or walking an area? This lists what we are tracking around you,
+    nearest first, with the actions you need on the spot.</p>
+  <div class="card" style="margin-bottom:14px">
+    <div class="row">
+      <button class="btn primary" id="locBtn">&#128205; Use my location</button>
+      <span class="dimmer tiny">or</span>
+      <input type="text" id="locLat" placeholder="lat" style="width:120px">
+      <input type="text" id="locLon" placeholder="lon" style="width:120px">
+      <select id="locR" style="width:120px"><option value="500">500 m</option><option value="1500" selected>1.5 km</option>
+        <option value="4000">4 km</option><option value="10000">10 km</option></select>
+      <button class="btn sm" id="locGo">Search</button>
+      <span id="locState" class="tiny muted"></span>
+    </div>
+  </div>
+  <div id="nearBox"><p class="muted tiny">No location yet.</p></div>`;
+  const search = async (lat,lon)=>{
+    $('#nearBox').innerHTML = '<div class="row"><span class="spin"></span><span class="muted">looking around&hellip;</span></div>';
+    const r = await api(`/api/near?lat=${lat}&lon=${lon}&radius_m=${$('#locR').value}`);
+    $('#nearBox').innerHTML = r.count ? r.properties.map(p=>`
+      <div class="card" style="margin-bottom:10px">
+        <div class="spread"><div><span class="pdot bg-${p.marker}"></span> <b>${esc(p.address||'No street address')}</b>
+          <span class="dimmer tiny">&middot; ${p.distance_m<1000?p.distance_m+' m':(p.distance_m/1000).toFixed(1)+' km'} away
+          &middot; ${esc(p.city||'')} &middot; ${num(p.acreage)} ac</span></div>
+          <span class="score ${scoreCls(p.overall_score||0)}">${num(p.overall_score,0)}</span></div>
+        <div class="tiny muted" style="margin:4px 0 8px">${esc(p.recommendation||'')} ${(p.distress||[]).slice(0,2).map(s=>'&middot; '+esc(s.label)).join(' ')}</div>
+        <div class="row">
+          <button class="btn sm primary" onclick="go('property',${p.id})">Open</button>
+          <button class="btn sm" onclick="go('property',${p.id});setTimeout(()=>document.querySelector('#dtabs button:nth-child(8)')?.click(),400)">Field tab</button>
+          <button class="btn sm ghost" onclick="toggleWatch(${p.id},this)">${p.watched?'&#11088;':'WATCH'}</button>
+          <button class="btn sm ghost" onclick="markVisited(${p.id})">Visited</button>
+          <a class="btn sm ghost" target="_blank" rel="noopener" href="https://maps.apple.com/?daddr=${p.lat},${p.lon}">Directions</a>
+        </div></div>`).join('')
+      : '<div class="card muted">Nothing we track within that distance.</div>';
+  };
+  $('#locGo').onclick = ()=>{ const la=+$('#locLat').value, lo=+$('#locLon').value; if(la&&lo) search(la,lo); else toast('Enter lat and lon'); };
+  $('#locBtn').onclick = ()=>{
+    if(!navigator.geolocation) return $('#locState').textContent = 'no geolocation in this browser';
+    $('#locState').innerHTML = '<span class="spin"></span> locating';
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const {latitude:la, longitude:lo} = pos.coords;
+      $('#locLat').value = la.toFixed(6); $('#locLon').value = lo.toFixed(6);
+      $('#locState').textContent = `you are at ${la.toFixed(4)}, ${lo.toFixed(4)}`; search(la,lo);
+    }, err=>{ $('#locState').textContent = 'location blocked: '+err.message; }, {enableHighAccuracy:true, timeout:12000});
+  };
+};
+
 VIEWS.tax = async (v)=>{
   const t = await api('/api/tasks?status=open&limit=300');
   const taxTasks = t.tasks.filter(x=>['cosl','garland_tax_collector'].includes(x.source));

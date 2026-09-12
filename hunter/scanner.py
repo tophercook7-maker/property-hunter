@@ -69,6 +69,8 @@ STAGES = [
     ("structures", "Checking for buildings on the ground"),
     ("flood", "Checking FEMA flood zones"),
     ("access", "Checking road access"),
+    ("terrain", "Reading the lay of the land"),
+    ("imagery", "Pulling aerial photos"),
     ("context", "Checking what is nearby"),
     ("manual", "Reporting the sources a human has to check"),
     ("changes", "Comparing against what we saw last time"),
@@ -318,6 +320,8 @@ class Scan:
                 ("structures", "ar_gis_footprints", {}, 180.0),
                 ("flood", "fema_nfhl", {}, 180.0),
                 ("access", "ar_gis_roads", {}, 180.0),
+                ("terrain", "ar_gis_terrain", {}, 120.0),
+                ("imagery", "ar_gis_imagery", {}, 180.0),
                 # Overpass is a shared free service and answers in ~45 s, so it
                 # only ever looks at a handful of the very best candidates.
                 ("context", "osm_overpass", {}, 120.0)):

@@ -581,7 +581,19 @@ def attach_parcel(fields: dict) -> dict:
     """Give a register record its parcel id (and the roll facts it lacked)
     BEFORE identity resolution, so two accounts on one parcel land on one
     property instead of fighting over it."""
-    if fields.get("parcel_id") or fields.get("lat") is None:
+    if fields.get("parcel_id"):
+        return fields
+    # An RPID belongs to exactly one parcel. If we already hold that RPID on a
+    # property with a parcel id, that beats any point lookup - register
+    # polygons can put their centroid a metre into the neighbour's lot.
+    rpid = (str(fields.get("rpid") or "")).strip()
+    if rpid:
+        known = db.q1("SELECT parcel_id FROM properties WHERE rpid=? AND parcel_id IS NOT NULL "
+                      "AND excluded=0 ORDER BY id LIMIT 1", (rpid,))
+        if known:
+            fields["parcel_id"] = known["parcel_id"]
+            return fields
+    if fields.get("lat") is None:
         return fields
     hit = parcel_at(fields["lat"], fields["lon"])
     if not hit:

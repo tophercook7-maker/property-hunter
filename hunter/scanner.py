@@ -440,12 +440,12 @@ class Scan:
             # fill only what is missing - never overwrite the State layer's values
             fresh = store.get_property(pid) or {}
             cols = {k: v for k, v in cols.items() if fresh.get(k) in (None, "")}
-            if cols:
-                sets = ",".join(f"{k}=?" for k in cols)
-                db.ex(f"UPDATE properties SET {sets} WHERE id=?", (*cols.values(), pid))
+            store.set_fields(pid, cols, src.name)
             self.touched.append(pid)
             if n % 20 == 0 or n == len(ids):
                 self.tick("parcel_ids", n, len(ids), f"{matched} matched, {merged} merged")
+        twins = store.merge_rpid_twins()
+        merged += twins
         src.record_attempt(SimpleResult(OK if (matched or merged) else "unavailable",
                                         f"{matched} matched, {merged} merged, {missed} not found"))
         self._prune_touched()
@@ -539,10 +539,7 @@ class Scan:
                             survivor = store.adopt_parcel_id(pid, cols.pop("parcel_id"))
                             if survivor != pid:
                                 pid = survivor          # the county record wins
-                        if cols:
-                            sets = ",".join(f"{k}=?" for k in cols)
-                            db.ex(f"UPDATE properties SET {sets} WHERE id=?",
-                                  (*cols.values(), pid))
+                        store.set_fields(pid, cols, source_name)
                         store.snapshot(pid, source_name, rec.raw or rec.fields)
                 else:
                     fail += 1

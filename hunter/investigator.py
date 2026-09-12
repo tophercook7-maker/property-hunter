@@ -151,9 +151,7 @@ def _city(prop, source_name: str) -> tuple[list, str, bool]:
             keep = {k: v for k, v in rec.fields.items()
                     if k in ("zoning", "rpid", "owner_name", "legal", "total_value",
                              "land_value", "imp_value", "parcel_type") and v is not None}
-            if keep:
-                sets = ",".join(f"{k}=?" for k in keep)
-                db.ex(f"UPDATE properties SET {sets} WHERE id=?", (*keep.values(), prop["id"]))
+            store.set_fields(prop["id"], keep, source_name)
         for e in rec.evidence:
             findings.append(_f(str(e["value"]), e["confidence"], e["evidence_type"],
                                e["source"], e.get("source_url") or ""))

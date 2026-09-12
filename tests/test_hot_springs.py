@@ -401,3 +401,23 @@ def test_register_discovery_attaches_parcels(boundaries, monkeypatch):
     res = hs.HS_VACANT.discover()
     assert res.records[0].fields["parcel_id"] == "400-1"
     assert "owner_name" not in res.records[0].fields          # identity only; roll copy is stale
+
+
+def test_a_known_rpid_outranks_the_point_lookup(boundaries, monkeypatch):
+    """612 Laser St is parcel -027; its register polygon's centroid sits in -026.
+    The RPID we already hold on -027 must win."""
+    neighbour = {"attributes": {"ParcelId": "400-18100-026-000", "OwnerName": "N", "TotalValue": 1,
+                                "LandValue": 1, "ImpValue": 0, "ParcelLgl": "", "ParcelType": "RI",
+                                "MailingAdd": ""}}
+    monkeypatch.setattr(hs, "_query", _fake_query({("Housing_Liens_WFL1", 0): [neighbour]}))
+    county, _, _ = store.ingest(make_record(parcel_id="400-18100-027-000", address="612 Laser St",
+                                            lat=34.48, lon=-93.03))
+    store.set_fields(county, {"rpid": "36806"}, "hs_gis_zoning")
+    f = hs.attach_parcel({"address": "612 Laser", "rpid": "36806", "lat": 34.48001, "lon": -93.03001,
+                          "county_fips": "05051"})
+    assert f["parcel_id"] == "400-18100-027-000"
+    pid, action, _ = store.ingest(make_record(**{**f, "legal": None, "owner_name": None}))
+    assert pid == county and action != "created"
+    # with no RPID held anywhere, the point lookup is still the fallback
+    g = hs.attach_parcel({"rpid": "99999", "lat": 34.49, "lon": -93.04, "county_fips": "05051"})
+    assert g["parcel_id"] == "400-18100-026-000"

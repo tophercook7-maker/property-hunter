@@ -142,7 +142,7 @@ def ingest(record: Record, *, data_class: str = "real",
         if (fields.get("lat") is not None and fields.get("lon") is not None
                 and existing.get("lat") is not None and existing.get("lon") is not None):
             shift = geo.haversine_m(fields["lon"], fields["lat"], existing["lon"], existing["lat"])
-            if shift < COORD_REFINEMENT_M or not fields.get("parcel_id"):
+            if shift < COORD_REFINEMENT_M or record.source != "ar_gis_parcels":
                 fields.pop("lat"), fields.pop("lon")        # keep what we have
         # Address: never let a suffix-less form overwrite the fuller one; when
         # only the unit differs (apartments at one building) keep what we have;
@@ -417,3 +417,42 @@ def adopt_parcel_id(prop_id: int, parcel_id: str) -> int:
     identity.record_aliases(prop_id, {"parcel_id": parcel_id, "county_fips": "05051"},
                             "hs_gis_owner_mailing")
     return prop_id
+
+
+def set_fields(prop_id: int, cols: dict, source: str) -> None:
+    """Write columns AND keep identity aliases in step.
+
+    An rpid or parcel id written straight to the row without its alias is how
+    a later record found a register-only twin instead of the county record."""
+    from . import identity
+    cols = {k: v for k, v in cols.items() if k in WRITABLE and v is not None}
+    if not cols:
+        return
+    sets = ",".join(f"{k}=?" for k in cols)
+    db.ex(f"UPDATE properties SET {sets} WHERE id=?", (*cols.values(), prop_id))
+    ident = {k: cols[k] for k in ("parcel_id", "rpid", "address") if k in cols}
+    if ident:
+        row = db.q1("SELECT county_fips FROM properties WHERE id=?", (prop_id,))
+        ident["county_fips"] = (row["county_fips"] if row and row["county_fips"] else "05051")
+        identity.record_aliases(prop_id, ident, source)
+
+
+def merge_rpid_twins() -> int:
+    """Two properties, one RPID, only one with a parcel id: the parcel-less one
+    is a register record that never found its parcel. Fold it onto the other."""
+    from . import identity
+    rows = db.q("""SELECT a.id AS keep, b.id AS drop_ FROM properties a JOIN properties b
+                   ON a.rpid=b.rpid AND a.id!=b.id
+                   WHERE a.rpid IS NOT NULL AND a.parcel_id IS NOT NULL AND b.parcel_id IS NULL
+                   AND a.excluded=0 AND b.excluded=0""")
+    n = 0
+    seen = set()
+    for r in rows:
+        if r["drop_"] in seen:
+            continue
+        seen.add(r["drop_"])
+        identity.merge_duplicates(r["keep"], r["drop_"])
+        add_timeline(r["keep"], "identity", "Merged an RPID twin onto this parcel",
+                     f"register record #{r['drop_']} shared this RPID and had no parcel")
+        n += 1
+    return n

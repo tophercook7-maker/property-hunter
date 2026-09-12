@@ -112,8 +112,11 @@ def test_different_rpid_is_a_different_property():
 
 
 def test_a_real_relocation_is_still_a_change():
+    """...when the parcel-geometry layer says so."""
     store.ingest(make_record(parcel_id="300-13", lat=34.5100, lon=-93.0500))
-    pid, action, changes = store.ingest(make_record(parcel_id="300-13", lat=34.5200, lon=-93.0500))
+    rec = make_record(parcel_id="300-13", lat=34.5200, lon=-93.0500)
+    rec.source = "ar_gis_parcels"
+    pid, action, changes = store.ingest(rec)
     assert {c["field"] for c in changes} == {"lat"}
 
 
@@ -215,3 +218,39 @@ def test_number_formatting_differences_are_not_changes():
     _, action, changes = store.ingest(make_record(parcel_id="300-71", total_value=30000,
                                                   land_value=20000, imp_value=1450))
     assert action == "updated" and [c["field"] for c in changes] == ["total_value"]
+
+
+def test_an_rpid_written_to_the_column_is_also_an_alias():
+    """Regression: the zoning join set rpid on county records without an alias,
+    so a later register record found a register-only twin instead."""
+    county, _, _ = store.ingest(make_record(parcel_id="300-81", address="612 Laser St"))
+    store.set_fields(county, {"rpid": "36806"}, "hs_gis_zoning")
+    pid, action, _ = store.ingest(make_record(parcel_id=None, address="612 Laser", rpid="36806",
+                                              legal=None, owner_name=None, lat=34.7, lon=-93.2))
+    assert pid == county and action != "created"
+
+
+def test_rpid_twins_are_merged_onto_the_parcel_record():
+    county, _, _ = store.ingest(make_record(parcel_id="300-82", address="120 Boaz St"))
+    db.ex("UPDATE properties SET rpid='42586' WHERE id=?", (county,))     # column only, no alias
+    twin, _, _ = store.ingest(make_record(parcel_id=None, address="120 Boaz", rpid="42586",
+                                          legal=None, owner_name=None, lat=34.71, lon=-93.21))
+    assert twin != county
+    store.store_evidence(twin, [{"field": "cleanup_lien", "value": "x", "evidence_type": "FACT",
+                                 "confidence": "HIGH", "source": "hs_gis_liens"}])
+    assert store.merge_rpid_twins() == 1
+    assert db.q1("SELECT COUNT(*) c FROM properties")["c"] == 1
+    assert any(e["field"] == "cleanup_lien" for e in store.evidence_for(county))
+
+
+def test_only_the_parcel_layer_may_move_coordinates():
+    from hunter.sources.base import Record
+    pid, _, _ = store.ingest(make_record(parcel_id="300-83", lat=34.50, lon=-93.05))
+    rec = make_record(parcel_id="300-83", lat=34.51, lon=-93.06)     # 1.4 km away, same parcel
+    rec.source = "hs_gis_code_cases"
+    _, _, changes = store.ingest(rec)
+    assert changes == [] and store.get_property(pid)["lat"] == 34.50
+    rec2 = make_record(parcel_id="300-83", lat=34.51, lon=-93.06)
+    rec2.source = "ar_gis_parcels"
+    _, _, changes = store.ingest(rec2)
+    assert {c["field"] for c in changes} == {"lat", "lon"}

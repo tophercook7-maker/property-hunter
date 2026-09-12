@@ -456,3 +456,31 @@ def merge_rpid_twins() -> int:
                      f"register record #{r['drop_']} shared this RPID and had no parcel")
         n += 1
     return n
+
+
+def merge_address_twins() -> int:
+    """Two properties at one NUMBERED address where only one came from the
+    county roll: the other is a register record that missed its parcel (a
+    condo-unit parcel, a boundary centroid). Fold it onto the county record.
+    Unnumbered addresses ('E Grand Ave') are many lots and are never merged."""
+    from . import identity
+    # keep the county-anchored side; when neither side is (two register-created
+    # condo-unit parcels at one building), keep the one seen first
+    rows = db.q("""SELECT a.id AS keep, b.id AS drop_, a.address FROM properties a
+                   JOIN properties b ON a.address_norm=b.address_norm AND a.id!=b.id
+                        AND a.county_fips=b.county_fips
+                   WHERE a.address_norm IS NOT NULL AND a.excluded=0 AND b.excluded=0
+                   AND NOT EXISTS (SELECT 1 FROM evidence e WHERE e.property_id=b.id
+                                   AND e.source='ar_gis_parcels')
+                   AND (EXISTS (SELECT 1 FROM evidence e WHERE e.property_id=a.id
+                                AND e.source='ar_gis_parcels') OR a.id < b.id)""")
+    n, seen = 0, set()
+    for r in rows:
+        if r["drop_"] in seen or r["keep"] in seen or not (r["address"] or "")[:1].isdigit():
+            continue
+        seen.add(r["drop_"])
+        identity.merge_duplicates(r["keep"], r["drop_"])
+        add_timeline(r["keep"], "identity", "Merged an address twin onto this parcel",
+                     f"register record #{r['drop_']} carried the same numbered address")
+        n += 1
+    return n

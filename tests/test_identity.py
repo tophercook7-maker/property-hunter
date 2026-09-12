@@ -254,3 +254,30 @@ def test_only_the_parcel_layer_may_move_coordinates():
     rec2.source = "ar_gis_parcels"
     _, _, changes = store.ingest(rec2)
     assert {c["field"] for c in changes} == {"lat", "lon"}
+
+
+def test_numbered_address_twins_merge_but_unnumbered_lots_never_do():
+    county, _, _ = store.ingest(make_record(parcel_id="300-91", address="820 Spring St"))
+    store.store_evidence(county, [{"field": "parcel_id", "value": "300-91", "evidence_type": "FACT",
+                                   "confidence": "HIGH", "source": "ar_gis_parcels"}])
+    twin, _, _ = store.ingest(make_record(parcel_id="300-91E", address="820 Spring St Apt 16",
+                                          legal=None, owner_name=None, lat=34.72, lon=-93.22))
+    a, _, _ = store.ingest(make_record(parcel_id="100-01630-000", address="E Grand Ave", lat=34.73, lon=-93.23))
+    store.store_evidence(a, [{"field": "parcel_id", "value": "100-01630-000", "evidence_type": "FACT",
+                              "confidence": "HIGH", "source": "ar_gis_parcels"}])
+    b, _, _ = store.ingest(make_record(parcel_id="100-01631-000", address="E Grand Ave", legal=None,
+                                       owner_name=None, lat=34.74, lon=-93.24))
+    assert twin != county and b != a
+    assert store.merge_address_twins() == 1
+    assert db.q1("SELECT COUNT(*) c FROM properties")["c"] == 3        # the two Grand Ave lots survive
+    assert store.get_property(county) and not store.get_property(twin)
+
+
+def test_two_register_created_unit_parcels_at_one_address_keep_the_first_seen():
+    first, _, _ = store.ingest(make_record(parcel_id="400-31200-001-000E", address="820 Spring St",
+                                           legal=None, owner_name=None, lat=34.75, lon=-93.25))
+    second, _, _ = store.ingest(make_record(parcel_id="400-12200-001-000E", address="820 Spring St Apt 16",
+                                            legal=None, owner_name=None, lat=34.75, lon=-93.25))
+    assert first != second
+    assert store.merge_address_twins() == 1
+    assert store.get_property(first) and not store.get_property(second)

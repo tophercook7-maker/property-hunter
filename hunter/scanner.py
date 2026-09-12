@@ -444,7 +444,7 @@ class Scan:
             self.touched.append(pid)
             if n % 20 == 0 or n == len(ids):
                 self.tick("parcel_ids", n, len(ids), f"{matched} matched, {merged} merged")
-        twins = store.merge_rpid_twins()
+        twins = store.merge_rpid_twins() + store.merge_address_twins()
         merged += twins
         src.record_attempt(SimpleResult(OK if (matched or merged) else "unavailable",
                                         f"{matched} matched, {merged} merged, {missed} not found"))

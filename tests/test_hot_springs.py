@@ -421,3 +421,19 @@ def test_a_known_rpid_outranks_the_point_lookup(boundaries, monkeypatch):
     # with no RPID held anywhere, the point lookup is still the fallback
     g = hs.attach_parcel({"rpid": "99999", "lat": 34.49, "lon": -93.04, "county_fips": "05051"})
     assert g["parcel_id"] == "400-18100-026-000"
+
+
+def test_a_known_numbered_address_outranks_the_point_lookup_for_case_points(boundaries, monkeypatch):
+    """112 Howe St is parcel -004 per the county; the 2025 code-case point sits
+    a metre into -002. Code cases have no RPID, so the address must settle it."""
+    neighbour = {"attributes": {"ParcelId": "400-68500-002-000", "OwnerName": "N", "TotalValue": 1,
+                                "LandValue": 1, "ImpValue": 0, "ParcelLgl": "", "ParcelType": "RI",
+                                "MailingAdd": ""}}
+    monkeypatch.setattr(hs, "_query", _fake_query({("Housing_Liens_WFL1", 0): [neighbour]}))
+    county, _, _ = store.ingest(make_record(parcel_id="400-68500-004-000", address="112 Howe St",
+                                            lat=34.47, lon=-93.02))
+    f = hs.attach_parcel({"address": "112 HOWE ST", "lat": 34.47001, "lon": -93.02001,
+                          "county_fips": "05051"})
+    assert f["parcel_id"] == "400-68500-004-000"
+    pid, action, _ = store.ingest(make_record(**{**f, "rpid": None, "legal": None, "owner_name": None}))
+    assert pid == county and action != "created"

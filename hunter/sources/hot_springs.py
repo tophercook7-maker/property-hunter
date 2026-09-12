@@ -593,6 +593,17 @@ def attach_parcel(fields: dict) -> dict:
         if known:
             fields["parcel_id"] = known["parcel_id"]
             return fields
+    # Likewise a numbered address we already hold with a parcel id: the county
+    # says which parcel 112 Howe St is, and a code-case point a metre over the
+    # line must not say otherwise.
+    norm = normalize_address(fields.get("address"))
+    if norm and norm[0].isdigit():
+        known = db.q1("SELECT parcel_id FROM properties WHERE address_norm=? AND parcel_id IS NOT NULL "
+                      "AND excluded=0 AND county_fips=? ORDER BY id LIMIT 1",
+                      (norm, fields.get("county_fips") or "05051"))
+        if known:
+            fields["parcel_id"] = known["parcel_id"]
+            return fields
     if fields.get("lat") is None:
         return fields
     hit = parcel_at(fields["lat"], fields["lon"])

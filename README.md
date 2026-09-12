@@ -93,6 +93,24 @@ the finished value, a storage build-out sketch and a snow-cone site model.
 **Investigate** — eighteen stages per property. Each either does real work or says
 plainly that only a human can answer it, and leaves the task behind.
 
+**Keep looking on its own** — a scheduler runs the scan on an interval you set
+(default every 24 h), shows the real next-run time on the dashboard, and files the
+morning briefing under Alerts when it finishes.
+
+**Field mode** — on the property page: add your own photos (tagged street / inspection /
+before / during / after), record a voice note in the browser (transcribed locally by
+`whisper` if it is installed, otherwise you type it), attach documents by category,
+mark as visited. Everything you bring back is stored as an UNVERIFIED observation with
+your name on it — a neighbour's remark never becomes a fact.
+
+**Own it** — once you actually buy one: purchase, loan and value tracking; renovation
+projects with budget-vs-actual per task; a money ledger; leases; and before / during /
+after photos lined up side by side. "My properties" totals it into a portfolio view.
+
+**Learning from passes** — when you pass on something and say why, ranked lists later
+sink properties carrying the same kind of problem, and the list says so in a banner.
+Scores never change, nothing is hidden, and it can be switched off.
+
 **Sources & Health** — whether the scanner is actually working, and which parts of the
 job a machine is not allowed to do.
 
@@ -160,6 +178,14 @@ GET  /api/scan/stream                 server-sent events, real stage state
 GET  /api/sources                     what is working and what needs a human
 GET  /api/health                      green / yellow / red
 GET  /api/changes, /api/alerts, /api/tasks
+```
+
+```
+GET  /api/schedule, POST /api/schedule   interval / mode / on-off; POST /run-now
+POST /api/property/{id}/photo|voice|document   multipart uploads (field mode)
+GET  /api/property/{id}/report.pdf       via local headless Chrome; 501 if absent
+POST /api/property/{id}/ledger|lease     portfolio bookkeeping
+GET/POST /api/decisions/learning         pass reasons, how they are used, on/off
 ```
 
 Full interactive docs at `/docs` while the app is running.

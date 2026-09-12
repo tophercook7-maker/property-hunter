@@ -11,17 +11,17 @@ import time
 from pathlib import Path
 from typing import Any
 
-from fastapi import Body, FastAPI, HTTPException, Query, Request
+from fastapi import Body, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
-                               PlainTextResponse, StreamingResponse)
+                               PlainTextResponse, Response, StreamingResponse)
 from fastapi.staticfiles import StaticFiles
 
-from . import (analyzers, db, distress, exclusions, finance, nlsearch, reports,
-               scanner, scoring, seeds, store)
+from . import (analyzers, db, distress, exclusions, files, finance, learning,
+               nlsearch, pdf, reports, scanner, scheduler, scoring, seeds, store)
 from .ai import status as ai_status
 from .config import (APP_NAME, APPROVAL_REQUIRED_ACTIONS, DEFAULT_TERRITORY,
-                     EXCLUSIONS, FINANCE_DEFAULTS, LEGAL_DISCLAIMER, TERRITORIES,
-                     VERSION)
+                     EXCLUSIONS, FILES_DIR, FINANCE_DEFAULTS, LEGAL_DISCLAIMER,
+                     TERRITORIES, VERSION)
 from .db import jdump, jload, utcnow
 from .sources import all_sources, get_source, register_all
 
@@ -37,7 +37,9 @@ async def lifespan(_app: FastAPI):
     exclusions.sync_rules_to_db()
     exclusions.refresh_cache()
     scanner.reap_interrupted()
+    scheduler.start()
     yield
+    scheduler.stop()
 
 
 app = FastAPI(title=APP_NAME, version=VERSION, lifespan=lifespan,
@@ -109,7 +111,8 @@ def api_status() -> dict:
                  "last": (last or {}).get("finished_at") or (last or {}).get("started_at"),
                  "last_status": (last or {}).get("status"),
                  "last_mode": (last or {}).get("mode"),
-                 "next_scheduled": db.setting("next_scan", None)},
+                 "next_scheduled": db.setting("next_scan", None),
+                 "schedule_enabled": scheduler.config().get("enabled", True)},
         "ai": ai_status(),
         "exclusions": [{"key": e["key"], "label": e["label"]} for e in EXCLUSIONS],
         "disclaimer": LEGAL_DISCLAIMER,
@@ -243,8 +246,14 @@ def api_properties(
         LEFT JOIN scores so ON so.property_id=p.id AND so.kind='overall'
         LEFT JOIN watchlist w ON w.property_id=p.id
         WHERE {' AND '.join(where)}""", params)["c"]
-    return {"total": total, "count": len(rows),
-            "properties": [_prop_row(r) for r in rows]}
+    props = [_prop_row(r) for r in rows]
+    influence = learning.apply(props, sort)
+    return {"total": total, "count": len(props), "properties": props,
+            "preferences": {**influence,
+                            "note": ("Your preferences have influenced this ranking. "
+                                     "Scores are unchanged - properties that look like "
+                                     "deals you have passed on before sit lower in the list."
+                                     if influence["influenced"] else "")}}
 
 
 @app.get("/api/search/natural")
@@ -445,10 +454,19 @@ def api_learning() -> dict:
     rows = db.q("SELECT reason, COUNT(*) n FROM decisions WHERE decision='pass' "
                 "GROUP BY reason ORDER BY n DESC")
     return {"pass_reasons": db.rows_to_dicts(rows),
-            "note": ("These are the reasons you have passed before. They are shown "
-                     "here and used to sort your lists, but the scoring model is not "
-                     "changed behind your back - if a ranking is influenced by your "
-                     "history, the list says so.")}
+            "enabled": learning.enabled(),
+            "how_it_is_used": {r: sorted(learning.REASON_SIGNALS.get(r, set()))
+                               for r in learning.REASON_SIGNALS},
+            "note": ("These are the reasons you have passed before. When a ranked list "
+                     "is shown, properties carrying the same kind of problem sit lower "
+                     "in it and the list says so. Scores never change and nothing is "
+                     "hidden. Turn it off with POST /api/decisions/learning.")}
+
+
+@app.post("/api/decisions/learning")
+def api_learning_toggle(payload: dict = Body(default={})) -> dict:
+    db.set_setting("learning_enabled", bool(payload.get("enabled", True)))
+    return {"enabled": learning.enabled()}
 
 
 @app.get("/api/tasks")
@@ -827,8 +845,188 @@ def api_education(term: str | None = None) -> dict:
     return {"terms": sorted(GLOSSARY.keys())}
 
 
+# ---------------------------------------------------------------- schedule
+
+@app.get("/api/schedule")
+def api_schedule() -> dict:
+    return scheduler.config()
+
+
+@app.post("/api/schedule")
+def api_schedule_update(payload: dict = Body(default={})) -> dict:
+    if "interval_hours" in payload:
+        try:
+            h = float(payload["interval_hours"])
+        except (TypeError, ValueError):
+            raise HTTPException(400, "interval_hours must be a number")
+        if not (1 <= h <= 24 * 14):
+            raise HTTPException(400, "interval_hours must be between 1 and 336")
+        payload["interval_hours"] = h
+    if "mode" in payload and payload["mode"] not in scanner.PRESETS:
+        raise HTTPException(400, f"mode must be one of {list(scanner.PRESETS)}")
+    return scheduler.update(payload)
+
+
+@app.post("/api/schedule/run-now")
+def api_schedule_run_now() -> dict:
+    out = scheduler.run_now(reason="requested from the UI")
+    if out is None:
+        return {"started": False, "reason": "a scan is already running"}
+    return {"started": True, "scan": out}
+
+
+# ----------------------------------------------------------------- uploads
+
+@app.post("/api/property/{prop_id}/photo")
+async def api_photo(prop_id: int, file: UploadFile = File(...),
+                    kind: str = Form("inspection"), caption: str = Form("")) -> dict:
+    _require(prop_id)
+    if not (file.content_type or "").startswith("image/"):
+        raise HTTPException(400, "photos must be image files")
+    try:
+        return files.save_photo(prop_id, file.file, file.filename or "", kind, caption)
+    except ValueError as exc:
+        raise HTTPException(413, str(exc))
+
+
+@app.post("/api/property/{prop_id}/voice")
+async def api_voice(prop_id: int, file: UploadFile = File(...),
+                    transcript: str = Form("")) -> dict:
+    _require(prop_id)
+    ct = file.content_type or ""
+    if not (ct.startswith("audio/") or ct.startswith("video/") or ct == "application/octet-stream"):
+        raise HTTPException(400, "voice notes must be audio files")
+    try:
+        return files.save_voice(prop_id, file.file, file.filename or "note.webm", transcript)
+    except ValueError as exc:
+        raise HTTPException(413, str(exc))
+
+
+@app.post("/api/property/{prop_id}/document")
+async def api_document(prop_id: int, file: UploadFile = File(...),
+                       category: str = Form("other"), title: str = Form(""),
+                       notes: str = Form("")) -> dict:
+    _require(prop_id)
+    try:
+        return files.save_document(prop_id, file.file, file.filename or "", category,
+                                   title, notes)
+    except ValueError as exc:
+        raise HTTPException(413, str(exc))
+
+
+@app.post("/api/note/{note_id}")
+def api_note_update(note_id: int, payload: dict = Body(...)) -> dict:
+    row = db.q1("SELECT * FROM notes WHERE id=?", (note_id,))
+    if not row:
+        raise HTTPException(404, "no such note")
+    if "body" in payload:
+        db.ex("UPDATE notes SET body=? WHERE id=?", (payload["body"], note_id))
+        if row["kind"] == "voice_note" and payload["body"].strip():
+            store.store_evidence(row["property_id"], [{
+                "field": "field_observation", "value": payload["body"],
+                "evidence_type": "OBSERVATION", "confidence": "LOW",
+                "source": "topher_voice_note", "source_name": "Topher on site (voice)",
+                "source_url": row["audio_path"]}])
+    return {"ok": True}
+
+
+@app.post("/api/photo/{photo_id}")
+def api_photo_update(photo_id: int, payload: dict = Body(...)) -> dict:
+    sets, vals = [], []
+    if "kind" in payload and payload["kind"] in files.PHOTO_KINDS:
+        sets.append("kind=?"); vals.append(payload["kind"])
+    if "caption" in payload:
+        sets.append("caption=?"); vals.append(payload["caption"])
+    if not sets:
+        raise HTTPException(400, "nothing to update")
+    vals.append(photo_id)
+    db.ex(f"UPDATE photos SET {','.join(sets)} WHERE id=?", vals)
+    return {"ok": True}
+
+
+# --------------------------------------------------------------------- pdf
+
+@app.get("/api/property/{prop_id}/report.pdf")
+def api_report_pdf(prop_id: int):
+    p = _require(prop_id)
+    html = reports.dossier_html(prop_id)
+    try:
+        data = pdf.html_to_pdf(html)
+    except Exception as exc:
+        raise HTTPException(501, f"PDF export unavailable: {exc}")
+    name = (p.get("address") or p.get("parcel_id") or f"property-{prop_id}")
+    name = "".join(c if c.isalnum() else "-" for c in name).strip("-")[:60]
+    return Response(content=data, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{name}.pdf"'})
+
+
+# ------------------------------------------------------- portfolio ledger
+
+@app.post("/api/property/{prop_id}/ledger")
+def api_ledger_add(prop_id: int, payload: dict = Body(...)) -> dict:
+    _require(prop_id)
+    direction = payload.get("direction")
+    if direction not in ("expense", "revenue"):
+        raise HTTPException(400, "direction must be expense or revenue")
+    try:
+        amount = float(payload.get("amount"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "amount must be a number")
+    cur = db.ex("INSERT INTO ledger(property_id,direction,category,amount,occurred_on,"
+                "memo,created_at) VALUES(?,?,?,?,?,?,?)",
+                (prop_id, direction, payload.get("category") or "general", amount,
+                 payload.get("occurred_on") or utcnow()[:10], payload.get("memo"), utcnow()))
+    return {"id": cur.lastrowid}
+
+
+@app.get("/api/property/{prop_id}/ledger")
+def api_ledger(prop_id: int) -> dict:
+    rows = db.rows_to_dicts(db.q("SELECT * FROM ledger WHERE property_id=? "
+                                 "ORDER BY occurred_on DESC, id DESC", (prop_id,)))
+    exp = sum(r["amount"] for r in rows if r["direction"] == "expense")
+    rev = sum(r["amount"] for r in rows if r["direction"] == "revenue")
+    return {"entries": rows, "expenses": exp, "revenue": rev, "net": rev - exp}
+
+
+@app.post("/api/property/{prop_id}/lease")
+def api_lease_add(prop_id: int, payload: dict = Body(...)) -> dict:
+    _require(prop_id)
+    cur = db.ex("INSERT INTO leases(property_id,tenant_name,unit,rent,deposit,start_date,"
+                "end_date,status,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (prop_id, payload.get("tenant_name"), payload.get("unit"),
+                 payload.get("rent"), payload.get("deposit"), payload.get("start_date"),
+                 payload.get("end_date"), payload.get("status", "active"),
+                 payload.get("notes"), utcnow()))
+    if payload.get("status", "active") == "active":
+        db.ex("UPDATE properties SET state='RENTED' WHERE id=? AND state IN "
+              "('READY TO RENT','REHAB','ACQUIRED','PORTFOLIO')", (prop_id,))
+    return {"id": cur.lastrowid}
+
+
+@app.get("/api/property/{prop_id}/leases")
+def api_leases(prop_id: int) -> dict:
+    return {"leases": db.rows_to_dicts(
+        db.q("SELECT * FROM leases WHERE property_id=? ORDER BY id DESC", (prop_id,)))}
+
+
+@app.post("/api/rehab/task/{task_id}")
+def api_rehab_task_update(task_id: int, payload: dict = Body(...)) -> dict:
+    sets, vals = [], []
+    for k in ("status", "budget", "actual", "contractor", "notes", "started_at",
+              "finished_at", "title", "category"):
+        if k in payload:
+            sets.append(f"{k}=?"); vals.append(payload[k])
+    if not sets:
+        raise HTTPException(400, "nothing to update")
+    vals.append(task_id)
+    db.ex(f"UPDATE rehab_tasks SET {','.join(sets)} WHERE id=?", vals)
+    return {"ok": True}
+
+
 # ------------------------------------------------------------------ ui
 
+FILES_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/files", StaticFiles(directory=FILES_DIR), name="files")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 

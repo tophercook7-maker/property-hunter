@@ -104,7 +104,9 @@ def test_pass_records_a_reason_for_learning(client, seeded):
                 json={"state": "PASS", "reason": "bad title"})
     learning = client.get("/api/decisions/learning").json()
     assert learning["pass_reasons"][0]["reason"] == "bad title"
-    assert "not changed behind your back" in learning["note"]
+    assert "Scores never change" in learning["note"]
+    assert learning["enabled"] is True
+    assert "bad title" in learning["how_it_is_used"]
 
 
 def test_map_excludes_and_carries_boundaries(client, seeded):
@@ -192,3 +194,158 @@ def test_compare_needs_two(client, seeded):
     d = client.post("/api/compare", json={"ids": seeded[:3]}).json()
     assert d["winner"]["why"]
     assert len(d["rows"]) > 10
+
+
+# ---------------------------------------------------------- learning (spec 80)
+
+def test_passing_influences_ranking_only_in_the_open(client, seeded):
+    """A pass for 'bad title' sinks estate-owned parcels in ranked lists - and the
+    list says so. Scores do not move and nothing disappears."""
+    estate_id = [i for i in seeded
+                 if store.get_property(i)["owner_name"] == "SMITH, JOHN ESTATE"][0]
+    before = client.get("/api/properties?sort=overall").json()
+    assert before["preferences"]["influenced"] is False
+    scores_before = {p["id"]: p["overall_score"] for p in before["properties"]}
+
+    client.post(f"/api/property/{seeded[0]}/state",
+                json={"state": "PASS", "reason": "bad title"})
+    after = client.get("/api/properties?sort=overall").json()
+    assert after["preferences"]["influenced"] is True
+    assert "influenced this ranking" in after["preferences"]["note"]
+    flagged = {p["id"]: p["preference_flags"] for p in after["properties"]}
+    assert flagged[estate_id] == ["bad title"]
+    assert after["properties"][-1]["id"] == estate_id      # sank to the bottom
+    assert {p["id"]: p["overall_score"] for p in after["properties"]} == scores_before
+    assert after["total"] == before["total"]               # nothing hidden
+
+    # a non-ranked sort is left alone
+    newest = client.get("/api/properties?sort=newest").json()
+    assert newest["preferences"]["influenced"] is False
+
+    # and it can be switched off
+    client.post("/api/decisions/learning", json={"enabled": False})
+    off = client.get("/api/properties?sort=overall").json()
+    assert off["preferences"]["influenced"] is False
+    client.post("/api/decisions/learning", json={"enabled": True})
+
+
+# --------------------------------------------------------- schedule (spec 5/37)
+
+def test_schedule_is_configurable_and_reports_next_run(client):
+    cfg = client.get("/api/schedule").json()
+    assert cfg["enabled"] is True and cfg["interval_hours"] == 24
+    cfg = client.post("/api/schedule", json={"interval_hours": 6, "mode": "cheap_land"}).json()
+    assert cfg["interval_hours"] == 6 and cfg["mode"] == "cheap_land"
+    assert cfg["next_run"]
+    assert client.get("/api/status").json()["scan"]["next_scheduled"] == cfg["next_run"]
+    assert client.post("/api/schedule", json={"interval_hours": 0}).status_code == 400
+    assert client.post("/api/schedule", json={"mode": "banana"}).status_code == 400
+    off = client.post("/api/schedule", json={"enabled": False}).json()
+    assert off["next_run"] is None
+    client.post("/api/schedule", json={"enabled": True, "interval_hours": 24, "mode": "distress"})
+
+
+# ------------------------------------------------- uploads (spec 30/42/43/44)
+
+def test_photo_upload_is_stored_as_an_owner_observation(client, seeded):
+    pid = seeded[0]
+    png = (b"\x89PNG\r\n\x1a\n" + b"\x00" * 64)
+    r = client.post(f"/api/property/{pid}/photo",
+                    files={"file": ("roof.png", png, "image/png")},
+                    data={"kind": "inspection", "caption": "Roof from the street"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["kind"] == "inspection" and body["url"].startswith("/files/")
+    assert client.get(body["url"]).status_code == 200
+    d = client.get(f"/api/property/{pid}").json()
+    assert d["photos"][0]["source"].endswith("own photo")
+    assert d["photos"][0]["license"] == "owner"
+    ev = [e for e in d["evidence"] if e["field"] == "photo:inspection"]
+    assert ev and ev[0]["evidence_type"] == "OBSERVATION"
+    assert "behind the wall" in ev[0]["raw_ref"]
+
+
+def test_photo_upload_rejects_non_images(client, seeded):
+    r = client.post(f"/api/property/{seeded[0]}/photo",
+                    files={"file": ("x.txt", b"hello", "text/plain")})
+    assert r.status_code == 400
+
+
+def test_voice_note_with_typed_transcript_is_unverified_hearsay(client, seeded):
+    pid = seeded[0]
+    r = client.post(f"/api/property/{pid}/voice",
+                    files={"file": ("n.webm", b"\x1a\x45\xdf\xa3" + b"\x00" * 32,
+                                    "audio/webm")},
+                    data={"transcript": "Neighbour says nobody has lived here in years."})
+    assert r.status_code == 200, r.text
+    assert r.json()["auto_transcribed"] is False
+    d = client.get(f"/api/property/{pid}").json()
+    note = [n for n in d["notes"] if n["kind"] == "voice_note"][0]
+    assert note["confidence"] == "UNVERIFIED" and note["audio_path"].startswith("/files/")
+    ev = [e for e in d["evidence"] if e["field"] == "field_observation"]
+    assert ev and ev[0]["confidence"] == "LOW" and ev[0]["evidence_type"] == "OBSERVATION"
+    assert "hearsay" in ev[0]["raw_ref"]
+
+
+def test_document_upload_is_categorised(client, seeded):
+    pid = seeded[0]
+    r = client.post(f"/api/property/{pid}/document",
+                    files={"file": ("deed.pdf", b"%PDF-1.4 fake", "application/pdf")},
+                    data={"category": "deed", "title": "Warranty deed 2019"})
+    assert r.status_code == 200, r.text
+    assert r.json()["category"] == "deed"
+    d = client.get(f"/api/property/{pid}").json()
+    assert d["documents"][0]["title"] == "Warranty deed 2019"
+    bad = client.post(f"/api/property/{pid}/document",
+                      files={"file": ("x.bin", b"x", "application/octet-stream")},
+                      data={"category": "not-a-category"})
+    assert bad.json()["category"] == "other"
+
+
+def test_upload_size_limit_is_enforced(client, seeded, monkeypatch):
+    from hunter import files as f
+    monkeypatch.setattr(f, "MAX_BYTES", 1024)
+    r = client.post(f"/api/property/{seeded[0]}/photo",
+                    files={"file": ("big.png", b"\x89PNG" + b"\x00" * 5000, "image/png")})
+    assert r.status_code == 413
+
+
+# --------------------------------------------------------- portfolio (46-49)
+
+def test_portfolio_ledger_and_lease_round_trip(client, seeded):
+    pid = seeded[0]
+    client.post(f"/api/portfolio/{pid}", json={"purchase_price": 40000,
+                                               "purchase_date": "2026-09-01",
+                                               "current_value": 90000,
+                                               "loan_amount": 30000})
+    assert store.get_property(pid)["state"] == "PORTFOLIO"
+    client.post(f"/api/property/{pid}/ledger",
+                json={"direction": "expense", "category": "roof", "amount": 6500})
+    client.post(f"/api/property/{pid}/ledger",
+                json={"direction": "revenue", "category": "rent", "amount": 900})
+    assert client.post(f"/api/property/{pid}/ledger",
+                       json={"direction": "sideways", "amount": 1}).status_code == 400
+    led = client.get(f"/api/property/{pid}/ledger").json()
+    assert led["expenses"] == 6500 and led["revenue"] == 900 and led["net"] == -5600
+    client.post(f"/api/property/{pid}/lease",
+                json={"tenant_name": "A. Tenant", "rent": 900, "start_date": "2026-10-01"})
+    assert store.get_property(pid)["state"] == "RENTED"
+    pf = client.get("/api/portfolio").json()
+    assert pf["count"] == 1 and pf["monthly_rent"] == 900
+    assert pf["equity"] == 60000
+    proj = client.post(f"/api/rehab/{pid}/project", json={"name": "Make-ready", "budget": 12000}).json()
+    task = client.post("/api/rehab/task", json={"project_id": proj["id"], "property_id": pid,
+                                                "category": "roof", "title": "Replace shingles",
+                                                "budget": 6000}).json()
+    client.post(f"/api/rehab/task/{task['id']}", json={"actual": 6500, "status": "done"})
+    rehab = client.get(f"/api/rehab/{pid}").json()
+    assert rehab["projects"][0]["budget_total"] == 6000
+    assert rehab["projects"][0]["actual_total"] == 6500
+
+
+def test_pdf_export_is_honest_when_chrome_is_missing(client, seeded, monkeypatch):
+    from hunter import pdf as pdfmod
+    monkeypatch.setattr(pdfmod, "chrome_path", lambda: None)
+    r = client.get(f"/api/property/{seeded[0]}/report.pdf")
+    assert r.status_code == 501
+    assert "PDF export unavailable" in r.json()["detail"]

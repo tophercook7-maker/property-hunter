@@ -16,6 +16,10 @@ const esc = s => (s===null||s===undefined?'':String(s))
 const money = n => (n===null||n===undefined||n==='')?'&mdash;':'$'+Math.round(n).toLocaleString();
 const num = (n,d=2)=>(n===null||n===undefined||n==='')?'&mdash;':Number(n).toFixed(d);
 const pct = n => (n===null||n===undefined)?'&mdash;':(n*100).toFixed(1)+'%';
+const until = t => { if(!t) return 'never';
+  const s=(new Date(t)-Date.now())/1000;
+  if(s<0) return 'due now'; if(s<3600) return 'in '+Math.round(s/60)+' min';
+  if(s<172800) return 'in '+Math.round(s/3600)+' hr'; return 'in '+Math.round(s/86400)+' days'; };
 const ago = t => { if(!t) return 'never';
   const s=(Date.now()-new Date(t.endsWith('Z')||t.includes('+')?t:t+'Z'))/1000;
   if(s<90) return 'just now'; if(s<5400) return Math.round(s/60)+' min ago';
@@ -120,6 +124,8 @@ VIEWS.home = async (v)=>{
                            :'&#9679; idle'}</span>
         <span class="muted tiny">Last scan ${esc(ago(st.scan.last))}
           ${st.scan.last_mode?`(${esc(st.scan.last_mode)}, ${esc(st.scan.last_status)})`:''}</span>
+        <span class="muted tiny">&middot; next ${st.scan.schedule_enabled && st.scan.next_scheduled
+          ? esc(until(st.scan.next_scheduled)) : 'not scheduled'}</span>
         <span class="muted tiny">&middot; AI: ${st.ai.model?esc(st.ai.model):'not running'}</span>
       </div>
       <div class="row">
@@ -212,7 +218,9 @@ VIEWS.scan = async (v)=>{
       property at a time and are deliberately limited. "Everything" reads all 76,651
       Garland County parcels and takes a long while.</p>
   </div>
+  <div class="card" style="margin-bottom:16px" id="schedCard"></div>
   <div id="scanBody"></div>`;
+  drawSchedule();
   $('#goScan').onclick = async ()=>{
     $('#goScan').disabled = true;
     try{
@@ -226,6 +234,47 @@ VIEWS.scan = async (v)=>{
   if(cur.running) streamScan();
 };
 const normLast = l => ({...l, funnel:null, stats:l.stats, stages:l.stages});
+
+async function drawSchedule(){
+  const c = $('#schedCard'); if(!c) return;
+  const s = await api('/api/schedule');
+  const modes = await api('/api/scan/modes');
+  c.innerHTML = `
+    <div class="spread" style="flex-wrap:wrap">
+      <div>
+        <h3 style="margin:0">Keep looking on its own</h3>
+        <div class="tiny muted" style="margin-top:4px">
+          ${s.enabled ? `Next automatic scan <b>${esc(until(s.next_run))}</b>
+            (${esc((s.next_run||'').replace('T',' ').slice(0,16))} UTC) &middot; every ${s.interval_hours} h
+            &middot; ${esc(s.mode)}` : 'Automatic scanning is off.'}
+          ${s.last_auto_run?` &middot; last automatic run ${esc(ago(s.last_auto_run))}`:''}
+          ${s.thread_alive?'':' &middot; <span style="color:#ff9b9b">scheduler thread not running</span>'}
+        </div>
+        <div class="tiny dimmer" style="margin-top:3px">When a scheduled scan finishes, the
+          morning briefing is filed under Alerts.</div>
+      </div>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="schEnabled" ${s.enabled?'checked':''}> on</label>
+        <select id="schMode" style="width:150px">${modes.modes.filter(m=>m.key!=='full').map(m=>
+          `<option value="${esc(m.key)}" ${m.key===s.mode?'selected':''}>${esc(m.label)}</option>`).join('')}</select>
+        <select id="schHours" style="width:130px">${[6,12,24,48,168].map(h=>
+          `<option value="${h}" ${h==s.interval_hours?'selected':''}>every ${h<24?h+' h':(h/24)+' day'+(h>24?'s':'')}</option>`).join('')}</select>
+        <button class="btn sm" id="schSave">Save</button>
+        <button class="btn sm ghost" id="schNow">Run now</button>
+      </div>
+    </div>`;
+  $('#schSave').onclick = async ()=>{
+    await api('/api/schedule',{method:'POST',body:JSON.stringify({
+      enabled:$('#schEnabled').checked, mode:$('#schMode').value,
+      interval_hours:Number($('#schHours').value)})});
+    toast('Schedule saved'); drawSchedule(); refreshStatus();
+  };
+  $('#schNow').onclick = async ()=>{
+    const r = await api('/api/schedule/run-now',{method:'POST',body:'{}'});
+    if(!r.started) return toast(r.reason);
+    streamScan();
+  };
+}
 function streamScan(){
   if(S.scanES) S.scanES.close();
   const es = new EventSource('/api/scan/stream'); S.scanES = es;
@@ -432,6 +481,10 @@ async function propList(v, cfg){
     S.props = r.properties;
     $('#interp').innerHTML = interp || '';
     box.innerHTML = r.properties.length ? `
+      ${r.preferences?.influenced ? `<div class="banner info" style="margin-bottom:10px">
+        <b>Your preferences have influenced this ranking.</b> ${esc(r.preferences.note.replace('Your preferences have influenced this ranking. ',''))}
+        <span class="dimmer">(you have passed for: ${r.preferences.reasons.map(esc).join(', ')})</span>
+        <button class="btn sm ghost" style="margin-left:8px" onclick="toggleLearning(false)">turn off</button></div>`:''}
       <div class="spread" style="margin-bottom:10px">
         <span class="muted tiny">${r.total.toLocaleString()} match &middot; showing ${r.count}</span>
         <span class="row"><button class="btn sm ghost" id="cmpBtn">Compare selected (0)</button></span>
@@ -484,6 +537,7 @@ function propCard(p){
         ${p.recommendation?`<span class="tag ${recCls(p.recommendation)}">${esc(p.recommendation)}</span>`:''}
         ${p.flood_zone&&/^[AV]/.test(p.flood_zone)?'<span class="tag red">flood</span>':''}
         ${sigs.map(s=>`<span class="tag" title="${esc(s.why)}">${esc(shortSig(s.label))}</span>`).join('')}
+        ${(p.preference_flags||[]).map(f=>`<span class="tag purple" title="You have passed on deals like this before (${esc(f)}). Score unchanged; ranked lower.">&#8595; ${esc(f)}</span>`).join('')}
       </div>
     </div>
     <div class="acts">
@@ -498,6 +552,10 @@ const recCls = r => ({'BUY CANDIDATE':'green','INVESTIGATE':'blue','WATCH':'yell
   'NEGOTIATE':'purple','PASS':'','DO NOT TOUCH':'red'})[r]||'';
 const shortSig = l => l.length>34 ? l.slice(0,32)+'…' : l;
 
+window.toggleLearning = async (on)=>{
+  await api('/api/decisions/learning',{method:'POST',body:JSON.stringify({enabled:on})});
+  toast(on?'Preferences back on':'Preferences ignored - lists are score order only'); render();
+};
 window.toggleCompare = (id,on)=>{ on?S.compare.add(id):S.compare.delete(id); updateCmpBtn(); };
 function updateCmpBtn(){ const b=$('#cmpBtn'); if(b){ b.textContent=`Compare selected (${S.compare.size})`;
   b.disabled = S.compare.size<2; } }
@@ -537,6 +595,7 @@ VIEWS.property = async (v, id)=>{
     <div class="row">
       <button class="btn" onclick="toggleWatch(${p.id},this)">${d.watched?'&#11088;':'WATCH'}</button>
       <button class="btn" onclick="location.href='/api/property/${p.id}/report.html'">REPORT</button>
+      <button class="btn" onclick="downloadPdf(${p.id},this)">PDF</button>
       <button class="btn primary" onclick="runInvestigation(${p.id})">INVESTIGATE</button>
     </div>
   </div>
@@ -569,6 +628,7 @@ VIEWS.property = async (v, id)=>{
     'Timeline': ()=>tabTimeline(d),
     'To do': ()=>tabTasks(d),
     'Field': ()=>tabField(d),
+    'Own it': ()=>tabOwn(d),
     'AI': ()=>tabAI(d),
   };
   const tb = $('#dtabs');
@@ -889,50 +949,296 @@ window.completeTask = (id)=>{
 
 function tabField(d){
   const p = d.property;
+  const photos = d.photos||[];
   $('#dbody').innerHTML = `
   <div class="grid g2">
-    <div class="card">
-      <h3>Field notes</h3>
-      <p class="tiny dimmer">Anything you or a neighbour says is stored as an UNVERIFIED
-        observation. It never becomes a fact just because somebody said it.</p>
-      <div class="field"><textarea id="fnote" rows="3"
-        placeholder="Drove by. Roof looks bad. Neighbour says nobody has lived there in years."></textarea></div>
-      <button class="btn primary sm" id="fsave">Save note</button>
-      <div style="margin-top:14px">${d.notes.map(n=>`
-        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">
-          <div class="tiny dimmer">${esc((n.created_at||'').slice(0,16))} &middot; ${esc(n.author)}
-            &middot; <span class="tag">${esc(n.confidence)}</span></div>
-          <div style="font-size:13.5px">${esc(n.body)}</div></div>`).join('')
-          ||'<p class="muted tiny">No notes yet.</p>'}</div>
-    </div>
-    <div class="card">
-      <h3>Where it is</h3>
-      ${p.lat?`<p class="mono tiny">${num(p.lat,6)}, ${num(p.lon,6)}</p>
+    <div>
+      <div class="card" style="margin-bottom:14px">
+        <h3>&#128247; Photos</h3>
+        <p class="tiny dimmer">Your own photos, stored as observations. We do not copy listing
+          or street-view imagery; we link to it instead.</p>
         <div class="row">
-          <a class="btn sm" target="_blank" rel="noopener"
-             href="https://maps.apple.com/?ll=${p.lat},${p.lon}&q=${encodeURIComponent(p.address||'parcel')}">Open in Maps</a>
-          <a class="btn sm" target="_blank" rel="noopener"
-             href="https://www.openstreetmap.org/#map=18/${p.lat}/${p.lon}">OpenStreetMap</a>
-        </div>`:'<p class="muted tiny">No coordinates.</p>'}
-      <h3 style="margin-top:18px">Quick actions</h3>
-      <div class="row">
-        <button class="btn sm" onclick="setState(${p.id},'INTERESTING')">Mark interesting</button>
-        <button class="btn sm" onclick="setState(${p.id},'INVESTIGATING')">Investigating</button>
-        <button class="btn sm" onclick="passProperty(${p.id})">Pass</button>
+          <select id="phKind" style="width:150px">
+            ${['inspection','street','before','during','after','rehab','code','owner'].map(k=>`<option>${k}</option>`).join('')}</select>
+          <input type="text" id="phCap" placeholder="Caption (optional)" style="flex:1;min-width:140px">
+          <label class="btn sm primary" style="cursor:pointer">Add photo
+            <input type="file" id="phFile" accept="image/*" capture="environment" style="display:none" multiple></label>
+        </div>
+        <div id="phGrid" class="gallery">${photos.map(photoTile).join('') || '<p class="muted tiny" style="margin-top:10px">No photos yet.</p>'}</div>
       </div>
-      <h3 style="margin-top:18px">Photos</h3>
-      ${d.photos.length?d.photos.map(ph=>`<div class="tiny">${esc(ph.kind)} &middot; ${esc(ph.source)}</div>`).join('')
-        :`<p class="muted tiny">No photos stored. We do not copy listing or street-view
-          imagery &mdash; we link to the source instead, and your own photos go here.</p>`}
+      <div class="card">
+        <h3>&#128196; Documents</h3>
+        <div class="row">
+          <select id="docCat" style="width:140px">
+            ${['deed','tax','gis','zoning','code','lien','auction','listing','inspection','contractor','receipt','financing','closing','lease','other'].map(k=>`<option>${k}</option>`).join('')}</select>
+          <input type="text" id="docTitle" placeholder="Title (optional)" style="flex:1;min-width:140px">
+          <label class="btn sm" style="cursor:pointer">Add document
+            <input type="file" id="docFile" style="display:none"></label>
+        </div>
+        <div style="margin-top:10px">${(d.documents||[]).map(x=>`
+          <div class="line"><span class="tag">${esc(x.category)}</span>
+            <span><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>
+              <span class="tiny dimmer">&middot; ${esc((x.added_at||'').slice(0,10))}</span></span></div>`).join('')
+          || '<p class="muted tiny">No documents yet.</p>'}</div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:14px">
+        <h3>&#127908; Field notes</h3>
+        <p class="tiny dimmer">Anything you or a neighbour says is stored as UNVERIFIED. It never
+          becomes a fact just because somebody said it.</p>
+        <div class="field"><textarea id="fnote" rows="3"
+          placeholder="Drove by. Roof looks bad. Neighbour says nobody has lived there in years."></textarea></div>
+        <div class="row">
+          <button class="btn primary sm" id="fsave">Save note</button>
+          <button class="btn sm" id="recBtn">&#9679; Record voice note</button>
+          <span id="recState" class="tiny muted"></span>
+        </div>
+        <div style="margin-top:14px">${(d.notes||[]).map(noteRow).join('')||'<p class="muted tiny">No notes yet.</p>'}</div>
+      </div>
+      <div class="card">
+        <h3>Where it is &amp; quick actions</h3>
+        ${p.lat?`<p class="mono tiny">${num(p.lat,6)}, ${num(p.lon,6)}</p>
+          <div class="row" style="margin-bottom:12px">
+            <a class="btn sm" target="_blank" rel="noopener"
+               href="https://maps.apple.com/?ll=${p.lat},${p.lon}&q=${encodeURIComponent(p.address||'parcel')}">Open in Maps</a>
+            <a class="btn sm" target="_blank" rel="noopener"
+               href="https://www.openstreetmap.org/#map=18/${p.lat}/${p.lon}">OpenStreetMap</a>
+          </div>`:'<p class="muted tiny">No coordinates.</p>'}
+        <div class="row">
+          <button class="btn sm" onclick="setState(${p.id},'INTERESTING')">Mark interesting</button>
+          <button class="btn sm" onclick="setState(${p.id},'INVESTIGATING')">Investigating</button>
+          <button class="btn sm" onclick="markVisited(${p.id})">Mark as visited</button>
+          <button class="btn sm" onclick="passProperty(${p.id})">Pass</button>
+        </div>
+      </div>
     </div>
   </div>`;
+
   $('#fsave').onclick = async ()=>{
     const body = $('#fnote').value.trim(); if(!body) return;
     await api(`/api/property/${p.id}/note`,{method:'POST',
       body:JSON.stringify({body, kind:'field_note'})});
     toast('Note saved as an unverified observation.'); render();
   };
+  $('#phFile').onchange = async (e)=>{
+    for(const f of e.target.files){
+      const fd = new FormData(); fd.append('file', f); fd.append('kind', $('#phKind').value);
+      fd.append('caption', $('#phCap').value);
+      try{ await fetch(`/api/property/${p.id}/photo`,{method:'POST',body:fd}).then(r=>{ if(!r.ok) throw new Error(r.statusText); }); }
+      catch(err){ toast('Upload failed: '+err.message); }
+    }
+    toast('Photo saved.'); render();
+  };
+  $('#docFile').onchange = async (e)=>{
+    const f = e.target.files[0]; if(!f) return;
+    const fd = new FormData(); fd.append('file', f); fd.append('category', $('#docCat').value);
+    fd.append('title', $('#docTitle').value);
+    const r = await fetch(`/api/property/${p.id}/document`,{method:'POST',body:fd});
+    toast(r.ok?'Document saved.':'Upload failed'); render();
+  };
+  setupRecorder(p.id);
 }
+const photoTile = ph => `
+  <figure class="ptile">
+    <a href="${esc(ph.url)}" target="_blank" rel="noopener"><img src="${esc(ph.url)}" loading="lazy" alt="${esc(ph.caption||ph.kind)}"></a>
+    <figcaption><span class="tag ${{before:'orange',during:'yellow',after:'green'}[ph.kind]||''}">${esc(ph.kind)}</span>
+      ${ph.caption?esc(ph.caption):''}<div class="tiny dimmer">${esc((ph.created_at||'').slice(0,10))} &middot; ${esc(ph.source||'')}</div></figcaption>
+  </figure>`;
+const noteRow = n => `
+  <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+    <div class="tiny dimmer">${esc((n.created_at||'').slice(0,16))} &middot; ${esc(n.author)}
+      &middot; <span class="tag">${esc(n.confidence)}</span>
+      ${n.kind==='voice_note'?'<span class="tag blue">voice</span>':''}</div>
+    <div style="font-size:13.5px" id="noteBody${n.id}">${esc(n.body)}</div>
+    ${n.audio_path?`<audio controls preload="none" src="${esc(n.audio_path)}" style="width:100%;height:32px;margin-top:6px"></audio>
+      <button class="btn sm ghost" onclick="editTranscript(${n.id})">${n.body.startsWith('(voice note')?'Type transcript':'Edit transcript'}</button>`:''}
+  </div>`;
+window.editTranscript = (id)=>{
+  const cur = $('#noteBody'+id)?.textContent || '';
+  const m = modal(`<h3>Transcript</h3><p class="tiny muted">Stored as UNVERIFIED, like any field note.</p>
+    <div class="field"><textarea id="trx" rows="4">${esc(cur.startsWith('(voice note')?'':cur)}</textarea></div>
+    <button class="btn primary" id="trxSave">Save</button>`);
+  $('#trxSave').onclick = async ()=>{
+    await api(`/api/note/${id}`,{method:'POST',body:JSON.stringify({body:$('#trx').value})});
+    m.remove(); render();
+  };
+};
+window.markVisited = async (id)=>{
+  await api(`/api/property/${id}/note`,{method:'POST',
+    body:JSON.stringify({body:'Visited the property in person.', kind:'field_note'})});
+  toast('Marked as visited.'); render();
+};
+function setupRecorder(pid){
+  const btn = $('#recBtn'), st = $('#recState'); if(!btn) return;
+  if(!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder){
+    btn.disabled = true; st.textContent = 'recording not supported in this browser'; return;
+  }
+  let rec = null, chunks = [], t0 = 0, timer = null;
+  btn.onclick = async ()=>{
+    if(rec && rec.state === 'recording'){ rec.stop(); return; }
+    try{
+      const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+      chunks = []; rec = new MediaRecorder(stream);
+      rec.ondataavailable = e=>{ if(e.data.size) chunks.push(e.data); };
+      rec.onstop = async ()=>{
+        clearInterval(timer); stream.getTracks().forEach(t=>t.stop());
+        btn.innerHTML = '&#9679; Record voice note'; st.innerHTML = '<span class="spin"></span> saving';
+        const blob = new Blob(chunks, {type: rec.mimeType || 'audio/webm'});
+        const fd = new FormData(); fd.append('file', blob, 'note.webm');
+        const r = await fetch(`/api/property/${pid}/voice`, {method:'POST', body:fd});
+        const j = await r.json().catch(()=>({}));
+        toast(r.ok ? (j.auto_transcribed ? 'Voice note saved and transcribed locally.'
+                                        : 'Voice note saved. '+(j.note||''))
+                   : 'Upload failed: '+(j.detail||r.statusText), 5000);
+        render();
+      };
+      rec.start(); t0 = Date.now();
+      btn.innerHTML = '&#9632; Stop';
+      timer = setInterval(()=>{ st.textContent = 'recording '+Math.round((Date.now()-t0)/1000)+'s'; }, 500);
+    }catch(e){ st.textContent = 'microphone blocked: '+e.message; }
+  };
+}
+
+/* ---------------------------------------------------------------- own it */
+async function tabOwn(d){
+  const p = d.property;
+  const [pf, rehab, led, leases] = await Promise.all([
+    api('/api/portfolio'), api(`/api/rehab/${p.id}`),
+    api(`/api/property/${p.id}/ledger`), api(`/api/property/${p.id}/leases`)]);
+  const mine = pf.properties.find(x=>x.property_id===p.id);
+  const before = (d.photos||[]).filter(x=>x.kind==='before');
+  const during = (d.photos||[]).filter(x=>x.kind==='during');
+  const after  = (d.photos||[]).filter(x=>x.kind==='after');
+  $('#dbody').innerHTML = `
+  <div class="banner warn">Everything on this tab is what <b>you</b> entered. Nothing here comes
+    from an outside source. Buying, borrowing, signing and contacting anybody still happen
+    outside this app, by you.</div>
+  <div class="grid g2">
+    <div class="card">
+      <h3>${mine?'In your portfolio':'Add to your portfolio'}</h3>
+      <p class="tiny dimmer">Fill this in once you actually own it. It moves the property to
+        the PORTFOLIO state.</p>
+      <div class="grid g-form">
+        ${ownField('purchase_price','Purchase price',mine)}${ownField('purchase_date','Purchase date',mine,'text')}
+        ${ownField('closing_costs','Closing costs',mine)}${ownField('rehab_budget','Rehab budget',mine)}
+        ${ownField('loan_amount','Loan amount',mine)}${ownField('interest_rate','Interest rate (e.g. 0.089)',mine)}
+        ${ownField('insurance_annual','Insurance / yr',mine)}${ownField('taxes_annual','Taxes / yr',mine)}
+        ${ownField('current_value','Current value',mine)}${ownField('units','Units',mine)}
+      </div>
+      <button class="btn primary sm" id="ownSave" style="margin-top:8px">${mine?'Update':'Add to portfolio'}</button>
+    </div>
+    <div class="card">
+      <h3>Renovation &mdash; budget vs actual</h3>
+      ${rehab.projects.length ? rehab.projects.map(pr=>`
+        <div style="margin-bottom:12px">
+          <div class="spread"><b>${esc(pr.name)}</b>
+            <span class="mono tiny">${money(pr.actual_total)} of ${money(pr.budget_total||pr.budget)}
+              <span class="${pr.actual_total>(pr.budget_total||pr.budget||0)?'neg':'pos'}" style="color:${pr.actual_total>(pr.budget_total||pr.budget||0)?'var(--red)':'var(--green)'}">
+              ${pr.actual_total>(pr.budget_total||pr.budget||0)?'over':'on budget'}</span></span></div>
+          <div class="bar" style="width:100%;flex:none;margin:6px 0"><i style="width:${Math.min(100,100*(pr.actual_total||0)/((pr.budget_total||pr.budget)||1))}%"></i></div>
+          ${pr.tasks.map(t=>`<div class="line money">
+            <span class="p">${money(t.actual)}</span>
+            <span><span class="tag ${t.status==='done'?'green':''}">${esc(t.status)}</span>
+              <b>${esc(t.title)}</b> <span class="dimmer tiny">${esc(t.category)} &middot; budget ${money(t.budget)}${t.contractor?' &middot; '+esc(t.contractor):''}</span>
+              <button class="btn sm ghost" onclick="editRehabTask(${t.id},${p.id})">edit</button></span></div>`).join('')}
+          <button class="btn sm ghost" onclick="addRehabTask(${pr.id},${p.id})">+ task</button>
+        </div>`).join('') : '<p class="muted tiny">No renovation project yet.</p>'}
+      <button class="btn sm" id="projAdd">+ New project</button>
+      <h3 style="margin-top:18px">Before &rarr; during &rarr; after</h3>
+      <div class="ba">
+        ${[['before',before],['during',during],['after',after]].map(([k,list])=>`
+          <div class="bacol"><div class="tiny dimmer" style="text-transform:uppercase;letter-spacing:.8px">${k}</div>
+            ${list.length?list.map(ph=>`<a href="${esc(ph.url)}" target="_blank" rel="noopener"><img src="${esc(ph.url)}" loading="lazy"></a>`).join('')
+              :`<div class="baempty">no ${k} photos yet</div>`}</div>`).join('')}
+      </div>
+      <p class="tiny dimmer">Tag photos on the Field tab as before / during / after and they line up here.</p>
+    </div>
+    <div class="card">
+      <h3>Money in and out</h3>
+      <div class="row" style="margin-bottom:8px">
+        <select id="ledDir" style="width:110px"><option>expense</option><option>revenue</option></select>
+        <input type="text" id="ledCat" placeholder="category" style="width:120px">
+        <input type="number" id="ledAmt" placeholder="amount" style="width:110px">
+        <input type="text" id="ledMemo" placeholder="memo" style="flex:1;min-width:120px">
+        <button class="btn sm" id="ledAdd">Add</button>
+      </div>
+      <div class="grid g3" style="gap:8px;margin-bottom:8px">
+        ${stat(money(led.expenses).replace('$',''),'spent','red')}${stat(money(led.revenue).replace('$',''),'collected','green')}
+        ${stat(money(led.net).replace('$',''),'net',led.net>=0?'green':'red')}</div>
+      ${led.entries.slice(0,12).map(e=>`<div class="line money">
+        <span class="p ${e.direction==='revenue'?'pos':'neg'}">${e.direction==='revenue'?'+':'-'}${money(e.amount)}</span>
+        <span>${esc(e.category)} <span class="dimmer tiny">${esc(e.occurred_on||'')} ${e.memo?'&middot; '+esc(e.memo):''}</span></span></div>`).join('')
+        || '<p class="muted tiny">No entries yet.</p>'}
+    </div>
+    <div class="card">
+      <h3>Tenants &amp; leases</h3>
+      <div class="row" style="margin-bottom:8px">
+        <input type="text" id="lsName" placeholder="tenant" style="flex:1;min-width:110px">
+        <input type="number" id="lsRent" placeholder="rent / mo" style="width:110px">
+        <input type="text" id="lsStart" placeholder="start YYYY-MM-DD" style="width:150px">
+        <button class="btn sm" id="lsAdd">Add lease</button>
+      </div>
+      ${leases.leases.map(l=>`<div class="line money"><span class="p">${money(l.rent)}</span>
+        <span><span class="tag ${l.status==='active'?'green':''}">${esc(l.status)}</span> <b>${esc(l.tenant_name||'')}</b>
+          <span class="dimmer tiny">${esc(l.start_date||'')}${l.end_date?' to '+esc(l.end_date):''}</span></span></div>`).join('')
+        || '<p class="muted tiny">No leases.</p>'}
+    </div>
+  </div>`;
+  $('#ownSave').onclick = async ()=>{
+    const body = {};
+    document.querySelectorAll('[data-own]').forEach(i=>{ if(i.value!=='') body[i.dataset.own] = i.type==='number'?Number(i.value):i.value; });
+    await api(`/api/portfolio/${p.id}`,{method:'POST',body:JSON.stringify(body)});
+    toast('Saved to your portfolio.'); render();
+  };
+  $('#projAdd').onclick = async ()=>{
+    const name = prompt('Project name', 'Make-ready'); if(!name) return;
+    await api(`/api/rehab/${p.id}/project`,{method:'POST',body:JSON.stringify({name})}); render();
+  };
+  $('#ledAdd').onclick = async ()=>{
+    const amt = Number($('#ledAmt').value); if(!amt) return toast('Enter an amount');
+    await api(`/api/property/${p.id}/ledger`,{method:'POST',body:JSON.stringify({
+      direction:$('#ledDir').value, category:$('#ledCat').value||'general', amount:amt, memo:$('#ledMemo').value})});
+    render();
+  };
+  $('#lsAdd').onclick = async ()=>{
+    await api(`/api/property/${p.id}/lease`,{method:'POST',body:JSON.stringify({
+      tenant_name:$('#lsName').value, rent:Number($('#lsRent').value)||null, start_date:$('#lsStart').value||null})});
+    render();
+  };
+}
+const ownField = (k,label,mine,type='number')=>`<div><label class="fl">${esc(label)}</label>
+  <input type="${type}" data-own="${k}" value="${mine&&mine[k]!==null&&mine[k]!==undefined?esc(mine[k]):''}"></div>`;
+window.addRehabTask = (projectId, pid)=>{
+  const m = modal(`<h3>New renovation task</h3>
+    <div class="field"><label class="fl">Category</label><select id="rtCat">
+      ${['demolition','roof','plumbing','electrical','HVAC','windows','doors','drywall','paint','flooring','kitchen','bathroom','landscaping','cleanup','inspections','other'].map(c=>`<option>${c}</option>`).join('')}</select></div>
+    <div class="field"><label class="fl">Title</label><input type="text" id="rtTitle"></div>
+    <div class="field"><label class="fl">Budget</label><input type="number" id="rtBudget"></div>
+    <div class="field"><label class="fl">Contractor</label><input type="text" id="rtWho"></div>
+    <button class="btn primary" id="rtSave">Add</button>`);
+  $('#rtSave').onclick = async ()=>{
+    await api('/api/rehab/task',{method:'POST',body:JSON.stringify({project_id:projectId, property_id:pid,
+      category:$('#rtCat').value, title:$('#rtTitle').value||$('#rtCat').value,
+      budget:Number($('#rtBudget').value)||null, contractor:$('#rtWho').value||null})});
+    m.remove(); render();
+  };
+};
+window.editRehabTask = (taskId)=>{
+  const m = modal(`<h3>Update task</h3>
+    <div class="field"><label class="fl">Status</label><select id="rtStatus">
+      ${['todo','in progress','done','skipped'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+    <div class="field"><label class="fl">Actual cost</label><input type="number" id="rtActual"></div>
+    <div class="field"><label class="fl">Notes</label><input type="text" id="rtNotes"></div>
+    <button class="btn primary" id="rtSave">Save</button>`);
+  $('#rtSave').onclick = async ()=>{
+    const body = {status:$('#rtStatus').value};
+    if($('#rtActual').value!=='') body.actual = Number($('#rtActual').value);
+    if($('#rtNotes').value) body.notes = $('#rtNotes').value;
+    await api(`/api/rehab/task/${taskId}`,{method:'POST',body:JSON.stringify(body)});
+    m.remove(); render();
+  };
+};
 window.setState = async (id,state)=>{
   await api(`/api/property/${id}/state`,{method:'POST',body:JSON.stringify({state})});
   toast('Moved to '+state); render();
@@ -1000,6 +1306,18 @@ function tabAI(d){
   };
 }
 
+window.downloadPdf = async (id, btn)=>{
+  const old = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
+  try{
+    const r = await fetch(`/api/property/${id}/report.pdf`);
+    if(!r.ok){ const t = await r.json().catch(()=>({detail:r.statusText})); throw new Error(t.detail); }
+    const blob = await r.blob(); const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = (r.headers.get('content-disposition')||'').match(/filename="([^"]+)"/)?.[1] || 'property.pdf';
+    a.click(); setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  }catch(e){ toast('PDF: '+e.message, 5000); }
+  finally{ btn.disabled=false; btn.innerHTML=old; }
+};
 window.runInvestigation = async (id)=>{
   const m = modal(`<h2 style="margin-top:0">Investigating</h2>
     <p class="tiny muted">Eighteen stages. Each one does real work or says plainly that
@@ -1088,22 +1406,32 @@ VIEWS.deals = async (v)=>{
 
 VIEWS.portfolio = async (v)=>{
   const p = await api('/api/portfolio');
+  const rehabs = await Promise.all(p.properties.map(x=>api(`/api/rehab/${x.property_id}`)));
   v.innerHTML = `<h1>My properties</h1>
   <p class="lede">${esc(p.note)}</p>
   <div class="grid g4" style="margin-bottom:16px">
     ${stat(p.count,'properties')}${stat(p.units,'units')}
     ${stat(money(p.monthly_rent).replace('$',''),'monthly rent','green')}
-    ${stat(money(p.equity).replace('$',''),'equity','accent')}</div>
-  ${p.properties.length?`<div class="grid g3">${p.properties.map(x=>`
-    <div class="card"><b>${esc(x.address||x.parcel_id)}</b>
+    ${stat(money(p.annual_rent).replace('$',''),'annual rent')}
+    ${stat(money(p.portfolio_value).replace('$',''),'portfolio value','accent')}
+    ${stat(money(p.debt).replace('$',''),'debt','red')}
+    ${stat(money(p.equity).replace('$',''),'equity','gold')}
+    ${stat(money(p.expenses_to_date).replace('$',''),'spent to date')}</div>
+  ${p.properties.length?`<div class="grid g3">${p.properties.map((x,i)=>{
+      const r = rehabs[i]; const budget = r.projects.reduce((s,pr)=>s+(pr.budget_total||pr.budget||0),0);
+      const actual = r.projects.reduce((s,pr)=>s+(pr.actual_total||0),0);
+      return `<div class="card"><div class="spread"><b>${esc(x.address||x.parcel_id)}</b>
+        <span class="tag ${x.state==='RENTED'?'green':'yellow'}">${esc(x.state)}</span></div>
       <dl class="kv" style="margin-top:9px">
-        ${kv('Purchased', money(x.purchase_price), true)}
-        ${kv('Rehab actual', money(x.rehab_actual), true)}
+        ${kv('Purchased', money(x.purchase_price)+(x.purchase_date?' &middot; '+esc(x.purchase_date):''), true)}
         ${kv('Current value', money(x.current_value), true)}
-        ${kv('Loan', money(x.loan_amount), true)}</dl></div>`).join('')}</div>`
-    :`<div class="card muted">Nothing owned yet. When you buy one, open it and move it
-      to the PORTFOLIO state &mdash; renovation tracking, before/after photos and the
-      money ledger all hang off that.</div>`}`;
+        ${kv('Loan', money(x.loan_amount), true)}
+        ${kv('Equity', money((x.current_value||0)-(x.loan_amount||0)), true)}
+        ${kv('Rehab', budget||actual ? `${money(actual)} of ${money(budget)}` : 'none tracked', true)}</dl>
+      <button class="btn sm primary" style="margin-top:10px" onclick="go('property',${x.property_id})">Open</button></div>`;}).join('')}</div>`
+    :`<div class="card muted">Nothing owned yet. When you buy one, open it and fill in the
+      <b>Own it</b> tab &mdash; renovation tracking, before/after photos and the money ledger
+      all hang off that.</div>`}`;
 };
 
 VIEWS.sources = async (v)=>{

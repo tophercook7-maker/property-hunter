@@ -68,6 +68,7 @@ h3{font-size:13.5px;margin:0 0 8px;color:var(--dim);text-transform:uppercase;
 .grid{display:grid;gap:14px}
 .g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
 .g-scan{grid-template-columns:minmax(380px,1.75fr) minmax(260px,1fr)}
+.g-form{grid-template-columns:1fr 1fr;gap:8px}
 @media (max-width:900px){.g-scan{grid-template-columns:1fr}}
 .g3{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .g4{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
@@ -298,3 +299,15 @@ label.fl{font-size:11.5px;color:var(--dim);display:block;margin-bottom:4px}
 .taskhead>button,.taskhead>span{flex:0 0 auto}
 .taskprop{font-size:13px;font-weight:650;margin-bottom:3px}
 .taskprop a{color:var(--accent2)}
+
+/* Photos & before/after */
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px}
+.ptile{margin:0;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r2);overflow:hidden}
+.ptile img{width:100%;height:120px;object-fit:cover;display:block;transition:transform .2s}
+.ptile:hover img{transform:scale(1.04)}
+.ptile figcaption{padding:6px 8px;font-size:12px}
+.ba{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.bacol img{width:100%;height:90px;object-fit:cover;border-radius:6px;margin-top:6px;display:block}
+.baempty{margin-top:6px;height:90px;border:1px dashed var(--line2);border-radius:6px;display:grid;
+  place-items:center;font-size:11.5px;color:var(--dimmer);text-align:center;padding:6px}
+audio::-webkit-media-controls-panel{background:var(--panel2)}

@@ -137,6 +137,7 @@ class HotSpringsVacantStructures(_City):
             tl = [{"event_date": eff, "kind": "vacancy",
                    "title": "Recorded on the City's vacant-structure register",
                    "source": self.name, "source_url": self.url}]
+            attach_parcel(fields)
             recs.append(Record(source=self.name,
                                identity={"rpid": fields["rpid"], "address": addr,
                                          "lat": fields["lat"], "lon": fields["lon"],
@@ -242,6 +243,7 @@ class HotSpringsCleanupLiens(_City):
                       "address": title_case(addr) if addr else None, "city": "HOT SPRINGS",
                       "rpid": str(a["RPID"]) if a.get("RPID") else None,
                       "lat": c[1] if c else None, "lon": c[0] if c else None, **extra}
+            attach_parcel(fields)
             recs.append(Record(source=self.name,
                                identity={"rpid": fields["rpid"], "address": addr,
                                          "lat": fields["lat"], "lon": fields["lon"],
@@ -324,6 +326,7 @@ class HotSpringsCodeCases(_City):
             fields = {"county_fips": "05051", "territory": "garland_ar",
                       "address": title_case(addr) if addr else None, "city": "HOT SPRINGS",
                       "lat": g.get("y"), "lon": g.get("x")}
+            attach_parcel(fields)
             recs.append(Record(source=self.name,
                                identity={"address": addr, "lat": g.get("y"), "lon": g.get("x"),
                                          "county_fips": "05051"},
@@ -536,6 +539,58 @@ class HotSpringsCityProperty(_City):
         return SourceResult(status=OK, detail="City-owned" + (" (vacant)" if vac else ""),
                             records=[Record(source=self.name, identity={"id": prop["id"]},
                                             evidence=ev, raw=a)])
+
+
+# ------------------------------------------------------- parcel lookup ---
+
+def parcel_at(lat: float, lon: float) -> dict | None:
+    """Which county parcel contains this point, per the City's roll copy.
+
+    Cached in the database by ~1 m coordinate cell: register polygons do not
+    move, so after the first scan this is a local read, not a request.
+    """
+    key = f"{lat:.5f},{lon:.5f}"
+    db.connect().execute(
+        "CREATE TABLE IF NOT EXISTS parcel_lookup (cell TEXT PRIMARY KEY, parcel_id TEXT, "
+        "owner_name TEXT, total_value REAL, land_value REAL, imp_value REAL, legal TEXT, "
+        "parcel_type TEXT, mailing TEXT, looked_up_at TEXT)")
+    row = db.q1("SELECT * FROM parcel_lookup WHERE cell=?", (key,))
+    if row:
+        return dict(row) if row["parcel_id"] else None
+    try:
+        feats = _query("Housing_Liens_WFL1", 0, where="1=1",
+                       out_fields="ParcelId,OwnerName,MailingAdd,ParcelLgl,ImpValue,LandValue,"
+                                  "TotalValue,ParcelType",
+                       extra=_point_geom(lat, lon))
+    except Exception:
+        return None                      # do not cache a failure
+    a = (feats[0]["attributes"] if feats else {}) or {}
+    rec = {"cell": key, "parcel_id": (a.get("ParcelId") or "").strip() or None,
+           "owner_name": (a.get("OwnerName") or "").strip() or None,
+           "total_value": a.get("TotalValue"), "land_value": a.get("LandValue"),
+           "imp_value": a.get("ImpValue"), "legal": (a.get("ParcelLgl") or "").strip() or None,
+           "parcel_type": (a.get("ParcelType") or "").strip() or None,
+           "mailing": (a.get("MailingAdd") or "").strip() or None,
+           "looked_up_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    db.ex("INSERT OR REPLACE INTO parcel_lookup VALUES (?,?,?,?,?,?,?,?,?,?)",
+          tuple(rec.values()))
+    return rec if rec["parcel_id"] else None
+
+
+def attach_parcel(fields: dict) -> dict:
+    """Give a register record its parcel id (and the roll facts it lacked)
+    BEFORE identity resolution, so two accounts on one parcel land on one
+    property instead of fighting over it."""
+    if fields.get("parcel_id") or fields.get("lat") is None:
+        return fields
+    hit = parcel_at(fields["lat"], fields["lon"])
+    if not hit:
+        return fields
+    fields["parcel_id"] = hit["parcel_id"]
+    for k in ("owner_name", "legal", "parcel_type", "total_value", "land_value", "imp_value"):
+        if fields.get(k) in (None, "", 0) and hit.get(k) not in (None, ""):
+            fields[k] = hit[k]
+    return fields
 
 
 # ------------------------------------------------------- owner mailing ---

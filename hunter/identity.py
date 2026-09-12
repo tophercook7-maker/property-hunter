@@ -64,8 +64,11 @@ def resolve(fields: dict) -> tuple[int | None, str]:
         if not row:
             return False
         other_parcel = normalize_parcel(row["parcel_id"])
-        if parcel and other_parcel and other_parcel != parcel:
-            return True
+        if parcel and other_parcel:
+            # The parcel id is the property. Several RPIDs (accounts) and
+            # several house numbers can live on one parcel - e.g. 300 and 308
+            # Walnut are two structures on parcel 400-27900-001-000.
+            return other_parcel != parcel
         other_rpid = squash(row["rpid"])
         if incoming_rpid and other_rpid:
             # The City's own parcel identifier settles it either way: the same

@@ -361,3 +361,43 @@ def test_adopting_a_parcel_id_with_no_existing_record_just_sets_it(boundaries):
     # and the alias now resolves a future county record onto it
     pid, action, _ = store.ingest(make_record(parcel_id="300-77777-000", address="9 Lone St"))
     assert pid == reg and action != "created"
+
+
+# ------------------------------------- several accounts on one parcel (54)
+
+def test_two_register_accounts_on_one_parcel_are_one_property(boundaries, monkeypatch):
+    """300 Walnut (RPID 55568) and 308 Walnut (RPID 55569) sit on parcel
+    400-27900-001-000. They must land on one property, keep both RPIDs, and
+    never churn."""
+    roll = {"attributes": {"ParcelId": "400-27900-001-000", "OwnerName": "WALNUT LLC",
+                           "TotalValue": 30000.0, "LandValue": 20000.0, "ImpValue": 10000.0,
+                           "ParcelLgl": "LOT 1", "ParcelType": "RI", "MailingAdd": "X"}}
+    monkeypatch.setattr(hs, "_query", _fake_query({("Housing_Liens_WFL1", 0): [roll]}))
+    county, _, _ = store.ingest(make_record(parcel_id="400-27900-001-000", address="308 Walnut St",
+                                            lat=34.500, lon=-93.050))
+    a = hs.attach_parcel({"address": "300 Walnut", "rpid": "55568", "lat": 34.50005, "lon": -93.05005,
+                          "county_fips": "05051"})
+    assert a["parcel_id"] == "400-27900-001-000"
+    pid, action, _ = store.ingest(make_record(**{**a, "legal": None, "owner_name": None}))
+    assert pid == county and action != "created"
+    b = hs.attach_parcel({"address": "308 Walnut", "rpid": "55569", "lat": 34.50006, "lon": -93.05004,
+                          "county_fips": "05051"})
+    pid2, action2, _ = store.ingest(make_record(**{**b, "legal": None, "owner_name": None}))
+    assert pid2 == county and action2 != "created"
+    assert db.q1("SELECT COUNT(*) c FROM properties")["c"] == 1
+    rpids = {e["value"] for e in store.evidence_for(county) if e["field"] == "additional_rpid"}
+    assert rpids                                              # the second account is kept
+    # the lookup is cached: a second attach makes no request
+    monkeypatch.setattr(hs, "_query", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no!")))
+    assert hs.attach_parcel({"lat": 34.50005, "lon": -93.05005})["parcel_id"] == "400-27900-001-000"
+
+
+def test_register_discovery_attaches_parcels(boundaries, monkeypatch):
+    roll = {"attributes": {"ParcelId": "400-1", "OwnerName": "O", "TotalValue": 1.0,
+                           "LandValue": 1.0, "ImpValue": 0.0, "ParcelLgl": "L", "ParcelType": "RV",
+                           "MailingAdd": "X"}}
+    monkeypatch.setattr(hs, "_query", _fake_query({("Vacant_Structures_view", 99): [VACANT],
+                                                   ("Housing_Liens_WFL1", 0): [roll]}))
+    res = hs.HS_VACANT.discover()
+    assert res.records[0].fields["parcel_id"] == "400-1"
+    assert res.records[0].fields["owner_name"] == "O"

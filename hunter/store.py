@@ -92,6 +92,7 @@ def ingest(record: Record, *, data_class: str = "real",
     verdict = exclusions.check_property(fields)
 
     changes: list[dict] = []
+    extra_rpid = None
     if prop_id is None:
         key = identity.canonical_key(fields)
         if not key:
@@ -159,6 +160,10 @@ def ingest(record: Record, *, data_class: str = "real",
                                "NEEDS VERIFICATION", utcnow()))
                     fields.pop("address", None)
                     fields.pop("address_norm", None)
+        extra_rpid = None
+        if fields.get("rpid") and existing.get("rpid") and \
+                str(existing["rpid"]) != str(fields["rpid"]):
+            extra_rpid = str(fields.pop("rpid"))       # second account on this parcel
         for k, v in fields.items():
             old = existing.get(k)
             if v is None:
@@ -192,6 +197,16 @@ def ingest(record: Record, *, data_class: str = "real",
         action = "updated" if changes else "seen"
 
     identity.record_aliases(prop_id, fields, record.source)
+    if action != "created" and extra_rpid:
+        identity.record_aliases(prop_id, {"rpid": extra_rpid, "county_fips": fields.get("county_fips")},
+                                record.source)
+        if not db.q1("SELECT 1 FROM evidence WHERE property_id=? AND field='additional_rpid' "
+                     "AND value=?", (prop_id, extra_rpid)):
+            store_evidence(prop_id, [{
+                "field": "additional_rpid", "value": extra_rpid,
+                "evidence_type": "FACT", "confidence": "HIGH", "source": record.source,
+                "raw_ref": f"a second account ({fields.get('address') or 'no address'}) on "
+                           f"the same parcel; the roll can carry several structures per parcel"}])
     store_evidence(prop_id, record.evidence)
     store_timeline(prop_id, record.timeline)
     snapshot(prop_id, record.source, record.raw or fields)

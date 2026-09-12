@@ -20,7 +20,10 @@ def clean_db():
     from hunter import db, exclusions
     db.init_db()
     conn = db.connect()
-    for t in ("properties", "property_aliases", "evidence", "conflicts", "snapshots",
+    conn.execute("CREATE TABLE IF NOT EXISTS parcel_lookup (cell TEXT PRIMARY KEY, parcel_id TEXT, "
+                 "owner_name TEXT, total_value REAL, land_value REAL, imp_value REAL, legal TEXT, "
+                 "parcel_type TEXT, mailing TEXT, looked_up_at TEXT)")
+    for t in ("parcel_lookup", "properties", "property_aliases", "evidence", "conflicts", "snapshots",
               "changes", "timeline", "scores", "watchlist", "alerts", "tasks",
               "notes", "decisions", "investigations", "logs", "scans"):
         conn.execute(f"DELETE FROM {t}")

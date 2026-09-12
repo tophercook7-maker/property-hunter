@@ -130,7 +130,9 @@ is folded onto it with its history intact.
 registers. A property that carried one of those records last time and is not on the
 register now gets an observation, a timeline event and an alert ("came off the
 vacant-structure register") — phrased as what was observed, because the layer does not
-say whether it was resolved, demolished, sold or paid off.
+say whether it was resolved, demolished, sold or paid off. Removals are keyed on the
+record itself (case number, register RPID, lien RPID + date + amount), never on which
+property row it happened to land on, so identity drift can never fake one.
 
 **Fuzzy search** — "111 Isabel Street", "Malvurn" or "Tucker Aquisitions" still find the
 right property; the response says what it matched on.

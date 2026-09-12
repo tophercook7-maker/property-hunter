@@ -341,6 +341,8 @@ class Scan:
                     seen += 1
             total_new += new
             total_seen += seen
+            # Register rows are records we examined, whatever mode we are in.
+            self.stats["records_examined"] += len(res.records)
             details.append(f"{len(res.records)} {src.label.split(' - ')[-1]} ({new} new)")
         self.stats["properties_matched"] = len(set(self.touched))
         self.stats["new_properties"] += total_new

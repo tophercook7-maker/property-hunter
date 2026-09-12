@@ -310,3 +310,54 @@ def test_scan_manual_tasks_are_capped_to_first_line_sources(boundaries, monkeypa
     assert 0 < len(per_property) <= 10
     assert all(r["n"] <= 4 for r in per_property)          # assessor, tax, COSL, recorder only
     assert not db.q1("SELECT 1 FROM tasks WHERE source='hs_planning_zoning'")
+
+
+# ------------------------------------ register-only properties learn their parcel
+
+ROLL_ROW = {"attributes": {"ParcelId": "300-06186-000", "OwnerName": "TUCKER ACQUISITIONS LLC",
+                           "MailingAdd": "8525 SARAH LN  MABELVALE AR 72103",
+                           "AdrLabel": "111  ISABELLE ST", "AdrCity": "HOT SPRINGS",
+                           "AdrZip5": 71901, "SourceDate": 1511222400000, "ParcelLgl": "PT NE SE",
+                           "AssesValue": 24250.0, "ImpValue": 1050.0, "LandValue": 23200.0,
+                           "TotalValue": 24250.0, "ParcelType": "RI"}}
+
+
+def test_a_register_only_property_learns_its_parcel_by_location(boundaries, monkeypatch):
+    pid, _, _ = store.ingest(make_record(parcel_id=None, address="111 Isabelle", rpid="51362",
+                                         legal=None, owner_name=None, total_value=None,
+                                         land_value=None, imp_value=None, parcel_type=None))
+    monkeypatch.setattr(hs, "_query", _fake_query({("Housing_Liens_WFL1", 0): [ROLL_ROW]}))
+    res = hs.HS_OWNER_MAILING.enrich(store.get_property(pid))
+    assert res.status == "ok" and res.detail == "out of county"
+    f = res.records[0].fields
+    assert f["parcel_id"] == "300-06186-000" and f["owner_name"] == "TUCKER ACQUISITIONS LLC"
+    assert f["total_value"] == 24250.0 and f["parcel_type"] == "RI"
+    ev = {e["field"] for e in res.records[0].evidence}
+    assert {"parcel_id", "owner_name", "owner_mailing_address", "absentee_owner"} <= ev
+
+
+def test_adopting_a_parcel_id_merges_into_the_existing_county_record(boundaries):
+    county, _, _ = store.ingest(make_record())                      # 300-06186-000
+    reg, _, _ = store.ingest(make_record(parcel_id=None, address="111 Isabelle", rpid="51362",
+                                         legal=None, owner_name=None, lat=34.5109, lon=-93.0509))
+    assert reg != county
+    store.store_evidence(reg, [{"field": "vacant_structure", "value": "on the register",
+                                "evidence_type": "FACT", "confidence": "HIGH",
+                                "source": "hs_gis_vacant"}])
+    survivor = store.adopt_parcel_id(reg, "300-06186-000")
+    assert survivor == county
+    assert db.q1("SELECT COUNT(*) c FROM properties")["c"] == 1
+    fields = {e["field"] for e in store.evidence_for(county)}
+    assert "vacant_structure" in fields                              # history moved over
+    assert db.q1("SELECT 1 FROM timeline WHERE property_id=? AND kind='identity'", (county,))
+
+
+def test_adopting_a_parcel_id_with_no_existing_record_just_sets_it(boundaries):
+    reg, _, _ = store.ingest(make_record(parcel_id=None, address="9 Lone St", rpid="1",
+                                         legal=None, owner_name=None))
+    assert store.adopt_parcel_id(reg, "300-77777-000") == reg
+    p = store.get_property(reg)
+    assert p["parcel_id"] == "300-77777-000" and p["canonical_key"].startswith("parcel:")
+    # and the alias now resolves a future county record onto it
+    pid, action, _ = store.ingest(make_record(parcel_id="300-77777-000", address="9 Lone St"))
+    assert pid == reg and action != "created"

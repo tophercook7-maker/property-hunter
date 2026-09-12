@@ -72,6 +72,7 @@ STAGES = [
     ("identity", "Matching records to properties we already know"),
     ("exclusion", "Applying the Hot Springs Village / Diamondhead exclusions"),
     ("city_registers", "Reading the City's vacancy, lien and code registers"),
+    ("parcel_ids", "Matching register records to their county parcels"),
     ("distress", "Looking for distress signals"),
     ("structures", "Checking for buildings on the ground"),
     ("flood", "Checking FEMA flood zones"),
@@ -198,6 +199,7 @@ class Scan:
             self._ingest(records)
             self._exclusion()
             self._city_registers()
+            self._parcel_ids()
             self._distress()
             self._enrich()
             self._manual()
@@ -391,6 +393,60 @@ class Scan:
         self.finish("city_registers", "done" if details else "skipped",
                     "; ".join(details) or "no City registers enabled")
 
+    def _parcel_ids(self, budget: float = 300.0) -> None:
+        """A register polygon says where a property is, not which parcel it is.
+        One cheap point-in-polygon lookup against the City's roll copy gives the
+        parcel id, owner, values and mailing address - and, when the county
+        record already exists, folds the register record onto it."""
+        src = get_source("hs_gis_owner_mailing")
+        if not src or not src.enabled():
+            self.finish("parcel_ids", "skipped", "roll-copy source disabled")
+            return
+        ids = [r["id"] for r in db.q(
+            "SELECT id FROM properties WHERE parcel_id IS NULL AND lat IS NOT NULL "
+            "AND excluded=0 ORDER BY id")]
+        self.begin("parcel_ids", f"{len(ids)} properties lack a parcel id", total=len(ids))
+        matched = merged = missed = 0
+        deadline = time.monotonic() + budget
+        for n, pid in enumerate(ids, 1):
+            if time.monotonic() > deadline:
+                self.log(f"parcel_ids: {budget:.0f}s budget reached, {len(ids) - n + 1} left "
+                         f"for the next scan", level="warn", source=src.name, stage="parcel_ids")
+                break
+            p = store.get_property(pid)
+            if not p:
+                continue
+            res = src.enrich(p)
+            if res.status != OK or not res.records:
+                missed += 1
+                continue
+            rec = res.records[0]
+            store.store_evidence(pid, rec.evidence)
+            cols = {k: v for k, v in (rec.fields or {}).items()
+                    if k in store.WRITABLE and v is not None}
+            parcel = cols.pop("parcel_id", None)
+            if parcel:
+                survivor = store.adopt_parcel_id(pid, parcel)
+                if survivor != pid:
+                    merged += 1
+                    pid = survivor
+                else:
+                    matched += 1
+                if cols:
+                    sets = ",".join(f"{k}=?" for k in cols)
+                    db.ex(f"UPDATE properties SET {sets} WHERE id=?", (*cols.values(), pid))
+            else:
+                missed += 1
+            self.touched.append(pid)
+            if n % 20 == 0 or n == len(ids):
+                self.tick("parcel_ids", n, len(ids), f"{matched} matched, {merged} merged")
+        src.record_attempt(SimpleResult(OK if (matched or merged) else "unavailable",
+                                        f"{matched} matched, {merged} merged, {missed} not found"))
+        self.stats["properties_matched"] = len(set(self.touched))
+        self.finish("parcel_ids", "done",
+                    f"{matched} learned their parcel id, {merged} merged onto the county "
+                    f"record, {missed} not in the City's roll copy")
+
     def _distress(self) -> None:
         ids = [i for i in set(self.touched)
                if not (db.q1("SELECT excluded FROM properties WHERE id=?", (i,)) or {})["excluded"]]
@@ -458,6 +514,10 @@ class Scan:
                         # returns something else must not be able to kill a scan.
                         cols = {k: v for k, v in (rec.fields or {}).items()
                                 if k in store.WRITABLE and v is not None}
+                        if cols.get("parcel_id") and not (p.get("parcel_id") or ""):
+                            survivor = store.adopt_parcel_id(pid, cols.pop("parcel_id"))
+                            if survivor != pid:
+                                pid = survivor          # the county record wins
                         if cols:
                             sets = ",".join(f"{k}=?" for k in cols)
                             db.ex(f"UPDATE properties SET {sets} WHERE id=?",

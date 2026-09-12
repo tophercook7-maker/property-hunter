@@ -327,3 +327,28 @@ def add_task(prop_id: int | None, task: dict) -> int:
          task.get("where_to_look"), task.get("source"), task.get("source_url"),
          task.get("owner", "Topher"), task.get("manual", 0), utcnow()))
     return cur.lastrowid
+
+
+def adopt_parcel_id(prop_id: int, parcel_id: str) -> int:
+    """A property we only knew by location has learned its parcel id.
+
+    If a property with that parcel id already exists (the county record the
+    register polygon should have matched), fold this one INTO it and return the
+    survivor's id; otherwise just set the id. Either way, history is kept.
+    """
+    from . import identity
+    from .normalize import normalize_parcel
+    norm = normalize_parcel(parcel_id)
+    row = db.q1("SELECT id FROM properties WHERE id!=? AND "
+                "REPLACE(REPLACE(parcel_id,'-',''),' ','')=?", (prop_id, norm))
+    if row:
+        keep = row["id"]
+        identity.merge_duplicates(keep, prop_id)
+        add_timeline(keep, "identity", "Merged a City-register record onto this parcel",
+                     f"register record #{prop_id} matched by the parcel polygon")
+        return keep
+    db.ex("UPDATE properties SET parcel_id=?, canonical_key=? WHERE id=?",
+          (parcel_id, f"parcel:05051:{norm}", prop_id))
+    identity.record_aliases(prop_id, {"parcel_id": parcel_id, "county_fips": "05051"},
+                            "hs_gis_owner_mailing")
+    return prop_id

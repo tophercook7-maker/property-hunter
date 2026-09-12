@@ -146,10 +146,14 @@ def _city(prop, source_name: str) -> tuple[list, str, bool]:
         store.store_evidence(prop["id"], rec.evidence)
         store.store_timeline(prop["id"], rec.timeline)
         if rec.fields:
-            sets = ",".join(f"{k}=?" for k in rec.fields if k in ("zoning", "rpid"))
-            vals = [v for k, v in rec.fields.items() if k in ("zoning", "rpid")]
-            if sets:
-                db.ex(f"UPDATE properties SET {sets} WHERE id=?", (*vals, prop["id"]))
+            if rec.fields.get("parcel_id") and not prop.get("parcel_id"):
+                store.adopt_parcel_id(prop["id"], rec.fields["parcel_id"])
+            keep = {k: v for k, v in rec.fields.items()
+                    if k in ("zoning", "rpid", "owner_name", "legal", "total_value",
+                             "land_value", "imp_value", "parcel_type") and v is not None}
+            if keep:
+                sets = ",".join(f"{k}=?" for k in keep)
+                db.ex(f"UPDATE properties SET {sets} WHERE id=?", (*keep.values(), prop["id"]))
         for e in rec.evidence:
             findings.append(_f(str(e["value"]), e["confidence"], e["evidence_type"],
                                e["source"], e.get("source_url") or ""))

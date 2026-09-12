@@ -565,24 +565,55 @@ class HotSpringsOwnerMailing(_City):
     svc, lid = "Housing_Liens_WFL1", 0
     url = _url("Housing_Liens_WFL1", 0)
 
+    ROLL_FIELDS = ("ParcelId,OwnerName,MailingAdd,AdrLabel,AdrCity,AdrZip5,SourceDate,"
+                   "ParcelLgl,AssesValue,ImpValue,LandValue,TotalValue,ParcelType")
+
     def enrich(self, prop: dict, **kw) -> SourceResult:
         pid = (prop.get("parcel_id") or "").strip()
-        if not pid:
-            return SourceResult(status=UNAVAILABLE, detail="no parcel id to look up")
         try:
-            feats = _query(self.svc, self.lid, where=f"ParcelId='{pid.replace(chr(39), '')}'",
-                           out_fields="ParcelId,OwnerName,MailingAdd,AdrLabel,AdrCity,AdrZip5,SourceDate")
+            if pid:
+                feats = _query(self.svc, self.lid, where=f"ParcelId='{pid.replace(chr(39), '')}'",
+                               out_fields=self.ROLL_FIELDS)
+            elif prop.get("lat") is not None:
+                # A register polygon told us WHERE it is but not which parcel it is.
+                # The roll copy is a polygon layer, so the centroid answers that.
+                feats = _query(self.svc, self.lid, where="1=1", out_fields=self.ROLL_FIELDS,
+                               extra=_point_geom(prop["lat"], prop["lon"]))
+            else:
+                return SourceResult(status=UNAVAILABLE, detail="no parcel id or coordinates")
         except Exception as exc:
             return SourceResult(status=UNAVAILABLE, error=str(exc), detail=str(exc))
         if not feats:
             return SourceResult(status=OK, detail="parcel not in the City's copy of the roll",
                                 records=[])
         a = feats[0]["attributes"]
+        fields: dict = {}
+        if not pid and a.get("ParcelId"):
+            # Fill in what the register could not tell us. Values only where we
+            # hold nothing - the State layer is the fresher source for those.
+            fields["parcel_id"] = a["ParcelId"].strip()
+            if not prop.get("owner_name") and a.get("OwnerName"):
+                fields["owner_name"] = a["OwnerName"].strip()
+            if not prop.get("legal") and a.get("ParcelLgl"):
+                fields["legal"] = a["ParcelLgl"].strip()
+            if prop.get("total_value") in (None, 0) and a.get("TotalValue"):
+                fields.update(total_value=a.get("TotalValue"), land_value=a.get("LandValue"),
+                              imp_value=a.get("ImpValue"))
+            if not prop.get("parcel_type") and a.get("ParcelType"):
+                fields["parcel_type"] = a["ParcelType"].strip()
         mail = parse_mailing(a.get("MailingAdd"))
         eff = _ms(a.get("SourceDate"))
         ev = []
+        if fields.get("parcel_id"):
+            ev.append(self.fact("parcel_id", fields["parcel_id"], eff=eff,
+                                note="matched by the parcel polygon that contains this "
+                                     "property's location"))
+            if fields.get("owner_name"):
+                ev.append(self.fact("owner_name", fields["owner_name"], eff=eff))
         if not mail["raw"] or mail["raw"] in ("AR 00000",):
-            return SourceResult(status=OK, detail="no mailing address on the roll", records=[])
+            return SourceResult(status=OK, detail="no mailing address on the roll",
+                                records=[Record(source=self.name, identity={"id": prop["id"]},
+                                                fields=fields, evidence=ev)] if fields else [])
         ev.append(self.fact("owner_mailing_address", mail["raw"], eff=eff,
                             note="where the county sends the tax bill, per the roll copy "
                                  "the City holds"))
@@ -612,7 +643,8 @@ class HotSpringsOwnerMailing(_City):
                                      "landlords with good managers both mail elsewhere."))
         return SourceResult(status=OK, detail=(kind or "mailing address on file").replace("_", " "),
                             records=[Record(source=self.name, identity={"id": prop["id"]},
-                                            evidence=ev, raw={"mailing": mail, "kind": kind})])
+                                            fields=fields, evidence=ev,
+                                            raw={"mailing": mail, "kind": kind})])
 
 
 HS_VACANT = register(HotSpringsVacantStructures())

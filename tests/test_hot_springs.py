@@ -522,3 +522,20 @@ def test_a_centroid_in_the_street_finds_the_parcel_next_to_it_by_address(boundar
     assert hit and hit["parcel_id"] == "400-28500-025-000"
     # three candidates and no address to check -> honestly nothing
     assert hsmod.parcel_at(34.52900, -93.05500, None) is None
+
+
+def test_owner_and_values_come_from_the_state_layer_when_the_city_copy_lacks_the_parcel(boundaries, monkeypatch):
+    from hunter.sources import hot_springs as hsmod
+    monkeypatch.setattr(hsmod, "_query", _fake_query({}))                  # City copy: no such parcel
+    monkeypatch.setattr(hsmod, "arcgis_query", lambda *a, **k: {"features": [{"attributes": {
+        "parcelid": "400-28500-025-000", "ownername": "MEEK, GARY A", "parcellgl": "LOT 25",
+        "impvalue": 30000.0, "landvalue": 9000.0, "totalvalue": 39000.0, "parceltype": "RI",
+        "sourcedate": 1511222400000}}]})
+    pid, _, _ = store.ingest(make_record(parcel_id="400-28500-025-000", address="214 Holly",
+                                         rpid="9", legal=None, owner_name=None, total_value=None,
+                                         land_value=None, imp_value=None, parcel_type=None))
+    res = hsmod.HS_OWNER_MAILING.enrich(store.get_property(pid))
+    assert res.status == "ok"
+    f = res.records[0].fields
+    assert f["owner_name"] == "MEEK, GARY A" and f["total_value"] == 39000.0 and "parcel_id" not in f
+    assert not any(e["field"] in ("owner_mailing_address", "absentee_owner") for e in res.records[0].evidence)

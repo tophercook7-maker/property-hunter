@@ -720,15 +720,36 @@ class HotSpringsOwnerMailing(_City):
                 return SourceResult(status=UNAVAILABLE, detail="no parcel id or coordinates")
         except Exception as exc:
             return SourceResult(status=UNAVAILABLE, error=str(exc), detail=str(exc))
+        if not feats and pid:
+            # The City's copy lacks this parcel (city-edge lots). The State layer
+            # has every parcel in the county - owner and values, no mailing address.
+            try:
+                data = arcgis_query(STATE_SERVICE, STATE_LAYER,
+                                    where=f"parcelid='{pid.replace(chr(39), '')}'",
+                                    out_fields="parcelid,ownername,parcellgl,impvalue,landvalue,"
+                                               "totalvalue,parceltype,sourcedate")
+                f = data.get("features") or []
+                if f:
+                    b = f[0]["attributes"] or {}
+                    feats = [{"attributes": {"ParcelId": b.get("parcelid"), "OwnerName": b.get("ownername"),
+                                             "MailingAdd": None, "AdrLabel": None,
+                                             "ParcelLgl": b.get("parcellgl"), "TotalValue": b.get("totalvalue"),
+                                             "LandValue": b.get("landvalue"), "ImpValue": b.get("impvalue"),
+                                             "ParcelType": b.get("parceltype"), "SourceDate": b.get("sourcedate"),
+                                             "_source": "ar_gis_parcels"}}]
+            except Exception as exc:
+                return SourceResult(status=UNAVAILABLE, error=str(exc), detail=str(exc))
         if not feats:
             return SourceResult(status=OK, detail="parcel not in the City's roll copy or the "
                                                   "State parcel layer", records=[])
         a = feats[0]["attributes"]
         fields: dict = {}
-        if not pid and a.get("ParcelId"):
+        if a.get("ParcelId") and (not pid or not prop.get("owner_name")
+                                  or prop.get("total_value") in (None, 0)):
             # Fill in what the register could not tell us. Values only where we
             # hold nothing - the State layer is the fresher source for those.
-            fields["parcel_id"] = a["ParcelId"].strip()
+            if not pid:
+                fields["parcel_id"] = a["ParcelId"].strip()
             if not prop.get("owner_name") and a.get("OwnerName"):
                 fields["owner_name"] = a["OwnerName"].strip()
             if not prop.get("legal") and a.get("ParcelLgl"):

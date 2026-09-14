@@ -112,7 +112,7 @@ const TESTS = {
   cheaphouse: r => r.iv>0 && r.tv>0 && r.tv<60000,
   cheapland: r => (r.iv||0)===0 && r.tv>0 && r.tv<25000,
   state: r => String(r.ts||'').startsWith('CERTIFIED'),
-  changed: r => (r.chg||[]).length>0,
+  changed: r => (r.chg||[]).some(c=>c.k!=='conflict'),
   high: r => (r.s||0)>=80,
   develop: r => (r.ac||0)>=2 && (r.iv||0)===0,
   new: r => r.seen && (Date.now()-new Date(r.seen).getTime()) < 7*86400000,

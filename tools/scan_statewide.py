@@ -36,7 +36,7 @@ def main():
         while True:
             try:
                 cur = httpx.get(f"{API}/api/scan/current", timeout=20).json()
-                s = cur.get("scan") or cur
+                s = cur.get("scan") or cur.get("last") or cur
                 if not s or s.get("status") != "running":
                     break
             except Exception:
@@ -50,7 +50,7 @@ def main():
             time.sleep(20)
             try:
                 s = httpx.get(f"{API}/api/scan/current", timeout=20).json()
-                s = s.get("scan") or s
+                s = s.get("scan") or s.get("last") or s
             except Exception:
                 continue
             if s.get("status") in ("complete", "failed", "interrupted"):

@@ -28,27 +28,38 @@ def _money(v):
         return 0.0
 
 
-def conflict_change_ids() -> set:
-    """Change rows that are the SOURCE disagreeing with itself, not the world changing.
+def conflict_change_ids() -> dict:
+    """Change rows that are NOT the world changing. Returns {change_id: kind}.
 
-    (a) recorded within ten minutes of the parcel's first sighting: the roll returned two
-        records under one parcel number in the same scan (split lots, land + improvement
-        accounts) and the second overwrote the first;
-    (b) a flip-flop: the same field going A -> B and later B -> A inside the week, which is
-        two roll records taking turns, not an owner selling and buying back.
-    Either way the site must show CONFLICTING, never "owner changed"."""
-    rows = q("""SELECT c.id, c.property_id, c.field, c.old_value, c.new_value,
+    'conflict'  the source disagreeing with itself: recorded within ten minutes of the
+                parcel's first sighting (the roll returned two records under one parcel
+                number and the second overwrote the first), or a flip-flop A -> B -> A
+                inside the week (two roll records taking turns).
+    'sources'   two sources of different vintage: the old value only ever came from a
+                different source than the one that wrote the new value (the City's roll
+                copy said X on its date; the State roll says Y on its date).
+    Either way the site must say CONFLICTING or SOURCES DISAGREE, never "owner changed"."""
+    rows = q("""SELECT c.id, c.property_id, c.field, c.old_value, c.new_value, c.source,
                        (julianday(c.detected_at)-julianday(p.first_seen))*1440 AS mins
                 FROM changes c JOIN properties p ON p.id=c.property_id
                 WHERE c.detected_at > datetime('now','-7 days') AND c.severity IN ('medium','high')""")
-    out = {r["id"] for r in rows if r["mins"] is not None and r["mins"] < 10}
+    out = {r["id"]: "conflict" for r in rows if r["mins"] is not None and r["mins"] < 10}
     series = {}
     for r in rows:
         series.setdefault((r["property_id"], r["field"]), []).append(r)
     for rs in series.values():
         pairs = {(r["old_value"], r["new_value"]) for r in rs}
         if any((b, a) in pairs for a, b in pairs):
-            out.update(r["id"] for r in rs)
+            out.update({r["id"]: "conflict" for r in rs})
+    ev_field = {"owner_name": "owner_name", "total_value": "total_assessed_value", "imp_value": "improvement_value",
+                "land_value": "land_value", "address": "address", "legal": "legal_description"}
+    for r in rows:
+        if r["id"] in out or r["field"] not in ev_field:
+            continue
+        srcs = {e["source"] for e in q("SELECT DISTINCT source FROM evidence WHERE property_id=? AND field=? AND value=?",
+                                       (r["property_id"], ev_field[r["field"]], r["old_value"]))}
+        if srcs and r["source"] not in srcs:
+            out[r["id"]] = "sources"
     return out
 
 
@@ -76,7 +87,7 @@ def export_rows():
                   AND field NOT IN ('improved','acreage','property_type','register_attachment','building_sqft') ORDER BY id DESC"""):
         chg.setdefault(r["property_id"], []).append({"f": r["field"], "o": (r["old_value"] or "")[:60], "n": (r["new_value"] or "")[:60],
                                                      "sev": r["severity"], "at": (r["detected_at"] or "")[:10],
-                                                     **({"k": "conflict"} if r["id"] in conflicts else {})})
+                                                     **({"k": conflicts[r["id"]]} if r["id"] in conflicts else {})})
     inv = {}
     for r in q("SELECT * FROM investigations WHERE status='complete' ORDER BY finished_at"):
         s = json.loads(r["summary_json"] or "{}")
@@ -195,7 +206,7 @@ def build():
         conflicts = conflict_change_ids()
         chrows = [{"id": r["property_id"], "a": r["address"], "cn": county_name.get(r["county_fips"], r["county_fips"]), "cf": r["county_fips"],
                    "f": r["field"], "o": (r["old_value"] or "")[:60], "n": (r["new_value"] or "")[:60], "sev": r["severity"], "at": (r["detected_at"] or "")[:16],
-                   "k": "conflict" if r["id"] in conflicts else "change"}
+                   "k": conflicts.get(r["id"], "change")}
                   for r in q("""SELECT c.id, c.property_id, c.field, c.old_value, c.new_value, c.severity, c.detected_at, p.address, p.county_fips
                                 FROM changes c JOIN properties p ON p.id=c.property_id
                                 WHERE c.detected_at > datetime('now','-7 days') AND c.severity IN ('medium','high') AND p.excluded=0
@@ -203,8 +214,9 @@ def build():
         from collections import Counter
         real = [r for r in chrows if r["k"] == "change"]
         byfield = Counter(r["f"] for r in real)
-        json.dump({"built_at": built, "week": True, "total": len(real), "conflicts": len(chrows) - len(real), "by_field": byfield.most_common(12),
-                   "rows": real[:120] + [r for r in chrows if r["k"] == "conflict"][:40]},
+        json.dump({"built_at": built, "week": True, "total": len(real), "conflicts": sum(1 for r in chrows if r["k"] == "conflict"),
+                   "sources": sum(1 for r in chrows if r["k"] == "sources"), "by_field": byfield.most_common(12),
+                   "rows": real[:120] + [r for r in chrows if r["k"] != "change"][:80]},
                   open(os.path.join(ROOT, "docs", "data", "changes.json"), "w"), separators=(",", ":"))
         terr = {t["county_fips"]: t for t in __import__("hunter.config", fromlist=["TERRITORIES"]).TERRITORIES}
         scans = {}

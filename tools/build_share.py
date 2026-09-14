@@ -9,7 +9,7 @@ call where it gets shared; this script never publishes anything.
 import json, os, re, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-from hunter.db import init_db, q  # noqa: E402
+from hunter.db import init_db, q, q1  # noqa: E402
 
 DESKTOP = os.path.expanduser("~/Desktop/🏠 Property Hunter/SHARE - Property Hunter website.html")
 
@@ -51,15 +51,21 @@ def conflict_change_ids() -> dict:
         pairs = {(r["old_value"], r["new_value"]) for r in rs}
         if any((b, a) in pairs for a, b in pairs):
             out.update({r["id"]: "conflict" for r in rs})
-    ev_field = {"owner_name": "owner_name", "total_value": "total_assessed_value", "imp_value": "improvement_value",
-                "land_value": "land_value", "address": "address", "legal": "legal_description"}
+    # Sources name the same fact differently (total_value / total_assessed_value / assessed_total), so match
+    # the OLD value itself, in any field, and ask which sources ever reported it for this property.
     for r in rows:
-        if r["id"] in out or r["field"] not in ev_field:
+        if r["id"] in out or not r["old_value"]:
             continue
-        srcs = {e["source"] for e in q("SELECT DISTINCT source FROM evidence WHERE property_id=? AND field=? AND value=?",
-                                       (r["property_id"], ev_field[r["field"]], r["old_value"]))}
+        srcs = {e["source"] for e in q("SELECT DISTINCT source FROM evidence WHERE property_id=? AND value=?",
+                                       (r["property_id"], r["old_value"]))}
         if srcs and r["source"] not in srcs:
             out[r["id"]] = "sources"
+        elif not srcs and r["field"] in ("owner_name", "total_value", "imp_value", "land_value"):
+            # nobody on record ever reported the old value with the writing source: the row was seeded by another
+            # source whose evidence used a different name. Not a change we can stand behind.
+            other = q1("SELECT 1 FROM evidence WHERE property_id=? AND source<>? LIMIT 1", (r["property_id"], r["source"]))
+            if other:
+                out[r["id"]] = "sources"
     return out
 
 

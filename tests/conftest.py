@@ -16,6 +16,13 @@ os.environ["PH_AI_ENABLED"] = "0"          # tests never depend on a model
 
 
 @pytest.fixture(autouse=True)
+def no_state_layer(monkeypatch):
+    """The RPID -> parcel join (State layer camakey) is live-only; offline tests get no hits."""
+    from hunter.sources import hot_springs
+    monkeypatch.setattr(hot_springs, "STATE_QUERY", lambda *a, **k: {"features": []})
+
+
+@pytest.fixture(autouse=True)
 def clean_db():
     from hunter import db, exclusions
     db.init_db()

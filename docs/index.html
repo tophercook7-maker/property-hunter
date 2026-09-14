@@ -105,6 +105,13 @@ form.search button[disabled]{opacity:.6;cursor:wait}
 .empty h2{font-size:22px;text-transform:uppercase;margin-bottom:8px;color:var(--ink)}
 .pending{color:var(--muted);font-style:italic}
 .copy{background:none;border:1px solid var(--rule);padding:5px 10px;font-size:12px}
+.pics{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pics figure{margin:0;background:var(--surface2);border:1px solid var(--rule)}
+.pics img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.pics figcaption{font-size:11px;color:var(--muted);padding:4px 6px}
+.taxbox{border:1px solid var(--rule);border-left:4px solid var(--watch);padding:10px 12px;background:var(--surface2);font-size:13px}
+.taxbox.cert{border-left-color:var(--pass)}
+.taxbox b.big{font-family:var(--display);font-size:20px;font-weight:600}
 .acq{display:flex;flex-direction:column;gap:14px}
 .check{display:flex;gap:10px;align-items:flex-start;border-top:1px solid var(--rule);padding:8px 0 2px;font-size:13px}
 .check .st{flex:none;width:22px;height:22px;border:1px solid var(--rule);display:grid;place-items:center;font-size:12px;font-weight:600;font-family:var(--mono)}
@@ -143,7 +150,7 @@ footer{background:var(--surface);border-top:1px solid var(--rule);padding:10px 2
     <input id="q" type="text" placeholder="Address, owner name, or parcel number" aria-label="Search">
     <button type="submit" id="go">Look up</button>
   </form>
-  <nav><a href="garland.html">Garland County scan results</a><a href="https://github.com/tophercook7-maker/property-hunter" rel="noopener">Source</a></nav>
+  <nav><a href="state-lands.html">Tax-delinquent for sale</a><a href="garland.html">Garland scan</a><a href="https://github.com/tophercook7-maker/property-hunter" rel="noopener">Source</a></nav>
 </header>
 <div class="hint">
   <span><b>Try:</b> <button class="ex" type="button" data-q="267 Glade">267 Glade</button> · <button class="ex" type="button" data-q="Monolith">Monolith</button> · <button class="ex" type="button" data-q="400-29150-014-000">400-29150-014-000</button></span>
@@ -299,7 +306,9 @@ async function select(i){
       <div><b class="num">${fmt$(a.assessvalue)}</b><span>Assessed for tax</span></div>
       <div class="lien" id="lienbox"><b class="num">${isGarland?'…':'n/a'}</b><span>City lien on record</span></div>
     </div>
-    <div class="warn">Appraised = the assessor's opinion of full value (land ${fmt$(a.landvalue)} + improvements ${fmt$(a.impvalue)}), current to ${dt(a.camadate)||'an unknown date'}. Not a sale price, not an asking price. Taxes owed: <b>not checked here</b>; use the tax-search link below.</div>
+    <div class="warn">Appraised = the assessor's opinion of full value (land ${fmt$(a.landvalue)} + improvements ${fmt$(a.impvalue)}), current to ${dt(a.camadate)||'an unknown date'}. Not a sale price, not an asking price. Taxes: see the <b>Taxes</b> section below.</div>
+    <div class="sec"><h3>Look at it <span class="src">Arkansas GIS Office orthoimagery · State Lands map</span></h3><div class="pics" id="pics"></div></div>
+    <div class="sec"><h3>Taxes <span class="src">Commissioner of State Lands inventory</span></h3><div id="taxbox" class="taxbox"><span class="pending">checking the State Lands inventory…</span></div></div>
     <div class="sec"><h3>Who and what <span class="src">county roll via Arkansas GIS Office</span></h3><dl class="facts">
       <dt>Owner of record</dt><dd>${esc(title(a.ownername))||'<em>blank on the roll</em>'}<span class="tag fact">fact</span></dd>
       <dt>Tax bill goes to</dt><dd id="mailing">${isGarland?'<span class="pending">checking the City\'s roll copy…</span>':'<span class="tag unk">not published for this county</span>'}</dd>
@@ -327,6 +336,8 @@ async function select(i){
   </div>`;
   $('copy').onclick = () => { navigator.clipboard.writeText(document.querySelector('.detail').innerText).then(()=>{ $('copy').textContent='Copied'; setTimeout(()=>$('copy').textContent='Copy this record as text',1500); }); };
   // live enrichments, each independent, each honest on failure
+  visuals(r, a, c);
+  taxStatus(a, c);
   if(c) flood(c);
   const cityOut = isGarland ? await city(a, c) : null;
   renderAcq(r, a, c, cityOut, county);
@@ -406,6 +417,43 @@ $('f').addEventListener('submit', () => { const u = new URL(location.href); u.se
 </script>
 
 <script>
+/* ---------- visuals: aerials from the State's own imagery, no key needed ---------- */
+const IMG = 'https://gis.arkansas.gov/arcgis/rest/services/ImageServices';
+function aerialUrl(r, c, service, size){
+  if(!c) return null;
+  const ring = r.geom && r.geom.rings && r.geom.rings[0];
+  let w=c[1]-0.0004, e=c[1]+0.0004, s=c[0]-0.0003, n=c[0]+0.0003;
+  if(ring){ const xs=ring.map(p=>p[0]), ys=ring.map(p=>p[1]); w=Math.min(...xs); e=Math.max(...xs); s=Math.min(...ys); n=Math.max(...ys); }
+  const cx=(w+e)/2, cy=(s+n)/2, half=Math.max((e-w)*0.9,(n-s)*1.1,0.0004);
+  const bbox=[cx-half,cy-half,cx+half,cy+half].map(v=>v.toFixed(6)).join(',');
+  return `${IMG}/${service}/ImageServer/exportImage?bbox=${bbox}&bboxSR=4326&imageSR=3857&size=${size},${size}&format=jpg&f=image`;
+}
+function visuals(r, a, c){
+  const el = $('pics'); if(!el) return;
+  const a23 = aerialUrl(r, c, 'IMAGERY_9IN_2023', 640), a17 = aerialUrl(r, c, 'IMAGERY_1FT_2017', 640);
+  const sv = c ? `https://www.google.com/maps?q=&layer=c&cbll=${c[0]},${c[1]}` : null;
+  el.innerHTML = (a23?`<figure><img src="${a23}" alt="2023 aerial"><figcaption>2023 nine-inch aerial, parcel centred</figcaption></figure>`:'') +
+    (a17?`<figure><img src="${a17}" alt="2017 aerial"><figcaption>2017 one-foot aerial: compare for changes</figcaption></figure>`:'') +
+    (sv?`<figcaption style="grid-column:1/-1;font-size:12px"><a href="${sv}" target="_blank" rel="noopener">Open Street View at the parcel centre</a> · aerials are the State's, flown on the dates shown; the building may have changed since.</figcaption>`:'');
+}
+/* ---------- taxes: the State Lands inventory baked daily into data/state_lands.json ---------- */
+let SL = null;
+async function loadSL(){ if(SL) return SL; try { SL = await (await fetch('data/state_lands.json')).json(); } catch(e){ SL = {error: e.message, listings: []}; } return SL; }
+async function taxStatus(a, c){
+  const el = $('taxbox'); if(!el) return;
+  const d = await loadSL();
+  if(d.error){ el.innerHTML = `Could not read the State Lands inventory (${esc(d.error)}). <a href="https://www.cosl.org/Home/SearchByParcel" target="_blank" rel="noopener">Search COSL by parcel</a> yourself.`; return; }
+  const key = String(a.camakey||'').split('.')[0];
+  const hit = d.listings.find(x => x.fips===a.countyfips && (x.parcel_id===a.parcelid || x.rpid===key || x.rpid===a.parcelid));
+  const asOf = (d.built_at||'').slice(0,10);
+  if(hit){
+    el.className = 'taxbox cert';
+    el.innerHTML = `<b class="big">${fmt$(hit.starting_bid)} owed</b> · <b>certified to the State for unpaid taxes and FOR SALE</b>${hit.delinquent_year?` · unpaid since ${esc(hit.delinquent_year)}`:''}${hit.current_bid>0?` · current bid ${fmt$(hit.current_bid)} (${hit.bids} bids)`:''}.<br>Owner-direct is mostly off the table: the owner can redeem until it sells, otherwise it goes to whoever buys it on the State's site. <a href="${esc(hit.listing_url)}" target="_blank" rel="noopener">State Lands listing</a> · <a href="state-lands.html?county=${esc(hit.county)}&q=${esc(hit.rpid)}">in the inventory</a> · inventory as of ${asOf}<span class="tag fact">COSL</span>`;
+  } else {
+    el.innerHTML = `<b>Not in the State Lands inventory</b> as of ${asOf}, so not certified for sale for unpaid taxes (that takes roughly two years behind). Whether the <b>current</b> year is paid is only on the county Collector's login-only site: <a href="https://www.arkansastaxsearch.com/" target="_blank" rel="noopener">arkansastaxsearch.com</a>, or call the Collector with parcel <span class="num">${esc(a.parcelid)}</span>.<span class="tag obs">checked against the daily inventory</span>`;
+  }
+}
+
 /* ---------- Before you buy: confirmations, routes, offer prep. Nothing here sends anything. ---------- */
 function loadConf(pid){ try { return JSON.parse(localStorage.getItem('ph-confirm-'+pid)||'{}'); } catch(e){ return {}; } }
 function saveConf(pid, v){ try { localStorage.setItem('ph-confirm-'+pid, JSON.stringify(v)); } catch(e){} }

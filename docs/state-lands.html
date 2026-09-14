@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tax-Delinquent Parcels for Sale · Arkansas</title>
+<meta name="description" content="Every Arkansas parcel the Commissioner of State Lands is selling for unpaid taxes, joined to the county tax roll: owner, address, appraised value, what is owed, and an aerial of each one. Refreshed daily from public records.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --ground:#E8ECEF; --surface:#FFFFFF; --surface2:#F3F5F7; --ink:#172029; --muted:#5F6E7B; --rule:#D3DAE0;
+  --accent:#0E7C73; --accent-ink:#FFFFFF; --accent-soft:#D6EEEB;
+  --deal:#2E7D4F; --deal-soft:#DCEFE3; --watch:#B0771A; --watch-soft:#F6EAD2; --pass:#B3433B; --pass-soft:#F5DDDB;
+  --shadow:0 12px 32px rgba(23,32,41,.16);
+  --display:"Barlow Condensed","Arial Narrow",Impact,sans-serif; --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif; --mono:"IBM Plex Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root{
+  --ground:#101519; --surface:#171E24; --surface2:#1E262D; --ink:#E4E9ED; --muted:#93A0AB; --rule:#2A343D;
+  --accent:#3BB8AC; --accent-ink:#0B1214; --accent-soft:#163A37;
+  --deal:#5CC48A; --deal-soft:#1B3A2A; --watch:#E0A64A; --watch-soft:#3D2E14; --pass:#E2746B; --pass-soft:#42221F;
+  --shadow:0 12px 32px rgba(0,0,0,.5);
+}}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.45;margin:0}
+a{color:var(--accent)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:.01em;margin:0;text-wrap:balance}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.top{background:var(--surface);border-bottom:1px solid var(--rule);padding:12px 20px;display:flex;align-items:flex-end;gap:22px;flex-wrap:wrap}
+.top h1{font-size:30px;line-height:1;text-transform:uppercase;letter-spacing:.02em}
+.top h1 small{display:block;font-family:var(--body);font-weight:500;font-size:11px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+.top nav{margin-left:auto;display:flex;gap:14px;font-size:13px}
+.top nav a{text-decoration:none;font-weight:500}
+.stats{display:flex;gap:22px}
+.stat b{display:block;font-family:var(--display);font-size:26px;line-height:1;font-weight:600}
+.stat span{font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.strip{margin:14px 20px 0;background:var(--surface);border:1px solid var(--rule);border-left:4px solid var(--accent);padding:10px 14px;font-size:13px;display:grid;grid-template-columns:1fr 1fr;gap:6px 28px}
+.strip p{margin:0}
+@media (max-width:820px){.strip{grid-template-columns:1fr}}
+.wrap{display:grid;grid-template-columns:280px 1fr;gap:16px;padding:16px 20px 60px;align-items:start}
+@media (max-width:900px){.wrap{grid-template-columns:1fr}}
+.rail{background:var(--surface);border:1px solid var(--rule);padding:14px;display:flex;flex-direction:column;gap:12px;position:sticky;top:12px}
+@media (max-width:900px){.rail{position:static}}
+.rail label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.rail input,.rail select{font:inherit;font-size:13px;color:var(--ink);background:var(--surface2);border:1px solid var(--rule);padding:7px 9px;width:100%}
+.checks label{flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-size:13px}
+.checks input{accent-color:var(--accent);width:auto}
+#map{height:260px;border:1px solid var(--rule);background:var(--surface2)}
+.note{font-size:11.5px;color:var(--muted);line-height:1.4}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--rule);display:flex;flex-direction:column;overflow:hidden;text-align:left;padding:0}
+.card:hover{box-shadow:var(--shadow)}
+.card .pic{aspect-ratio:4/3;background:var(--surface2);position:relative;overflow:hidden}
+.card .pic img{width:100%;height:100%;object-fit:cover;display:block}
+.card .pic .tag{position:absolute;left:8px;top:8px;background:var(--surface);border:1px solid var(--rule);font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px}
+.card .pic .due{position:absolute;right:8px;bottom:8px;background:var(--pass);color:#fff;font-family:var(--display);font-size:20px;line-height:1;padding:5px 9px;font-weight:600}
+.card .body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:5px}
+.card h3{font-size:19px;line-height:1.05}
+.card .own{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12px}
+.kv dt{color:var(--muted);margin:0}.kv dd{margin:0}
+.chip{display:inline-block;font-size:10.5px;font-weight:500;padding:1px 6px;border:1px solid var(--rule);background:var(--surface2);margin-right:4px}
+.chip.d{border-color:var(--pass);color:var(--pass);background:var(--pass-soft)}
+.chip.o{border-color:var(--deal);color:var(--deal);background:var(--deal-soft)}
+.chip.r{border-color:var(--watch);color:var(--watch);background:var(--watch-soft)}
+.tbar{display:flex;gap:12px;align-items:center;font-size:12.5px;color:var(--muted);margin-bottom:10px;flex-wrap:wrap}
+.tbar b{font-family:var(--mono);color:var(--ink);font-weight:500}
+.more{display:block;width:100%;background:var(--surface);border:1px solid var(--rule);padding:10px;font-size:13px;margin-top:12px}
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgba(10,14,18,.45);z-index:30}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(580px,100vw);background:var(--surface);border-left:1px solid var(--rule);z-index:31;overflow-y:auto;box-shadow:var(--shadow)}
+.dh{padding:16px 20px 12px;border-bottom:1px solid var(--rule);display:flex;gap:12px;align-items:flex-start;position:sticky;top:0;background:var(--surface)}
+.dh h2{font-size:28px;line-height:1;text-transform:uppercase}
+.dh .sub{color:var(--muted);font-size:12.5px;margin-top:4px}
+.dh .x{margin-left:auto;background:none;border:1px solid var(--rule);width:34px;height:34px;font-size:18px;flex:none}
+.db{padding:14px 20px 40px;display:flex;flex-direction:column;gap:16px}
+.pics{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pics figure{margin:0;background:var(--surface2);border:1px solid var(--rule)}
+.pics img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.pics figcaption{font-size:11px;color:var(--muted);padding:4px 6px}
+.money{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.money div{background:var(--surface2);border:1px solid var(--rule);padding:8px 10px}
+.money b{display:block;font-family:var(--display);font-size:22px;line-height:1.05;font-weight:600}
+.money span{font-size:11px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.money div.hi{border-color:var(--pass)} .money div.hi b{color:var(--pass)}
+.sec h3{font-size:17px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+.facts dt{color:var(--muted);margin:0;white-space:nowrap}.facts dd{margin:0;overflow-wrap:anywhere}
+.warn{font-size:12.5px;color:var(--muted);border:1px dashed var(--rule);padding:8px 10px}
+.links{display:flex;flex-wrap:wrap;gap:8px}
+.links a{font-size:12.5px;padding:6px 10px;border:1px solid var(--accent);text-decoration:none;font-weight:500}
+.links a.primary{background:var(--accent);color:var(--accent-ink)}
+.steps{margin:0;padding-left:18px;font-size:13px}.steps li{margin:4px 0}
+footer{background:var(--surface);border-top:1px solid var(--rule);padding:10px 20px;font-size:12px;color:var(--muted);line-height:1.5}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1><small>Arkansas · Commissioner of State Lands · public records</small>Tax-delinquent, for sale by the State</h1>
+  <div class="stats" id="stats"></div>
+  <nav><a href="index.html">Parcel lookup</a><a href="garland.html">Garland scan</a><a href="https://github.com/tophercook7-maker/property-hunter" rel="noopener">Source</a></nav>
+</header>
+<div class="strip">
+  <p><b>What this is.</b> Every parcel the Commissioner of State Lands is currently selling because the taxes went unpaid long enough for the county to certify it to the State. The starting bid is what is owed: taxes, interest, penalties and costs. Each one is joined to the county tax roll for the owner, address, appraised value and an aerial. Rebuilt from the live feed every morning.</p>
+  <p><b>What it is not.</b> Not every delinquent parcel: one that is a year behind is still at the county, and only the county Collector's login-only site shows that. Buying here means bidding on the State's site with an account, a card on file and identity verification; there is a 90-day litigation period after a sale before you can do anything with it. Paying someone's taxes never makes you the owner.</p>
+</div>
+
+<div class="wrap">
+  <aside class="rail">
+    <div id="map" aria-label="Where the listings are"></div>
+    <p class="note" id="mapnote"></p>
+    <label>County<select id="county"></select></label>
+    <label>Search owner, address, parcel or subdivision<input type="text" id="q" placeholder="e.g. Diamondhead, Tarragona, 60606"></label>
+    <label>Sort<select id="sort"><option value="bid">Lowest amount owed first</option><option value="bid_desc">Highest amount owed first</option><option value="value">Highest appraised value first</option><option value="ratio">Best value per dollar owed</option><option value="acres">Most acreage first</option><option value="added">Newest listings first</option></select></label>
+    <div class="checks" style="display:flex;flex-direction:column;gap:5px">
+      <label><input type="checkbox" id="f-addr"> Has a street address</label>
+      <label><input type="checkbox" id="f-bldg"> Has a building (improvement value)</label>
+      <label><input type="checkbox" id="f-bids"> Someone has already bid</label>
+      <label><input type="checkbox" id="f-nohsv"> Hide Hot Springs Village / Diamondhead lots</label>
+    </div>
+    <p class="note" id="built"></p>
+  </aside>
+  <section>
+    <div class="tbar"><span>Showing <b id="shown"></b> of <b id="total"></b></span><span id="sum"></span></div>
+    <div class="grid" id="grid"></div>
+    <button class="more" id="more" hidden></button>
+  </section>
+</div>
+<div id="drawer-root"></div>
+<footer>Sources: Arkansas Commissioner of State Lands auction feed (auction.cosl.org) and county reports (cosl.org); Arkansas GIS Office statewide parcel layer (county assessor CAMA data); Arkansas GIS Office 2023 nine-inch and 2017 one-foot orthoimagery. Values are the county's appraised figures, not sale prices. Nothing here is legal, tax or investment advice. Built by <a href="https://mixedmakershop.com">MixedMakerShop</a>.</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt$ = v => (v == null || isNaN(v)) ? '—' : '$' + Math.round(v).toLocaleString('en-US');
+const fmt2 = v => (v == null || isNaN(v)) ? '—' : '$' + Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const title = s => String(s||'').toLowerCase().replace(/\s+/g,' ').trim().replace(/\b\w/g, c => c.toUpperCase());
+const IMG = 'https://gis.arkansas.gov/arcgis/rest/services/ImageServices';
+function aerial(item, service, size){
+  if(!item.lat) return null;
+  let [w,s,e,n] = item.extent || [item.lon-0.0004,item.lat-0.0003,item.lon+0.0004,item.lat+0.0003];
+  // pad to a square that shows the neighbours too
+  const cx=(w+e)/2, cy=(s+n)/2; const half = Math.max((e-w)*0.9, (n-s)*1.1, 0.0004);
+  const bbox = [cx-half, cy-half*0.82, cx+half, cy+half*0.82].map(v=>v.toFixed(6)).join(',');
+  return `${IMG}/${service}/ImageServer/exportImage?bbox=${bbox}&bboxSR=4326&imageSR=3857&size=${size},${Math.round(size*0.82)}&format=jpg&f=image`;
+}
+const isHSV = it => !!it.excluded_area || /DIAMONDHEAD|HOT SPRINGS VILLAGE|\bHSV\b/i.test((it.legal||'')+' '+(it.subdivision||''));
+let DATA = {listings:[]}, view = [], limit = 60, map, layer;
+
+fetch('data/state_lands.json').then(r=>r.json()).then(d => { DATA = d; init(); }).catch(e => { $('grid').innerHTML = `<p class="warn">Could not load data/state_lands.json (${esc(e.message)}). Run tools/build_state_lands.py.</p>`; });
+
+function init(){
+  const L_ = DATA.listings;
+  const counties = Object.entries(DATA.counties||{}).sort((a,b)=>a[0].localeCompare(b[0]));
+  $('county').innerHTML = `<option value="">All counties (${L_.length.toLocaleString()})</option>` + counties.map(([c,v])=>`<option value="${c}">${title(c)} (${v.count})</option>`).join('');
+  const p = new URLSearchParams(location.search);
+  $('county').value = p.get('county') || (counties.some(c=>c[0]==='GARLAND') ? 'GARLAND' : '');
+  if(p.get('q')) $('q').value = p.get('q');
+  const owed = L_.reduce((s,x)=>s+(+x.starting_bid||0),0);
+  $('stats').innerHTML = [[L_.length.toLocaleString(),'parcels for sale'],[Object.keys(DATA.counties||{}).length,'counties'],[fmt$(owed),'owed in total'],[L_.filter(x=>x.improvements>0).length,'with a building']].map(([b,s])=>`<div class="stat"><b>${b}</b><span>${s}</span></div>`).join('');
+  $('built').textContent = 'Inventory as of ' + (DATA.built_at||'?').replace('T',' ').slice(0,16) + ' UTC. Bids and availability change hourly; the listing link is live.';
+  map = L.map('map',{zoomControl:false,attributionControl:false}).setView([34.8,-92.4],6);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}).addTo(map);
+  layer = L.layerGroup().addTo(map);
+  ['county','q','sort'].forEach(id=>$(id).addEventListener('input',apply));
+  ['f-addr','f-bldg','f-bids','f-nohsv'].forEach(id=>$(id).addEventListener('change',apply));
+  $('more').addEventListener('click',()=>{limit+=60;render();});
+  $('grid').addEventListener('click',e=>{const c=e.target.closest('.card'); if(c) open(c.dataset.k);});
+  apply();
+}
+function apply(){
+  const c=$('county').value, q=$('q').value.trim().toLowerCase(), sort=$('sort').value;
+  view = DATA.listings.filter(x => (!c||x.county===c) && (!$('f-addr').checked||/^\d/.test(x.address||'')) && (!$('f-bldg').checked||x.improvements>0) && (!$('f-bids').checked||x.current_bid>0) && (!$('f-nohsv').checked||!isHSV(x)) &&
+    (!q || [x.owner,x.address,x.parcel_id,x.rpid,x.subdivision,x.legal,x.city].some(v=>String(v||'').toLowerCase().includes(q))));
+  const key = {bid:x=>x.starting_bid||0, bid_desc:x=>-(x.starting_bid||0), value:x=>-(x.appraised||0), ratio:x=>-((x.appraised||0)/Math.max(x.starting_bid||1,1)), acres:x=>-(x.acreage||0), added:x=>-(new Date(x.added||0).getTime())}[sort];
+  view.sort((a,b)=>key(a)-key(b));
+  limit = 60; render();
+  const u=new URL(location.href); c?u.searchParams.set('county',c):u.searchParams.delete('county'); q?u.searchParams.set('q',q):u.searchParams.delete('q'); history.replaceState(null,'',u);
+}
+function card(x){
+  const k = x.county+'|'+x.rpid;
+  const pic = aerial(x,'IMAGERY_9IN_2023',480) || x.map_url;
+  const addr = x.address ? title(x.address) : (x.subdivision ? title(x.subdivision)+' lot' : 'No situs address');
+  return `<button class="card" data-k="${esc(k)}">
+    <div class="pic">${pic?`<img loading="lazy" src="${esc(pic)}" alt="Aerial of ${esc(addr)}">`:''}<span class="tag">${esc(title(x.county))} · ${esc(x.parcel_id||'RPID '+x.rpid)}</span><span class="due">${fmt$(x.starting_bid)} owed</span></div>
+    <div class="body"><h3>${esc(addr)}</h3><div class="own">${esc(title(x.owner))}${x.city?' · '+esc(title(x.city)):''}</div>
+    <dl class="kv"><dt>County appraised</dt><dd class="num">${fmt$(x.appraised)}</dd><dt>Building</dt><dd class="num">${x.improvements>0?fmt$(x.improvements):'none on the roll'}</dd><dt>Acreage</dt><dd class="num">${x.acreage?x.acreage.toFixed(2)+' ac':(x.sqm?(x.sqm/4046.86).toFixed(2)+' ac (mapped)':'—')}</dd></dl>
+    <div>${x.current_bid>0?`<span class="chip r">bid ${fmt$(x.current_bid)} · ${x.bids} bids</span>`:'<span class="chip o">no bids yet</span>'}${x.improvements>0?'<span class="chip d">has a building</span>':''}${isHSV(x)?`<span class="chip">${esc(x.excluded_area||'HSV / Diamondhead')} lot</span>`:''}${x.delinquent_year?`<span class="chip">delinquent since ${esc(x.delinquent_year)}</span>`:''}</div></div></button>`;
+}
+function render(){
+  $('grid').innerHTML = view.slice(0,limit).map(card).join('') || '<p class="warn">Nothing matches.</p>';
+  $('shown').textContent = Math.min(limit,view.length).toLocaleString(); $('total').textContent = DATA.listings.length.toLocaleString();
+  const owed = view.reduce((s,x)=>s+(+x.starting_bid||0),0), val = view.reduce((s,x)=>s+(+x.appraised||0),0);
+  $('sum').textContent = `${view.length.toLocaleString()} match · ${fmt$(owed)} owed against ${fmt$(val)} of county appraised value`;
+  const more=$('more'); more.hidden = view.length<=limit; more.textContent = `Show 60 more (${(view.length-limit).toLocaleString()} left)`;
+  layer.clearLayers(); const pts = view.filter(x=>x.lat);
+  pts.forEach(x => L.circleMarker([x.lat,x.lon],{radius:3,color:'#3BB8AC',weight:1,fillOpacity:.7}).on('click',()=>open(x.county+'|'+x.rpid)).addTo(layer));
+  if(pts.length){ try{ map.fitBounds(L.latLngBounds(pts.map(x=>[x.lat,x.lon])).pad(0.15)); }catch(e){} }
+  $('mapnote').textContent = `${pts.length.toLocaleString()} of ${view.length.toLocaleString()} plotted (the rest have no parcel polygon on the State layer). Click a dot.`;
+}
+function open(k){
+  const [county,rpid] = k.split('|'); const x = DATA.listings.find(y=>y.county===county&&y.rpid===rpid); if(!x) return;
+  const addr = x.address ? title(x.address) : (x.subdivision ? title(x.subdivision)+' lot' : 'No situs address');
+  const a23 = aerial(x,'IMAGERY_9IN_2023',700), a17 = aerial(x,'IMAGERY_1FT_2017',700);
+  const gm = x.lat ? `https://www.google.com/maps/search/?api=1&query=${x.lat},${x.lon}` : null;
+  const sv = x.lat ? `https://www.google.com/maps?q=&layer=c&cbll=${x.lat},${x.lon}` : null;
+  const lookup = x.parcel_id ? `index.html?county=${x.fips}&q=${encodeURIComponent(x.parcel_id)}` : null;
+  $('drawer-root').innerHTML = `<div class="scrim" id="scrim"></div><aside class="drawer" role="dialog" aria-label="${esc(addr)}">
+    <div class="dh"><div><h2>${esc(addr)}</h2><div class="sub">${esc(title(x.county))} County · parcel <span class="num">${esc(x.parcel_id||'not joined')}</span> · RPID <span class="num">${esc(x.rpid)}</span></div></div><button class="x" id="dx" aria-label="Close">×</button></div>
+    <div class="db">
+      <div class="pics">${a23?`<figure><img src="${esc(a23)}" alt="2023 aerial"><figcaption>2023 nine-inch aerial · Arkansas GIS Office</figcaption></figure>`:''}${a17?`<figure><img src="${esc(a17)}" alt="2017 aerial"><figcaption>2017 one-foot aerial · what changed?</figcaption></figure>`:''}${x.map_url?`<figure><img src="${esc(x.map_url)}" alt="State Lands map"><figcaption>State Lands parcel map</figcaption></figure>`:''}</div>
+      <div class="money"><div class="hi"><b class="num">${fmt2(x.starting_bid)}</b><span>Owed · starting bid</span></div><div><b class="num">${fmt$(x.appraised)}</b><span>County appraised</span></div><div><b class="num">${x.current_bid>0?fmt2(x.current_bid):'none'}</b><span>Current bid${x.bids?' · '+x.bids:''}</span></div></div>
+      <div class="warn">${x.delinquent_year?`Taxes unpaid since <b>${esc(x.delinquent_year)}</b>${x.taxes?` · base taxes ${fmt2(+x.taxes)}`:''}${x.liens?` · liens noted by COSL: ${esc(x.liens)}`:''}. `:''}The starting bid is the State's figure for taxes, interest, penalties and costs at listing time. It moves as months pass. ${x.ends?`Bidding ends ${esc(String(x.ends).replace('T',' ').slice(0,16))}.`:'No active bidding; a post-auction sale can be bought at the starting bid.'}</div>
+      <div class="sec"><h3>From the county roll</h3><dl class="facts">
+        <dt>Owner of record</dt><dd>${esc(title(x.owner))}</dd>
+        <dt>Address</dt><dd>${esc(x.address?title(x.address):'—')}${x.city?', '+esc(title(x.city)):''}${x.zip?' '+x.zip:''}</dd>
+        <dt>Land / building</dt><dd class="num">${fmt$(x.land)} / ${fmt$(x.improvements)}</dd>
+        <dt>Assessed for tax</dt><dd class="num">${fmt$(x.assessed)}</dd>
+        <dt>Acreage</dt><dd class="num">${x.acreage?x.acreage.toFixed(3)+' ac':'—'}${x.sqm?` · ${(x.sqm/4046.86).toFixed(3)} ac mapped`:''}</dd>
+        <dt>Legal</dt><dd>${esc(x.legal||'—')}</dd>
+        <dt>Subdivision</dt><dd>${esc(x.subdivision||'—')}</dd>
+        <dt>Last deed</dt><dd>${esc(x.deed_ref||'—')}${x.deed_date?' · '+x.deed_date:''}</dd>
+        <dt>Roll current to</dt><dd>${esc(x.roll_date||'—')}</dd>
+        <dt>Listed by COSL</dt><dd>${esc(x.added||'—')} · ${esc(x.sale_type_text||x.sale_type||'')}</dd>
+      </dl></div>
+      <div class="sec"><h3>How to actually buy this one</h3><ol class="steps">
+        <li>Open the State Lands listing (button below). Read the legal description against the aerial: you are buying exactly that shape, nothing else.</li>
+        <li>Check the parcel in the <a href="${lookup||'index.html'}">lookup tool</a> for flood zone, zoning and, in Hot Springs, City liens; COSL sells subject to municipal liens and POA dues.</li>
+        <li>Drive by. A tax-sale lot can be a ravine, a strip between two houses, or a burned shell.</li>
+        <li>Register on auction.cosl.org (card on file, identity verified), then bid or buy at the starting bid if it is a post-auction sale.</li>
+        <li>After you win: a limited warranty deed, a 90-day litigation period, and title insurance is hard to get until a quiet-title action. Budget for that.</li>
+      </ol></div>
+      <div class="links"><a class="primary" href="${esc(x.listing_url)}" target="_blank" rel="noopener">State Lands listing</a>${lookup?`<a href="${lookup}">Full parcel lookup</a>`:''}${gm?`<a href="${gm}" target="_blank" rel="noopener">Google Maps</a>`:''}${sv?`<a href="${sv}" target="_blank" rel="noopener">Street View</a>`:''}</div>
+    </div></aside>`;
+  $('scrim').onclick = close; $('dx').onclick = close; $('dx').focus(); document.body.style.overflow='hidden';
+}
+function close(){ $('drawer-root').innerHTML=''; document.body.style.overflow=''; }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') close(); });
+</script>
+</body>
+</html>

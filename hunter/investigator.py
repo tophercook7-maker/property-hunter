@@ -203,7 +203,26 @@ def _taxes(p):
 
 
 def _cosl(p):
-    findings, detail, status = _manual(p, "cosl")
+    """Ask the Commissioner of State Lands directly (public per-parcel search):
+    is this parcel certified for unpaid taxes, and if so how far behind."""
+    findings, detail, status = [], "", "done"
+    src = get_source("cosl_listings")
+    res = src.enrich(p) if src and p.get("rpid") else None
+    if res is not None and res.status == OK:
+        for rec in res.records:
+            store.store_evidence(p["id"], rec.evidence)
+            if rec.fields:
+                store.set_fields(p["id"], rec.fields, src.name)
+        for rec in res.records:
+            for ev in rec.evidence:
+                findings.append(_f(ev["value"], ev.get("confidence", "HIGH"), ev.get("evidence_type", "FACT"),
+                                   src.name))
+        detail = res.detail
+    else:
+        findings, detail, status = _manual(p, "cosl")
+        if p.get("rpid") is None:
+            findings.append(_f("No RPID on file, so the State Lands search could not be run "
+                               "automatically; search by parcel at cosl.org.", "NONE", "UNKNOWN"))
     findings.append(_f("Reminder: in Arkansas, paying somebody else's delinquent taxes "
                        "does not make you the owner. Only a completed purchase from the "
                        "Commissioner does, and even then have an attorney check it.",

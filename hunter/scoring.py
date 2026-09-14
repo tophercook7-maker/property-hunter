@@ -114,6 +114,9 @@ def overall(prop: dict) -> Sheet:
     for key in ("institutional_owner", "estate_owner", "government_owner"):
         if key in sig:
             s.add(w[key], sig[key]["label"], sig[key]["why"])
+    if "tax_delinquent" in sig:
+        s.add(16, sig["tax_delinquent"]["label"],
+              "The State is selling it for the taxes; the price is public and the seller is not emotional.")
     if "vacant_structure" in sig:
         s.add(14, "On the City's vacant-structure register", sig["vacant_structure"]["why"])
     if "absentee_owner" in sig:

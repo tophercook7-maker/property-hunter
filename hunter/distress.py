@@ -154,6 +154,16 @@ def analyse(prop: dict) -> list[dict]:
     def latest(field):
         return store.latest_evidence(pid, field)
 
+    td = latest("tax_delinquent")
+    if td:
+        amt = store.latest_evidence(pid, "tax_amount_owed")
+        owed = f" - ${float(amt['value']):,.2f} owed" if amt and str(amt.get("value", "")).replace(".", "").isdigit() else ""
+        add("tax_delinquent", f"Certified to the State for unpaid taxes{owed}",
+            "The county gave up collecting and handed it to the Commissioner of State Lands, "
+            "who is selling it. The owner can still redeem until it sells; after that it goes "
+            "to whoever buys it on the State's site.",
+            "HIGH", "Open the State Lands listing and check the legal description, the liens "
+                    "noted there, and whether bidding has started.")
     if latest("vacant_structure"):
         add("vacant_structure", "On the City's vacant-structure register",
             "The City itself has recorded this building as vacant. That is the strongest "

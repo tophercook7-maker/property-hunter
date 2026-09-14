@@ -74,6 +74,7 @@ STAGES = [
     ("identity", "Matching records to properties we already know"),
     ("exclusion", "Applying the Hot Springs Village / Diamondhead exclusions"),
     ("city_registers", "Reading the City's vacancy, lien and code registers"),
+    ("state_lands", "Reading the State Lands tax-delinquent inventory"),
     ("parcel_ids", "Matching register records to their county parcels"),
     ("distress", "Looking for distress signals"),
     ("structures", "Checking for buildings on the ground"),
@@ -201,6 +202,7 @@ class Scan:
             self._ingest(records)
             self._exclusion()
             self._city_registers()
+            self._state_lands()
             self._parcel_ids()
             self._distress()
             self._enrich()
@@ -424,6 +426,69 @@ class Scan:
         self.stats["new_properties"] += total_new
         self.finish("city_registers", "done" if details else "skipped",
                     "; ".join(details) or "no City registers enabled")
+
+    def _state_lands(self) -> None:
+        """Every parcel the Commissioner of State Lands is selling for unpaid
+        taxes in this county. Each joins to its parcel exactly (the State layer's
+        camakey is the RPID), so it lands on the county record we already hold
+        or creates it. Parcels that leave the inventory were sold or redeemed."""
+        self.begin("state_lands")
+        src = get_source("cosl_listings")
+        if not src or not src.enabled():
+            self.finish("state_lands", "skipped", "State Lands source not enabled")
+            return
+        res = src.discover(territory=self.territory)
+        src.record_attempt(res)
+        if res.status != OK:
+            self._count_source(False)
+            self.log(f"cosl_listings: {res.detail}", level="warn", source="cosl_listings", stage="state_lands")
+            self.finish("state_lands", "unavailable", res.detail)
+            return
+        self._count_source(True)
+        new = 0
+        for rec in res.records:
+            pid, action, _ = store.ingest(rec)
+            self.touched.append(pid)
+            new += action == "created"
+        live = {f"cosl:{(rec.fields or {}).get('rpid')}" for rec in res.records}
+        gone = self._state_lands_removals(live)
+        self.stats["records_examined"] += len(res.records)
+        self.stats["new_properties"] += new
+        self.stats["changes"] += gone
+        self.finish("state_lands", "done",
+                    f"{len(res.records)} parcels for sale by the State ({new} new); "
+                    f"{gone} sold or redeemed since the last scan")
+
+    def _state_lands_removals(self, live_keys: set[str]) -> int:
+        rows = db.q("""SELECT e.id, e.property_id, e.raw_ref, p.address, p.parcel_id
+                       FROM evidence e JOIN properties p ON p.id=e.property_id
+                       WHERE e.field='tax_delinquent' AND e.source='cosl_listings' AND p.excluded=0
+                       AND NOT EXISTS (SELECT 1 FROM evidence r WHERE r.property_id=e.property_id
+                                       AND r.field='tax_delinquent_removed' AND r.id > e.id)""")
+        n = 0
+        for r in rows:
+            m = re.search(r"\[key (cosl:[^\]]+)\]", r["raw_ref"] or "")
+            key = m.group(1) if m else None
+            if key is None or key in live_keys:
+                continue
+            store.store_evidence(r["property_id"], [{
+                "field": "tax_delinquent_removed",
+                "value": f"no longer in the State Lands inventory as of this scan ({key}) - "
+                         f"sold at tax sale, or redeemed by the owner",
+                "evidence_type": "OBSERVATION", "confidence": "MEDIUM", "source": "cosl_listings",
+                "source_name": "Arkansas Commissioner of State Lands",
+                "raw_ref": "COSL's monthly county report says which; the deed goes to the buyer "
+                           "after the 90-day litigation period."}])
+            store.add_timeline(r["property_id"], "change", "Left the State Lands inventory",
+                               "sold or redeemed - check COSL's monthly report", source="cosl_listings")
+            store.add_alert(r["property_id"], "state_lands_removed",
+                            f"{r['address'] or r['parcel_id']} - left the State Lands inventory",
+                            "Either somebody bought it at the tax sale or the owner redeemed it.",
+                            "medium")
+            db.ex("UPDATE properties SET tax_status=NULL WHERE id=? AND tax_status LIKE 'CERTIFIED%'",
+                  (r["property_id"],))
+            n += 1
+        return n
 
     def _parcel_ids(self, budget: float = 300.0) -> None:
         """A register polygon says where a property is, not which parcel it is.

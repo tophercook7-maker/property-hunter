@@ -1,0 +1,31 @@
+name: Refresh State Lands inventory
+
+# Rebuilds docs/data/state_lands.json from the public COSL auction feed and the
+# State parcel layer, then commits it so the GitHub Pages site stays current.
+# Public data only; no logins, no bidding, polite pacing.
+
+on:
+  schedule:
+    - cron: "17 11 * * *"      # daily, ~06:17 Central
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install httpx xlrd
+      - run: python3 tools/build_state_lands.py --details
+      - name: Commit if changed
+        run: |
+          git config user.name "property-hunter-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/data/state_lands.json
+          git diff --cached --quiet || git commit -m "State Lands inventory refresh $(date -u +%F)"
+          git push

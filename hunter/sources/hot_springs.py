@@ -71,6 +71,22 @@ def _envelope(lat: float, lon: float, m: float) -> dict:
             "spatialRel": "esriSpatialRelIntersects"}
 
 
+
+def _feature_centroid(f: dict) -> tuple[float, float] | None:
+    """(lon, lat) for a City polygon.
+
+    Prefer the server's own centroid (returnCentroid=true): it is the true
+    area centroid of the multipart shape. Our ring-based fallback took only the
+    largest ring and, on the City's hand-drawn register polygons, landed on the
+    neighbouring lot often enough to mis-attach ~80 records (audit 2026-09-13).
+    """
+    c = f.get("centroid")
+    if c and c.get("x") is not None and c.get("y") is not None:
+        return (float(c["x"]), float(c["y"]))
+    rings = (f.get("geometry") or {}).get("rings") or []
+    return geo.centroid(rings) if rings else None
+
+
 def _url(svc: str, lid: int) -> str:
     return f"{ORG}/{svc}/FeatureServer/{lid}"
 
@@ -114,15 +130,15 @@ class HotSpringsVacantStructures(_City):
 
     def discover(self, **kw) -> SourceResult:
         try:
-            feats = _query(self.svc, self.lid, where="1=1", out_fields="*", geometry=True)
+            feats = _query(self.svc, self.lid, where="1=1", out_fields="*", geometry=True,
+                           extra={"returnCentroid": "true"})
         except Exception as exc:
             return SourceResult(status=UNAVAILABLE, error=str(exc),
                                 detail="could not read the vacant-structure register")
         recs = []
         for f in feats:
             a = f["attributes"]
-            rings = (f.get("geometry") or {}).get("rings") or []
-            c = geo.centroid(rings) if rings else None
+            c = _feature_centroid(f)
             addr = f"{(a.get('Street_Number') or '').strip()} {(a.get('Street_Name') or '').strip()}".strip()
             eff = _ms(a.get("last_edited_date")) or _ms(a.get("created_date"))
             fields = {"county_fips": "05051", "territory": "garland_ar",
@@ -230,15 +246,15 @@ class HotSpringsCleanupLiens(_City):
 
     def discover(self, **kw) -> SourceResult:
         try:
-            feats = _query(self.svc, self.lid, where="1=1", out_fields="*", geometry=True)
+            feats = _query(self.svc, self.lid, where="1=1", out_fields="*", geometry=True,
+                           extra={"returnCentroid": "true"})
         except Exception as exc:
             return SourceResult(status=UNAVAILABLE, error=str(exc),
                                 detail="could not read the lien parcels")
         recs = []
         for f in feats:
             a = f["attributes"]
-            rings = (f.get("geometry") or {}).get("rings") or []
-            c = geo.centroid(rings) if rings else None
+            c = _feature_centroid(f)
             addr = (a.get("Address") or "").strip()
             ev, tl, extra = self._evidence(a)
             fields = {"county_fips": "05051", "territory": "garland_ar",
@@ -569,12 +585,28 @@ def parcel_at(lat: float, lon: float, address_norm: str | None = None) -> dict |
         return None                     # both layers already said no
     a, source = {}, None
     try:
-        feats = _query("Housing_Liens_WFL1", 0, where="1=1",
-                       out_fields="ParcelId,OwnerName,MailingAdd,ParcelLgl,ImpValue,LandValue,"
-                                  "TotalValue,ParcelType",
+        roll_fields = ("ParcelId,OwnerName,MailingAdd,ParcelLgl,ImpValue,LandValue,"
+                       "TotalValue,ParcelType,AdrLabel,AdrNum,PstrNam")
+        feats = _query("Housing_Liens_WFL1", 0, where="1=1", out_fields=roll_fields,
                        extra=_point_geom(lat, lon))
         if feats:
             a, source = feats[0]["attributes"] or {}, "hs_roll_copy"
+        # A register polygon's centroid can sit on the neighbour. When the record
+        # carries a house number and the parcel under the point carries a
+        # DIFFERENT one, ask the roll copy for that address; a single answer wins.
+        if address_norm and address_norm[:1].isdigit():
+            num, _, street = address_norm.partition(" ")
+            hit_label = normalize_address(a.get("AdrLabel")) if a else ""
+            hit_num = hit_label.split(" ")[0] if hit_label else ""
+            if street and hit_num != num:
+                first = street.split(" ")[0].replace("'", "")
+                by_addr = _query("Housing_Liens_WFL1", 0,
+                                 where=f"AdrNum={int(num)} AND UPPER(PstrNam) LIKE '{first}%'",
+                                 out_fields=roll_fields)
+                if len(by_addr) == 1:
+                    a, source = by_addr[0]["attributes"] or {}, "hs_roll_copy_by_address"
+                elif a and hit_num and hit_num != num:
+                    a, source = {}, None      # the point lies on a numbered neighbour: refuse
     except Exception:
         return None                      # do not cache a failure
     if not a:
@@ -631,6 +663,53 @@ def parcel_at(lat: float, lon: float, address_norm: str | None = None) -> dict |
     return rec if rec["parcel_id"] else None
 
 
+
+STATE_QUERY = arcgis_query      # tests replace this so nothing offline touches the State layer
+
+
+def parcel_for_rpid(rpid: str, county_fips: str = "05051") -> str | None:
+    """Exact parcel id for a county RPID via the State layer's camakey column.
+    Cached in parcel_lookup under the cell 'rpid:<fips>:<rpid>'."""
+    if not rpid or not str(rpid).strip().isdigit():
+        return None
+    key = f"rpid:{county_fips}:{int(rpid)}"
+    conn = db.connect()
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS parcel_lookup (cell TEXT PRIMARY KEY, parcel_id TEXT, "
+        "owner_name TEXT, total_value REAL, land_value REAL, imp_value REAL, legal TEXT, "
+        "parcel_type TEXT, mailing TEXT, looked_up_at TEXT)")
+    try:
+        conn.execute("ALTER TABLE parcel_lookup ADD COLUMN source TEXT")
+    except Exception:
+        pass
+    row = db.q1("SELECT parcel_id FROM parcel_lookup WHERE cell=?", (key,))
+    if row:
+        return row["parcel_id"]
+    try:
+        data = STATE_QUERY(STATE_SERVICE, STATE_LAYER,
+                           where=f"countyfips='{county_fips}' AND camakey={int(rpid)}",
+                           out_fields="parcelid,camakey,ownername,parcellgl,impvalue,landvalue,"
+                                      "totalvalue,parceltype")
+    except Exception:
+        return None                      # do not cache a failure
+    # a hit must actually carry the key we asked for
+    data = {"features": [f for f in (data.get("features") or [])
+                         if str(f.get("attributes", {}).get("camakey", "")).split(".")[0] == str(int(rpid))]}
+    feats = data.get("features") or []
+    if len(feats) != 1:
+        pid = None                       # none, or ambiguous: say nothing
+    else:
+        pid = (feats[0]["attributes"].get("parcelid") or "").strip() or None
+    a = feats[0]["attributes"] if len(feats) == 1 else {}
+    db.ex("INSERT OR REPLACE INTO parcel_lookup(cell,parcel_id,owner_name,total_value,land_value,"
+          "imp_value,legal,parcel_type,mailing,looked_up_at,source) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+          (key, pid, (a.get("ownername") or "").strip() or None, a.get("totalvalue"),
+           a.get("landvalue"), a.get("impvalue"), (a.get("parcellgl") or "").strip() or None,
+           (a.get("parceltype") or "").strip() or None, None,
+           datetime.now(timezone.utc).isoformat(timespec="seconds"), "ar_gis_camakey"))
+    return pid
+
+
 def attach_parcel(fields: dict) -> dict:
     """Give a register record its parcel id (and the roll facts it lacked)
     BEFORE identity resolution, so two accounts on one parcel land on one
@@ -642,6 +721,13 @@ def attach_parcel(fields: dict) -> dict:
     # polygons can put their centroid a metre into the neighbour's lot.
     rpid = (str(fields.get("rpid") or "")).strip()
     if rpid:
+        # The State parcel layer's camakey IS the county RPID (verified
+        # 2026-09-13: camakey 35593 = 400-06700-005-000 = the register's
+        # "267 Glade"). That is an exact join - no polygon guessing at all.
+        exact = parcel_for_rpid(rpid, fields.get("county_fips") or "05051")
+        if exact:
+            fields["parcel_id"] = exact
+            return fields
         known = db.q1("SELECT parcel_id FROM properties WHERE rpid=? AND parcel_id IS NOT NULL "
                       "AND excluded=0 ORDER BY id LIMIT 1", (rpid,))
         if known:

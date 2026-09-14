@@ -121,6 +121,10 @@ td.own div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:2
 .dh .x{margin-left:auto;background:none;border:1px solid var(--rule);width:34px;height:34px;font-size:18px;line-height:1;flex:none}
 .db{padding:16px 22px 40px;display:flex;flex-direction:column;gap:20px}
 .sec h3{font-size:18px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;color:var(--ink)}
+.pics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px}
+.pics figure{margin:0;background:var(--surface2);border:1px solid var(--rule)}
+.pics img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.pics figcaption{font-size:11px;color:var(--muted);padding:4px 6px}
 .money{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .money div{background:var(--surface2);border:1px solid var(--rule);padding:8px 10px}
 .money b{display:block;font-family:var(--display);font-size:24px;line-height:1.05;font-weight:600}
@@ -350,6 +354,13 @@ function drawDots(){
 }
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',drawDots); }
 
+/* aerials straight from the State's imagery service (works anywhere the page is served) */
+function aerial(r, service){
+  const acres = r.ac || 0.25; const side = Math.max(60, Math.min(900, Math.sqrt(Math.max(acres,0.05)*4046.86)*1.7));
+  const dlat = side/2/110540, dlon = side/2/(111320*Math.cos(r.lat*Math.PI/180));
+  const bbox=[r.lon-dlon,r.lat-dlat,r.lon+dlon,r.lat+dlat].map(v=>v.toFixed(6)).join(',');
+  return `https://gis.arkansas.gov/arcgis/rest/services/ImageServices/${service}/ImageServer/exportImage?bbox=${bbox}&bboxSR=4326&imageSR=3857&size=640,640&format=jpg&f=image`;
+}
 /* drawer */
 const TYPE_NOTE={FACT:'fact from a source',OBSERVATION:'observation',CALCULATION:'calculation',ESTIMATE:'estimate',AI_OPINION:'AI opinion, low confidence',UNKNOWN:'not yet known',CONFLICTING:'sources disagree'};
 function openDrawer(id){
@@ -360,6 +371,7 @@ function openDrawer(id){
   const html=`<div class="scrim" id="scrim"></div><aside class="drawer" role="dialog" aria-label="${esc(r.a)}">
     <div class="dh"><div><h2>${esc(r.a||'(no address)')}</h2><div class="sub">${esc(r.c)}, Garland County · parcel <span class="num">${esc(r.pid||'unknown')}</span></div></div><button class="x" id="dx" aria-label="Close">×</button></div>
     <div class="db">
+      ${r.lat?`<div class="pics"><figure><img loading="lazy" src="${aerial(r,'IMAGERY_9IN_2023')}" alt="2023 aerial"><figcaption>2023 nine-inch aerial · Arkansas GIS Office</figcaption></figure><figure><img loading="lazy" src="${aerial(r,'IMAGERY_1FT_2017')}" alt="2017 aerial"><figcaption>2017 one-foot aerial · compare</figcaption></figure></div>`:''}
       <div class="money">
         <div class="hi"><b class="num">${fmt$(r.tv)}</b><span>County appraised</span></div>
         <div><b class="num">${fmt$(r.mk)}</b><span>Assessed for tax (20%)</span></div>
@@ -388,6 +400,8 @@ function openDrawer(id){
       </div>`:`<div class="sec"><h3>Investigation</h3><p class="warn">Not investigated yet. The top 20 have been; this one only has the scan-level record above.</p></div>`}
       <div class="sec"><h3>Check it yourself</h3><div class="links">
         <a href="${gm}" target="_blank" rel="noopener">Google Maps</a>
+        <a href="https://www.google.com/maps?q=&layer=c&cbll=${r.lat},${r.lon}" target="_blank" rel="noopener">Street View</a>
+        <a href="index.html?county=05051&q=${encodeURIComponent(r.pid||r.a||'')}">Live lookup</a>
         <a href="https://www.arkansastaxsearch.com/garland.html" target="_blank" rel="noopener">Garland tax search (login)</a>
         <a href="https://www.cosl.org/" target="_blank" rel="noopener">State Lands (COSL)</a>
         <a href="https://gis.arkansas.gov/" target="_blank" rel="noopener">AR GIS parcel viewer</a>

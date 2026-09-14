@@ -108,9 +108,12 @@ def build():
     init_db()
     rows, labels = export_rows()
     tpl = open(os.path.join(ROOT, "tools", "share_template.html")).read()
-    n_inv = sum(1 for r in rows if r["inv"])
+    n_inv = sum(1 for r in rows if r["inv"] and r.get("cf") in ("05051", "05125"))
     tpl = tpl.replace("The 21 investigated so far", f"The {n_inv} investigated so far")
-    data = json.dumps(rows, separators=(",", ":")).replace("</", "<\\/")
+    # the one-file share and the site's scan page embed Garland + Saline only; every other
+    # county is loaded on demand from docs/data/scan/<fips>.json (the statewide export below)
+    embed = [r for r in rows if r.get("cf") in ("05051", "05125")]
+    data = json.dumps(embed, separators=(",", ":")).replace("</", "<\\/")
     body = tpl.replace("__DATA__", data).replace("__LABELS__", json.dumps(labels))
     head, rest = body.split("<style>", 1)
     css, tail = rest.split("</style>", 1)

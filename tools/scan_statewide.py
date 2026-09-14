@@ -53,7 +53,7 @@ def main():
                 s = s.get("scan") or s
             except Exception:
                 continue
-            if s.get("status") in ("complete", "failed"):
+            if s.get("status") in ("complete", "failed", "interrupted"):
                 st = {x["key"]: x for x in s.get("stages", [])}
                 print(f"{t['key']}: {s['status']} in {(time.time()-t0)/60:.1f} min - "
                       f"{st.get('discovery',{}).get('detail','')[:60]} | {st.get('scoring',{}).get('detail','')}", flush=True)

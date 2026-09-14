@@ -86,7 +86,11 @@ def resolve(fields: dict) -> tuple[int | None, str]:
     if parcel:
         pid = _by_alias("parcel", parcel)
         if pid:
-            return pid, "parcel id"
+            # Parcel numbers are county-local: 001-03774-000 exists in Saline AND
+            # in Grant. An alias hit from another county is a different property.
+            other = db.q1("SELECT county_fips FROM properties WHERE id=?", (pid,))
+            if other and (not county or not other["county_fips"] or other["county_fips"] == county):
+                return pid, "parcel id"
         row = db.q1("SELECT id FROM properties WHERE REPLACE(REPLACE(parcel_id,'-',''),' ','')=? "
                     "AND (county_fips=? OR ? IS NULL) LIMIT 1", (parcel, county, county))
         if row:

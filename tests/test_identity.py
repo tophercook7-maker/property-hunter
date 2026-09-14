@@ -281,3 +281,12 @@ def test_two_register_created_unit_parcels_at_one_address_keep_the_first_seen():
     assert first != second
     assert store.merge_address_twins() == 1
     assert store.get_property(first) and not store.get_property(second)
+
+
+def test_same_parcel_number_in_two_counties_is_two_properties():
+    """001-03774-000 exists in Saline and in Grant. They must never merge."""
+    from hunter import store
+    from tests.conftest import make_record
+    a, _, _ = store.ingest(make_record(parcel_id="001-03774-000", address="1 Saline Rd", county_fips="05125", lat=34.65, lon=-92.47))
+    b, action, _ = store.ingest(make_record(parcel_id="001-03774-000", address="6723 Moore Ln", county_fips="05053", lat=34.32, lon=-92.37))
+    assert a != b and action == "created"

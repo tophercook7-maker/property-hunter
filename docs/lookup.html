@@ -43,7 +43,9 @@ h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:.01em;margin:
 .top nav{margin-left:auto;display:flex;gap:14px;font-size:13px}
 .top nav a{text-decoration:none;font-weight:500}
 
-form.search{display:flex;gap:8px;flex:1 1 520px;max-width:760px;align-items:stretch}
+form.search{display:flex;gap:8px;flex:1 1 520px;max-width:760px;align-items:stretch;flex-wrap:wrap;min-width:0}
+.search select,.search input{min-width:0;flex:1 1 140px}
+body{overflow-x:clip}
 form.search select,form.search input{font:inherit;font-size:14px;color:var(--ink);background:var(--surface2);border:1px solid var(--rule);padding:9px 11px}
 form.search select{flex:0 0 190px}
 form.search input{flex:1;min-width:160px}

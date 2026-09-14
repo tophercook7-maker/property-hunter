@@ -76,6 +76,10 @@ h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:.01em;margin:
 .comps td,.comps th{padding:3px 6px;border-top:1px solid var(--rule);text-align:left}
 .comps th{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .comps td.num,.comps th.num{text-align:right}
+.gate{grid-column:1/-1;background:var(--surface);border:1px solid var(--accent);padding:16px;text-align:center}
+.gate b{font-family:var(--display);font-size:24px;text-transform:uppercase;display:block;margin-bottom:4px}
+.gate a.btn{display:inline-block;margin-top:8px;background:var(--accent);color:var(--accent-ink);padding:9px 14px;text-decoration:none;font-family:var(--display);font-size:17px;letter-spacing:.04em;text-transform:uppercase;font-weight:600}
+.tbar .csv{margin-left:8px;background:none;border:1px solid var(--rule);padding:4px 9px;font-size:12px}
 .tbar{display:flex;gap:12px;align-items:center;font-size:12.5px;color:var(--muted);margin-bottom:10px;flex-wrap:wrap}
 .tbar b{font-family:var(--mono);color:var(--ink);font-weight:500}
 .more{display:block;width:100%;background:var(--surface);border:1px solid var(--rule);padding:10px;font-size:13px;margin-top:12px}
@@ -135,7 +139,7 @@ footer{background:var(--surface);border-top:1px solid var(--rule);padding:10px 2
   </aside>
   <section>
     <div class="hist" id="hist" hidden></div>
-    <div class="tbar"><span>Showing <b id="shown"></b> of <b id="total"></b></span><span id="sum"></span></div>
+    <div class="tbar"><span>Showing <b id="shown"></b> of <b id="total"></b></span><span id="sum"></span><button class="csv" id="csvbtn" hidden type="button">Download CSV of these</button></div>
     <div class="grid" id="grid"></div>
     <button class="more" id="more" hidden></button>
   </section>
@@ -144,6 +148,7 @@ footer{background:var(--surface);border-top:1px solid var(--rule);padding:10px 2
 <footer>Sources: Arkansas Commissioner of State Lands auction feed (auction.cosl.org) and county reports (cosl.org); Arkansas GIS Office statewide parcel layer (county assessor CAMA data); Arkansas GIS Office 2023 nine-inch and 2017 one-foot orthoimagery. Values are the county's appraised figures, not sale prices. Nothing here is legal, tax or investment advice. Built by <a href="https://mixedmakershop.com">MixedMakerShop</a>.</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="members.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -160,7 +165,8 @@ function aerial(item, service, size){
   return `${IMG}/${service}/ImageServer/exportImage?bbox=${bbox}&bboxSR=4326&imageSR=3857&size=${size},${Math.round(size*0.82)}&format=jpg&f=image`;
 }
 const isHSV = it => !!it.excluded_area || /DIAMONDHEAD|HOT SPRINGS VILLAGE|\bHSV\b/i.test((it.legal||'')+' '+(it.subdivision||''));
-let DATA = {listings:[]}, view = [], limit = 60, map, layer;
+let DATA = {listings:[]}, view = [], limit = 60, map, layer, MEMBER = false;
+const FREE_COUNTY = 'GARLAND', FREE_PEEK = 12;
 
 let HIST = null; const HROWS = {};
 fetch('data/cosl_history.json').then(r=>r.ok?r.json():null).then(h => { HIST = h; if(DATA.listings.length) drawHist(); }).catch(()=>{});
@@ -170,7 +176,7 @@ async function loadRows(county){
   catch(e){ HROWS[county] = null; }
   return HROWS[county];
 }
-fetch('data/state_lands.json').then(r=>r.json()).then(d => { DATA = d; init(); }).catch(e => { $('grid').innerHTML = `<p class="warn">Could not load data/state_lands.json (${esc(e.message)}). Run tools/build_state_lands.py.</p>`; });
+Promise.all([fetch('data/state_lands.json').then(r=>r.json()), (window.PH && PH.member ? PH.member() : Promise.resolve(false))]).then(([d, m]) => { DATA = d; MEMBER = m; init(); }).catch(e => { $('grid').innerHTML = `<p class="warn">Could not load data/state_lands.json (${esc(e.message)}). Run tools/build_state_lands.py.</p>`; });
 
 function init(){
   const L_ = DATA.listings;
@@ -191,6 +197,12 @@ function init(){
   ['county','q','sort'].forEach(id=>$(id).addEventListener('input',apply));
   ['f-addr','f-bldg','f-bids','f-nohsv'].forEach(id=>$(id).addEventListener('change',apply));
   $('more').addEventListener('click',()=>{limit+=60;render();});
+  $('csvbtn').addEventListener('click', () => {
+    const head = ['county','state_lands_number','parcel_id','address','city','owner','appraised','building','land','acreage','owed_starting_bid','current_bid','bids','delinquent_since','sale_type','listing_url','lat','lon','village_or_diamondhead'];
+    const rows = view.map(x => [x.county, x.rpid, x.parcel_id, x.address, x.city, x.owner, x.appraised, x.improvements, x.land, x.acreage, x.starting_bid, x.current_bid, x.bids, x.delinquent_year, x.sale_type_text, x.listing_url, x.lat, x.lon, x.excluded_area||''].map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(','));
+    const blob = new Blob([[head.join(',')].concat(rows).join('\n')], {type:'text/csv'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `tax-sale-${($('county').value||'arkansas').toLowerCase().replace(/ /g,'-')}-${(DATA.built_at||'').slice(0,10)}.csv`; a.click();
+  });
   $('grid').addEventListener('click',e=>{const c=e.target.closest('.card'); if(c) open(c.dataset.k);});
   apply();
 }
@@ -241,12 +253,17 @@ function card(x){
     <dl class="kv"><dt>County appraised</dt><dd class="num">${fmt$(x.appraised)}</dd><dt>Building</dt><dd class="num">${x.improvements>0?fmt$(x.improvements):'none on the roll'}</dd><dt>Acreage</dt><dd class="num">${x.acreage?x.acreage.toFixed(2)+' ac':(x.sqm?(x.sqm/4046.86).toFixed(2)+' ac (mapped)':'—')}</dd></dl>
     <div>${x.current_bid>0?`<span class="chip r">bid ${fmt$(x.current_bid)} · ${x.bids} bids</span>`:'<span class="chip o">no bids yet</span>'}${x.improvements>0?'<span class="chip d">has a building</span>':''}${isHSV(x)?`<span class="chip">${esc(x.excluded_area||'HSV / Diamondhead')} lot</span>`:''}${x.delinquent_year?`<span class="chip">delinquent since ${esc(x.delinquent_year)}</span>`:''}</div></div></button>`;
 }
+function gated(){ const c = $('county').value; return !MEMBER && c !== FREE_COUNTY; }
 function render(){
-  $('grid').innerHTML = view.slice(0,limit).map(card).join('') || '<p class="warn">Nothing matches.</p>';
+  const shown = gated() ? view.slice(0, FREE_PEEK) : view.slice(0, limit);
+  const gate = gated() && view.length > FREE_PEEK ? `<div class="gate"><b>${(view.length-FREE_PEEK).toLocaleString()} more in ${esc(title($('county').value||'these counties'))}</b>Garland County is free, all of it. Every other county, every week, with the Monday email and CSV export, is Tax Sale Radar: $29 a month, cancel any time.<br><a class="btn" href="pro.html">See Radar</a></div>` : '';
+  $('grid').innerHTML = (shown.map(card).join('') || '<p class="warn">Nothing matches.</p>') + gate;
+  const more=$('more'); if(gated()){ more.hidden = true; }
   $('shown').textContent = Math.min(limit,view.length).toLocaleString(); $('total').textContent = DATA.listings.length.toLocaleString();
   const owed = view.reduce((s,x)=>s+(+x.starting_bid||0),0), val = view.reduce((s,x)=>s+(+x.appraised||0),0);
   $('sum').textContent = `${view.length.toLocaleString()} match · ${fmt$(owed)} owed against ${fmt$(val)} of county appraised value`;
-  const more=$('more'); more.hidden = view.length<=limit; more.textContent = `Show 60 more (${(view.length-limit).toLocaleString()} left)`;
+  if(!gated()){ more.hidden = view.length<=limit; more.textContent = `Show 60 more (${(view.length-limit).toLocaleString()} left)`; }
+  $('csvbtn').hidden = !MEMBER;
   layer.clearLayers(); const pts = view.filter(x=>x.lat);
   pts.forEach(x => L.circleMarker([x.lat,x.lon],{radius:3,color:'#3BB8AC',weight:1,fillOpacity:.7}).on('click',()=>open(x.county+'|'+x.rpid)).addTo(layer));
   if(pts.length){ try{ map.fitBounds(L.latLngBounds(pts.map(x=>[x.lat,x.lon])).pad(0.15)); }catch(e){} }

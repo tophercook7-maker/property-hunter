@@ -36,31 +36,38 @@ TERRITORIES = [
     {
         "key": "garland_ar",
         "label": "Garland County, Arkansas",
-        "state": "AR",
-        "state_fips": "05",
-        "county": "Garland",
-        "county_fips": "05051",
+        "state": "AR", "state_fips": "05", "county": "Garland", "county_fips": "05051",
         "center": [34.5037, -93.0552],
         "bbox": [-93.55, 34.25, -92.75, 34.75],  # minlon, minlat, maxlon, maxlat
         "active": True,
     },
-    # Phase two candidate. Inactive: nothing scans it until it is switched on, but
-    # it proves the point that a new county is a dict, not a rewrite - the same
-    # statewide parcel adapter, boundary, flood, road and imagery services cover
-    # it. Hot Springs Village straddles the Garland/Saline line, so its exclusion
-    # polygon already applies here too.
     {
         "key": "saline_ar",
         "label": "Saline County, Arkansas",
-        "state": "AR",
-        "state_fips": "05",
-        "county": "Saline",
-        "county_fips": "05125",
-        "center": [34.6440, -92.6750],
-        "bbox": [-92.95, 34.42, -92.40, 34.90],
+        "state": "AR", "state_fips": "05", "county": "Saline", "county_fips": "05125",
+        "center": [34.6446, -92.6738],
+        "bbox": [-93.05, 34.35, -92.35, 34.95],
         "active": True,
     },
 ]
+
+# Every other Arkansas county, from the State parcel layer's own extents
+# (hunter/county_extents.json). Same adapters, same rules; the City of Hot
+# Springs registers only apply to Garland and the scanner knows that.
+try:
+    import json as _json, os as _os
+    _ext = _json.load(open(_os.path.join(_os.path.dirname(__file__), "county_extents.json")))
+    for _fips, _e in sorted(_ext.items()):
+        if _fips in ("05051", "05125") or "bbox" not in _e:
+            continue
+        TERRITORIES.append({
+            "key": _e["county"].lower().replace(" ", "_").replace(".", "") + "_ar",
+            "label": f"{_e['county']} County, Arkansas",
+            "state": "AR", "state_fips": "05", "county": _e["county"], "county_fips": _fips,
+            "center": _e["center"], "bbox": _e["bbox"], "active": True,
+        })
+except Exception:                                   # the two hand-written ones still work
+    pass
 DEFAULT_TERRITORY = "garland_ar"
 
 # Hard exclusions (spec 17). Enforced in the data layer, never only in the UI.

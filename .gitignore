@@ -10,3 +10,6 @@ __pycache__/
 !docs/data/
 !docs/data/*
 data/radar_subscribers.json
+data/radar_salt
+data/stripe_links.json
+data/logs/

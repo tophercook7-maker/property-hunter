@@ -59,7 +59,8 @@ def compose(sub, radar):
                         "public feed and the county tax roll. Values are the county's appraised figures, not sale prices. "
                         "You buy on the State's site with your own account; there is a 90-day litigation period after any sale. "
                         "Not legal, tax or investment advice."] + blocks +
-                       [f"Lookup any parcel: {SITE}/lookup.html\nQuestions or to stop: reply to this email."])
+                       [(f"Your member link (opens every county, CSV export on): {SITE}/pro.html?key={sub['key']}\n" if sub.get("key") else "") +
+                        f"Lookup any parcel: {SITE}/lookup.html\nQuestions or to stop: reply to this email."])
     return subject, body
 
 

@@ -126,9 +126,25 @@ def build():
     if os.path.isdir(os.path.dirname(docs)):
         open(docs, "w").write(full)
         os.makedirs(os.path.join(ROOT, "docs", "data"), exist_ok=True)
-        json.dump({"built_at": __import__("datetime").datetime.utcnow().isoformat(timespec="seconds") + "Z",
-                   "labels": labels, "rows": [{k: v for k, v in r.items() if k != "inv"} for r in rows]},
+        built = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(timespec="seconds")
+        slim = [{k: v for k, v in r.items() if k != "inv"} for r in rows]
+        home = [r for r in slim if r.get("cf") in ("05051", "05125")]
+        json.dump({"built_at": built, "labels": labels, "rows": home},
                   open(os.path.join(ROOT, "docs", "data", "garland.json"), "w"), separators=(",", ":"))
+        # every county: its own file, plus a small statewide index (counts + top 25) for the Today page
+        sdir = os.path.join(ROOT, "docs", "data", "scan"); os.makedirs(sdir, exist_ok=True)
+        by = {}
+        for r in slim:
+            by.setdefault(r.get("cf") or "?", []).append(r)
+        index = {"built_at": built, "counties": {}}
+        for cf, rs in by.items():
+            rs.sort(key=lambda r: -(r.get("s") or 0))
+            json.dump({"built_at": built, "labels": labels, "county": rs[0].get("cn"), "fips": cf, "rows": rs},
+                      open(os.path.join(sdir, f"{cf}.json"), "w"), separators=(",", ":"))
+            index["counties"][cf] = {"county": rs[0].get("cn"), "n": len(rs), "strong": sum(1 for r in rs if (r.get("s") or 0) >= 65),
+                                     "with_building": sum(1 for r in rs if (r.get("iv") or 0) > 0),
+                                     "top": [r for r in rs if r.get("rec") != "PASS"][:25]}
+        json.dump(index, open(os.path.join(ROOT, "docs", "data", "scan_index.json"), "w"), separators=(",", ":"))
     return {"properties": len(rows), "investigated": n_inv, "kb": len(full) // 1024, "file": out, "desktop": DESKTOP}
 
 

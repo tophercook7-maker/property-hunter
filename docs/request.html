@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Delinquent List Request Kit</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#E8ECEF; --surface:#FFFFFF; --surface2:#F3F5F7; --ink:#172029; --muted:#5F6E7B; --rule:#D3DAE0;
+  --accent:#0E7C73; --accent-ink:#FFFFFF; --accent-soft:#D6EEEB; --watch:#B0771A; --watch-soft:#F6EAD2; --pass:#B3433B; --deal:#2E7D4F;
+  --display:"Barlow Condensed","Arial Narrow",Impact,sans-serif; --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif; --mono:"IBM Plex Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root{
+  --ground:#101519; --surface:#171E24; --surface2:#1E262D; --ink:#E4E9ED; --muted:#93A0AB; --rule:#2A343D;
+  --accent:#3BB8AC; --accent-ink:#0B1214; --accent-soft:#163A37; --watch:#E0A64A; --watch-soft:#3D2E14; --pass:#E2746B; --deal:#5CC48A;
+}}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;margin:0}
+a{color:var(--accent)}
+h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:.01em;margin:0;text-wrap:balance}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.top{background:var(--surface);border-bottom:1px solid var(--rule);padding:10px 20px;display:flex;align-items:center;gap:16px}
+.top h1{font-size:24px;line-height:1;text-transform:uppercase}
+main{max-width:820px;margin:0 auto;padding:20px 16px 60px;display:flex;flex-direction:column;gap:18px}
+.card{background:var(--surface);border:1px solid var(--rule);padding:16px 18px}
+.card h2{font-size:26px;text-transform:uppercase;margin-bottom:6px}
+.card p{margin:6px 0}
+.why{border-left:4px solid var(--watch)}
+.timeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:8px}
+.timeline div{background:var(--surface2);border:1px solid var(--rule);padding:10px;font-size:13px}
+.timeline b{display:block;font-family:var(--display);font-size:20px;text-transform:uppercase}
+label{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 4px}
+input,select,textarea{font:inherit;font-size:14px;color:var(--ink);background:var(--surface2);border:1px solid var(--rule);padding:8px 10px;width:100%}
+textarea{min-height:260px;font-family:var(--mono);font-size:12.5px;line-height:1.5}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btn{display:inline-flex;align-items:center;background:var(--accent);color:var(--accent-ink);border:0;padding:10px 16px;font-family:var(--display);font-size:18px;letter-spacing:.04em;text-transform:uppercase;font-weight:600;text-decoration:none;cursor:pointer}
+.btn.ghost{background:none;color:var(--ink);border:1px solid var(--rule);font-family:var(--body);font-size:13px;text-transform:none;letter-spacing:0;font-weight:500}
+.num{font-family:var(--mono)}
+.steps{margin:0;padding-left:20px}.steps li{margin:5px 0}
+code{font-family:var(--mono);font-size:12.5px;background:var(--surface2);padding:1px 5px}
+</style>
+</head>
+<body>
+<header class="top"><h1>Records request kit</h1><nav data-nav></nav></header>
+<main>
+  <div class="card why">
+    <span class="eyebrow">Why this page exists</span>
+    <h2>The one-year-behind list is not online. It is yours for the asking.</h2>
+    <p>Arkansas property tax has a rhythm. Taxes for a year come due the following <b>October 15</b>. Miss it and the parcel is <b>delinquent at the county</b>: the Collector adds penalty and interest and keeps the list. Stay delinquent long enough and the county <b>certifies the parcel to the State</b>, which then sells it. This site sees the last step every morning (the tax-sale page). The first step, the county's own delinquent list, is a public record that no Garland-area county publishes online, and only the one-year-behind owners are on it: the people a year ahead of the State, and a year ahead of the bulk buyers.</p>
+    <div class="timeline">
+      <div><b>Oct 15</b>Taxes due. After this, the county's list starts.</div>
+      <div><b>The next year</b>Delinquent at the county. Penalty and interest accrue. Owner can still pay.</div>
+      <div><b>Certified</b>County hands it to the State. It shows up on the tax-sale page here.</div>
+      <div><b>Sold or redeemed</b>The State sells it, or the owner pays up at the last minute.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow">Also worth knowing</span>
+    <h2>Why "not checked yet" shows up on cards</h2>
+    <p>Most Arkansas county Collectors run their online tax search and payment through one State system, <b>CountyPay on Arkansas.gov</b>. It goes down: for maintenance, around the October deadline, and sometimes for a whole day across nearly every county at once. When it is down, this site cannot ask whether this year's bill is paid, so the card says <b>not checked yet</b> instead of guessing. The app keeps trying every twenty minutes and fills the answer in on its own when the system comes back. The State's tax-sale list is a separate system and does not go down with it. Neither system ever shows the one-year-behind list; that is what the request below is for.</p>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow">Ask for it</span>
+    <h2>The request, ready to send</h2>
+    <p>Under the Arkansas Freedom of Information Act the Collector's delinquent list is a public record. Send this through the county's records portal, or by email or in person at the Collector's office. The office has three business days to respond; there may be a small copy fee. Ask for a spreadsheet, not paper.</p>
+    <label>County</label><select id="county"></select>
+    <label>Your name</label><input id="name" placeholder="First Last">
+    <label>How they can reach you</label><input id="contact" placeholder="email or phone">
+    <label>Request</label><textarea id="req" readonly></textarea>
+    <div class="row">
+      <button class="btn" id="copy" type="button">Copy the request</button>
+      <a class="btn ghost" id="portal" href="https://garlandcountyar.nextrequest.com/" target="_blank" rel="noopener">Garland County records portal</a>
+      <a class="btn ghost" href="tel:5016223710">Garland Collector: 501-622-3710</a>
+    </div>
+    <p style="font-size:12.5px;color:var(--muted);margin-top:10px">Garland County Collector, 200 Woodbine St, Hot Springs, AR 71901. For other counties, search "<i>county name</i> Collector" for the office; the request wording is the same.</p>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow">When it arrives</span>
+    <h2>Drop the spreadsheet in and every card updates</h2>
+    <ol class="steps">
+      <li>Save the file they send (CSV, XLS or XLSX) anywhere on the Mac.</li>
+      <li>In Terminal: <code>cd ~/Projects/property-hunter && python3 tools/import_delinquent_list.py ~/Downloads/thefile.csv --year 2025</code></li>
+      <li>Every property on the list that the hunt already holds gets <b>Taxes: delinquent at the county</b> with the amount; the rest are counted so you know how many owners you are not tracking yet.</li>
+      <li>The Letters page then puts those owners first: a year behind, not yet at the State, and nobody else is writing to them.</li>
+    </ol>
+  </div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const COUNTIES = ["Arkansas","Ashley","Baxter","Benton","Boone","Bradley","Calhoun","Carroll","Chicot","Clark","Clay","Cleburne","Cleveland","Columbia","Conway","Craighead","Crawford","Crittenden","Cross","Dallas","Desha","Drew","Faulkner","Franklin","Fulton","Garland","Grant","Greene","Hempstead","Hot Spring","Howard","Independence","Izard","Jackson","Jefferson","Johnson","Lafayette","Lawrence","Lee","Lincoln","Little River","Logan","Lonoke","Madison","Marion","Miller","Mississippi","Monroe","Montgomery","Nevada","Newton","Ouachita","Perry","Phillips","Pike","Poinsett","Polk","Pope","Prairie","Pulaski","Randolph","St. Francis","Saline","Scott","Searcy","Sebastian","Sevier","Sharp","Stone","Union","Van Buren","Washington","White","Woodruff","Yell"];
+$('county').innerHTML = COUNTIES.map(c=>`<option ${c==='Garland'?'selected':''}>${c}</option>`).join('');
+function build(){
+  const c = $('county').value, n = $('name').value || '[your name]', k = $('contact').value || '[your email or phone]';
+  const yr = new Date().getFullYear() - 1;
+  $('req').value = `To the ${c} County Tax Collector
+
+Re: Request for public records under the Arkansas Freedom of Information Act (A.C.A. § 25-19-101 et seq.)
+
+Please provide the current list of delinquent real property taxes for ${c} County, including for each parcel: the parcel number, the owner of record, the property address if held, the tax years delinquent (${yr} and any earlier years still unpaid), and the total amount due including penalty and interest as of the date the list is produced.
+
+I would prefer the list as a spreadsheet (CSV or Excel) sent by email. If a fee applies for producing it, please tell me the amount before proceeding. If any part of this request is unclear or any part of the record is withheld, please tell me which part and the reason.
+
+Thank you.
+
+${n}
+${k}`;
+  $('portal').hidden = c !== 'Garland';
+}
+['county','name','contact'].forEach(id=>$(id).addEventListener('input', build));
+try { const saved = JSON.parse(localStorage.getItem('ph-campaign-cfg')||'{}'); if(saved.me) $('name').value = saved.me; if(saved.contact) $('contact').value = saved.contact; } catch(e){}
+build();
+$('copy').onclick = () => navigator.clipboard.writeText($('req').value).then(()=>{ $('copy').textContent = 'Copied'; setTimeout(()=>$('copy').textContent='Copy the request',1500); });
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

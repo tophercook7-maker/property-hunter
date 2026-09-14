@@ -123,6 +123,12 @@ html,body{overflow-x:hidden;max-width:100%}
     <p style="margin-top:10px"><a class="btn line" href="garland.html">See the whole list, filter it, sort it</a></p>
   </section>
 
+  <section id="statewide" hidden>
+    <h2>Across Arkansas</h2>
+    <p class="lead" id="swlead"></p>
+    <div class="cards" id="swcards"></div>
+  </section>
+
   <section>
     <h2>Where to go</h2>
     <div class="doors" id="doors"></div>
@@ -213,6 +219,17 @@ async function main(){
   $('cards').innerHTML = top.map(card).join('');
   $('lead').textContent = `${rows.length.toLocaleString()} properties scored across Garland and Saline. These nine score highest and are not rated PASS. Snapshot as of ${(g.built_at||'').slice(0,10)}.`;
 
+  // statewide: the best-scoring property in each county the hunt has reached
+  try {
+    const idx = await (await fetch('data/scan_index.json')).json();
+    const others = Object.entries(idx.counties||{}).filter(([cf])=>!['05051','05125'].includes(cf)).map(([cf,c])=>({cf, ...c}));
+    if(others.length){
+      const picks = others.map(c => ({...c.top[0], cn: c.county, cf: c.cf, county_n: c.n, county_strong: c.strong})).filter(r=>r && r.a!==undefined).sort((a,b)=>(b.s||0)-(a.s||0));
+      $('statewide').hidden = false;
+      $('swlead').textContent = `The hunt has reached ${others.length} more count${others.length===1?'y':'ies'} (${others.reduce((n,c)=>n+c.n,0).toLocaleString()} properties scored). The best in each:`;
+      $('swcards').innerHTML = picks.slice(0,12).map(card).join('');
+    }
+  } catch(e){}
   const cnt = Object.keys(sl.counties||{}).length;
   $('doors').innerHTML = [
     ['lookup.html','Look up','Any Arkansas parcel: owner, values, aerials, liens, taxes, a checklist before you buy.', 'all 75 counties · live'],

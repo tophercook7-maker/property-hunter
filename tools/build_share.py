@@ -53,6 +53,7 @@ def export_rows():
                                  "next": s.get("next_steps"), "at": (r["finished_at"] or "")[:16],
                                  "findings": finds[:14]}
     rows, labels = [], {}
+    county_name = {t["county_fips"]: t["county"] for t in __import__("hunter.config", fromlist=["TERRITORIES"]).TERRITORIES}
     for p in q("SELECT * FROM properties WHERE excluded=0 AND data_class='real'"):
         pid = p["id"]
         dist = json.loads(p["distress_json"] or "[]")
@@ -66,6 +67,7 @@ def export_rows():
         s = sc.get(pid, {})
         rows.append({
             "i": pid, "a": p["address"], "c": (p["city"] or "").title() or "Unknown", "pid": p["parcel_id"],
+            "cf": p["county_fips"], "cn": county_name.get(p["county_fips"], p["county_fips"]),
             "o": p["owner_name"], "m": mail[pid]["value"] if pid in mail else None, "ab": int("absentee_owner" in d),
             "lv": p["land_value"], "iv": p["imp_value"], "tv": p["total_value"], "ac": p["acreage"],
             "z": (p["zoning"] or "").split(" - ")[0] or None, "zf": p["zoning"],

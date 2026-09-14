@@ -353,10 +353,14 @@ def test_pdf_export_is_honest_when_chrome_is_missing(client, seeded, monkeypatch
 
 # ------------------------------------------------------ territories (71/72)
 
-def test_inactive_territory_is_listed_but_refused(client):
+def test_inactive_territory_is_listed_but_refused(client, monkeypatch):
+    from hunter import api, config
     st = client.get("/api/status").json()
     keys = {t["key"]: t["active"] for t in st["territories"]}
-    assert keys == {"garland_ar": True, "saline_ar": False}
+    assert keys == {"garland_ar": True, "saline_ar": True}
+    # a territory that is configured but switched off must be listed and refused
+    parked = [dict(t, active=(t["key"] != "saline_ar")) for t in config.TERRITORIES]
+    monkeypatch.setattr(api, "TERRITORIES", parked)
     r = client.post("/api/scan", json={"territory": "saline_ar", "mode": "seeds", "limit": 1})
     assert r.status_code == 400 and "not switched on" in r.json()["detail"]
     assert client.post("/api/scan", json={"territory": "mars"}).status_code == 400

@@ -393,6 +393,10 @@ class Scan:
         - or creates the property if the tax roll had not surfaced it yet."""
         self.begin("city_registers")
         details, total_new, total_seen = [], 0, 0
+        if self.territory != "garland_ar":
+            self.finish("city_registers", "skipped",
+                        "the City of Hot Springs registers only cover Garland County")
+            return
         for name in self.CITY_REGISTERS:
             src = get_source(name)
             if not src or not src.enabled():
@@ -437,7 +441,8 @@ class Scan:
         if not src or not src.enabled():
             self.finish("state_lands", "skipped", "State Lands source not enabled")
             return
-        res = src.discover(territory=self.territory)
+        county = next((t["county"] for t in TERRITORIES if t["key"] == self.territory), "Garland")
+        res = src.discover(territory=self.territory, county=county.upper())
         src.record_attempt(res)
         if res.status != OK:
             self._count_source(False)
@@ -460,11 +465,15 @@ class Scan:
                     f"{gone} sold or redeemed since the last scan")
 
     def _state_lands_removals(self, live_keys: set[str]) -> int:
+        # Only this county's records: the live keys are one county's inventory,
+        # so another county's parcels must never be judged against them.
         rows = db.q("""SELECT e.id, e.property_id, e.raw_ref, p.address, p.parcel_id
                        FROM evidence e JOIN properties p ON p.id=e.property_id
                        WHERE e.field='tax_delinquent' AND e.source='cosl_listings' AND p.excluded=0
+                       AND p.county_fips=?
                        AND NOT EXISTS (SELECT 1 FROM evidence r WHERE r.property_id=e.property_id
-                                       AND r.field='tax_delinquent_removed' AND r.id > e.id)""")
+                                       AND r.field='tax_delinquent_removed' AND r.id > e.id)""",
+                    (self._fips(),))
         n = 0
         for r in rows:
             m = re.search(r"\[key (cosl:[^\]]+)\]", r["raw_ref"] or "")
@@ -496,6 +505,11 @@ class Scan:
         parcel id, owner, values and mailing address - and, when the county
         record already exists, folds the register record onto it."""
         src = get_source("hs_gis_owner_mailing")
+        if self.territory != "garland_ar":
+            self.begin("parcel_ids")
+            self.finish("parcel_ids", "skipped", "register records exist only for Garland County; "
+                                                 "State Lands records arrive with their parcel id already")
+            return
         if not src or not src.enabled():
             self.finish("parcel_ids", "skipped", "roll-copy source disabled")
             return

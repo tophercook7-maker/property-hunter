@@ -58,7 +58,7 @@ TERRITORIES = [
         "county_fips": "05125",
         "center": [34.6440, -92.6750],
         "bbox": [-92.95, 34.42, -92.40, 34.90],
-        "active": False,
+        "active": True,
     },
 ]
 DEFAULT_TERRITORY = "garland_ar"

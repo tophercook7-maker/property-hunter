@@ -18,7 +18,7 @@ OWNER_PATTERNS = [
      "Owner of record looks like an estate or heirs",
      "Estates often want to sell and often have title work to finish first.",
      "MEDIUM"),
-    (r"\b(BANK|MORTGAGE|FEDERAL NATIONAL|FANNIE|FREDDIE|HUD|SECRETARY OF HOUSING|"
+    (r"\b(BANK|MORTGAGE|FEDERAL NATIONAL|FANNIE MAE|FREDDIE MAC|HUD|SECRETARY OF HOUSING|"
      r"WELLS FARGO|US BANK|DEUTSCHE|CITIBANK)\b", "institutional_owner",
      "Owner of record looks like a bank or lender",
      "A lender holding a house usually took it back. They are motivated sellers.",

@@ -1,4 +1,4 @@
-<title>Garland County Property Hunter</title>
+<title>Property Hunter Scan</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root{
@@ -159,12 +159,12 @@ td.own div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:2
 </style>
 
 <header class="top"><div class="top-in">
-  <h1><small>Garland County, Arkansas · Hot Springs Village &amp; Diamondhead excluded</small>Property Hunter</h1>
+  <h1><small>Arkansas · Hot Springs Village &amp; Diamondhead excluded</small>Property Hunter scan</h1>
   <div class="stats" id="stats"></div>
 </div></header>
 
 <div class="strip"><div class="strip-in">
-  <p><b>What this is.</b> Every property Property Hunter has found in Garland County from public records: the Arkansas GIS tax roll (owner, assessed values, parcel), the City of Hot Springs vacant-structure register, cleanup/demolition liens, 2025 code cases, zoning and FEMA flood maps.</p>
+  <p><b>What this is.</b> Every property Property Hunter has found from public records (Garland County, and Saline County as it comes in): the Arkansas GIS tax roll (owner, assessed values, parcel), the City of Hot Springs vacant-structure register, cleanup/demolition liens, 2025 code cases, zoning and FEMA flood maps.</p>
   <p><b>What it is not.</b> There are no asking prices here; none of these are listed for sale. Delinquent taxes have <b>not been checked</b> (the county's tax site is login-only). The value shown is the county's <b>appraised</b> total (the assessor's opinion of full value, often behind the market); tax is charged on 20% of it. Scores are a ranking aid, not a valuation. Nothing here is an offer, and paying someone's taxes never makes you the owner. <b>Known limit:</b> City register entries were matched to parcels by a point lookup, and an audit on 2026-09-13 found about 80 of them sitting on the neighbouring lot. Before acting on any one, confirm the parcel in the <a href="index.html">live lookup</a>, which reads the parcel itself.</p>
 </div></div>
 
@@ -185,6 +185,7 @@ td.own div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:2
         <canvas id="dots" width="480" height="400" aria-label="Dot map of where the properties sit"></canvas>
         <p class="note" id="dotnote"></p>
         <label>Search address, owner or parcel<input type="text" id="q" placeholder="e.g. Glade, Monolith, 400-29150"></label>
+        <label>County<select id="county"></select></label>
         <label>City<select id="city"></select></label>
         <label>Our call<select id="rec"><option value="">Any</option><option>INVESTIGATE</option><option>WATCH</option><option>PASS</option><option>UNSCORED</option></select></label>
         <div><span class="eyebrow">Only show</span>
@@ -281,15 +282,17 @@ document.getElementById('cards').addEventListener('click',e=>{const c=e.target.c
 
 /* filters */
 const cities = [...new Set(DATA.map(r=>r.c))].sort();
+const counties = [...new Set(DATA.map(r=>r.cn||'?'))].sort();
+document.getElementById('county').innerHTML = '<option value="">Any</option>'+counties.map(c=>`<option>${esc(c)}</option>`).join('');
 document.getElementById('city').innerHTML = '<option value="">Any</option>'+cities.map(c=>`<option>${esc(c)}</option>`).join('');
 document.getElementById('flags').innerHTML = FLAGS.map(([k,t,fn])=>`<label><input type="checkbox" data-f="${k}"> ${t}<span class="cnt">${DATA.filter(fn).length}</span></label>`).join('');
 let sortK='s', sortDir='desc', limit=150, view=[];
 function state(){ try{ return JSON.parse(localStorage.getItem('ph-filters')||'{}'); }catch(e){ return {}; } }
 function apply(){
   const q=document.getElementById('q').value.trim().toLowerCase();
-  const city=document.getElementById('city').value, rec=document.getElementById('rec').value;
+  const city=document.getElementById('city').value, rec=document.getElementById('rec').value, county=document.getElementById('county').value;
   const on=[...document.querySelectorAll('#flags input:checked')].map(i=>FLAGS.find(f=>f[0]===i.dataset.f)[2]);
-  view = DATA.filter(r=> (!city||r.c===city) && (!rec||r.rec===rec) && on.every(fn=>fn(r)) &&
+  view = DATA.filter(r=> (!county||(r.cn||'?')===county) && (!city||r.c===city) && (!rec||r.rec===rec) && on.every(fn=>fn(r)) &&
     (!q || (r.a||'').toLowerCase().includes(q) || r.o.toLowerCase().includes(q) || (r.pid||'').includes(q) || (r.m||'').toLowerCase().includes(q)));
   const dir = sortDir==='asc'?1:-1;
   view.sort((x,y)=>{ let a=x[sortK], b=y[sortK]; if(a==null&&b==null) return 0; if(a==null) return 1; if(b==null) return -1;
@@ -323,7 +326,7 @@ document.querySelectorAll('th[data-k]').forEach(th=>th.addEventListener('click',
   const k=th.dataset.k; if(sortK===k) sortDir = sortDir==='asc'?'desc':'asc'; else { sortK=k; sortDir = (k==='a'||k==='o'||k==='z'||k==='rec')?'asc':'desc'; }
   document.querySelectorAll('th[data-k]').forEach(t=>t.removeAttribute('data-dir')); th.dataset.dir=sortDir; apply();
 }));
-['q','city','rec'].forEach(id=>document.getElementById(id).addEventListener('input',apply));
+['q','city','rec','county'].forEach(id=>document.getElementById(id).addEventListener('input',apply));
 document.getElementById('flags').addEventListener('change',apply);
 document.getElementById('clear').addEventListener('click',()=>{document.getElementById('q').value='';document.getElementById('city').value='';document.getElementById('rec').value='';document.querySelectorAll('#flags input').forEach(i=>i.checked=false);apply();});
 (function restore(){ const s=state(); if(s.q) document.getElementById('q').value=s.q; if(s.city&&cities.includes(s.city)) document.getElementById('city').value=s.city; if(s.rec) document.getElementById('rec').value=s.rec; (s.on||[]).forEach(k=>{const i=document.querySelector(`#flags input[data-f="${k}"]`); if(i) i.checked=true;}); })();
@@ -369,7 +372,7 @@ function openDrawer(id){
   const inv=r.inv;
   const gm=`https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lon}`;
   const html=`<div class="scrim" id="scrim"></div><aside class="drawer" role="dialog" aria-label="${esc(r.a)}">
-    <div class="dh"><div><h2>${esc(r.a||'(no address)')}</h2><div class="sub">${esc(r.c)}, Garland County · parcel <span class="num">${esc(r.pid||'unknown')}</span></div></div><button class="x" id="dx" aria-label="Close">×</button></div>
+    <div class="dh"><div><h2>${esc(r.a||'(no address)')}</h2><div class="sub">${esc(r.c)}, ${esc(r.cn||'')} County · parcel <span class="num">${esc(r.pid||'unknown')}</span></div></div><button class="x" id="dx" aria-label="Close">×</button></div>
     <div class="db">
       ${r.lat?`<div class="pics"><figure><img loading="lazy" src="${aerial(r,'IMAGERY_9IN_2023')}" alt="2023 aerial"><figcaption>2023 nine-inch aerial · Arkansas GIS Office</figcaption></figure><figure><img loading="lazy" src="${aerial(r,'IMAGERY_1FT_2017')}" alt="2017 aerial"><figcaption>2017 one-foot aerial · compare</figcaption></figure></div>`:''}
       <div class="money">

@@ -26,10 +26,11 @@ jobs:
       - name: Sales history (Mondays, or when run by hand)
         if: github.event_name == 'workflow_dispatch' || github.event.schedule == '47 11 * * 1'
         run: python3 tools/build_cosl_history.py
+      - run: python3 tools/build_radar.py
       - name: Commit if changed
         run: |
           git config user.name "property-hunter-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add docs/data/state_lands.json docs/data/cosl_history.json docs/data/history
+          git add docs/data/state_lands.json docs/data/cosl_history.json docs/data/history docs/data/radar.json docs/data/radar
           git diff --cached --quiet || git commit -m "State Lands inventory refresh $(date -u +%F)"
           git push

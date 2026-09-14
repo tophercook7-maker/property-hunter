@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Arkansas Tax Sale Radar</title>
+<meta name="description" content="Every Arkansas parcel the State is selling for unpaid taxes, joined to the county roll, with what it is worth, what is owed, what lots like it really sold for, and what changed this week. Public records, refreshed daily.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#E8ECEF; --surface:#FFFFFF; --surface2:#F3F5F7; --ink:#172029; --muted:#5F6E7B; --rule:#D3DAE0;
+  --accent:#0E7C73; --accent-ink:#FFFFFF; --accent-soft:#D6EEEB;
+  --deal:#2E7D4F; --deal-soft:#DCEFE3; --watch:#B0771A; --watch-soft:#F6EAD2; --pass:#B3433B; --pass-soft:#F5DDDB;
+  --shadow:0 12px 32px rgba(23,32,41,.16);
+  --display:"Barlow Condensed","Arial Narrow",Impact,sans-serif; --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif; --mono:"IBM Plex Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root{
+  --ground:#101519; --surface:#171E24; --surface2:#1E262D; --ink:#E4E9ED; --muted:#93A0AB; --rule:#2A343D;
+  --accent:#3BB8AC; --accent-ink:#0B1214; --accent-soft:#163A37;
+  --deal:#5CC48A; --deal-soft:#1B3A2A; --watch:#E0A64A; --watch-soft:#3D2E14; --pass:#E2746B; --pass-soft:#42221F;
+  --shadow:0 12px 32px rgba(0,0,0,.5);
+}}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;margin:0}
+a{color:var(--accent)}
+h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:.01em;margin:0;text-wrap:balance}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.top{background:var(--surface);border-bottom:1px solid var(--rule);padding:10px 20px;display:flex;align-items:center;gap:16px}
+.top h1{font-size:24px;line-height:1;text-transform:uppercase}
+main{max-width:1000px;margin:0 auto;padding:0 16px 60px}
+.hero{padding:34px 0 10px}
+.hero h2{font-size:48px;line-height:.95;text-transform:uppercase;max-width:16ch}
+.hero p{font-size:17px;max-width:62ch;color:var(--muted)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:18px 0}
+.stat{background:var(--surface);border:1px solid var(--rule);padding:12px 14px}
+.stat b{display:block;font-family:var(--display);font-size:30px;line-height:1;font-weight:600}
+.stat span{font-size:11.5px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:26px 0}
+.plan{background:var(--surface);border:1px solid var(--rule);padding:18px;display:flex;flex-direction:column;gap:10px}
+.plan.hi{border-color:var(--accent);box-shadow:var(--shadow)}
+.plan h3{font-size:26px;text-transform:uppercase;line-height:1}
+.plan .price{font-family:var(--display);font-size:40px;line-height:1;font-weight:600}
+.plan .price small{font-family:var(--body);font-size:13px;color:var(--muted);font-weight:400}
+.plan ul{margin:0;padding-left:18px;font-size:14px}.plan li{margin:4px 0}
+.btn{display:inline-flex;align-items:center;justify-content:center;background:var(--accent);color:var(--accent-ink);border:0;padding:12px 18px;font-family:var(--display);font-size:20px;letter-spacing:.04em;text-transform:uppercase;font-weight:600;text-decoration:none;margin-top:auto}
+.btn.ghost{background:none;color:var(--ink);border:1px solid var(--rule)}
+.week{margin-top:26px}
+.week h2{font-size:28px;text-transform:uppercase}
+.week .lead{color:var(--muted);margin:2px 0 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--rule);overflow:hidden}
+.card .pic{aspect-ratio:4/3;background:var(--surface2);position:relative}
+.card .pic img{width:100%;height:100%;object-fit:cover;display:block}
+.card .pic .due{position:absolute;right:8px;bottom:8px;background:var(--pass);color:#fff;font-family:var(--display);font-size:18px;padding:4px 8px;font-weight:600}
+.card .body{padding:10px 12px}
+.card h3{font-size:19px;line-height:1.05}
+.card .sub{font-size:12px;color:var(--muted)}
+.card .v{font-family:var(--mono);font-size:12.5px;margin-top:4px}
+.locked{position:relative}
+.locked::after{content:"Subscribers see all of them";position:absolute;inset:0;display:grid;place-items:center;background:linear-gradient(180deg,rgba(23,32,41,0) 0%,var(--ground) 85%);font-family:var(--display);font-size:22px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink)}
+.faq{margin-top:30px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;font-size:14px}
+.faq div{background:var(--surface);border:1px solid var(--rule);padding:12px 14px}
+.faq b{display:block;font-family:var(--display);font-size:18px;text-transform:uppercase;margin-bottom:4px}
+footer{padding:16px 20px;font-size:12px;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<header class="top"><h1>Tax Sale Radar</h1><nav data-nav></nav></header>
+<main>
+  <section class="hero">
+    <span class="eyebrow">Arkansas · every county the State is selling in · public records, refreshed daily</span>
+    <h2>Know what the State is selling before the bulk buyers do.</h2>
+    <p>Every parcel the Commissioner of State Lands has for sale, joined to the county roll: what it's worth, what's owed, whether it has a building, an aerial, who's bidding, and what lots like it actually sold for. Sorted into what changed this week, county by county, in your inbox every Monday.</p>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <div class="plans">
+    <div class="plan"><h3>Free</h3><div class="price">$0</div>
+      <ul><li>This page: the biggest movers statewide, refreshed daily</li><li>The full parcel lookup, any county</li><li>Garland County, everything</li></ul>
+      <a class="btn ghost" href="state-lands.html?county=GARLAND">Browse Garland</a></div>
+    <div class="plan hi"><h3>Radar</h3><div class="price">$29<small> / month</small></div>
+      <ul><li>Monday email: new listings, sold or redeemed, new bids, best value per dollar owed, for the counties you pick</li><li>Every county's full inventory with aerials and sold comps</li><li>CSV export per county for your own mail list</li><li>Cancel any time</li></ul>
+      <a class="btn" id="buy" href="mailto:topher@mixedmakershop.com?subject=Tax%20Sale%20Radar&body=Counties%20I%20want%3A%20">Start Radar</a>
+      <span class="sub" style="font-size:12px;color:var(--muted)">Checkout is being connected; until then, email and you'll be set up by hand the same day.</span></div>
+    <div class="plan"><h3>Desk</h3><div class="price">$149<small> / month</small></div>
+      <ul><li>Everything in Radar</li><li>Owner mailing addresses where the county publishes them, and a printable, truthful owner letter per parcel</li><li>Watchlist alerts on any parcel, any county</li><li>One-off pulls: a county's full delinquent picture, on request</li></ul>
+      <a class="btn ghost" href="mailto:topher@mixedmakershop.com?subject=Tax%20Sale%20Desk">Ask about Desk</a></div>
+  </div>
+
+  <section class="week">
+    <h2>This week, statewide</h2>
+    <p class="lead" id="lead">Loading the radar…</p>
+    <div class="grid" id="new"></div>
+    <h2 style="margin-top:22px">Best value per dollar owed, with a building</h2>
+    <p class="lead">Appraised value divided by what's owed. The higher, the more house for the debt. Not a guarantee of anything but a place to start.</p>
+    <div class="grid locked" id="value"></div>
+  </section>
+
+  <div class="faq">
+    <div><b>Where does this come from?</b> The Commissioner of State Lands' public auction feed and monthly county deed reports, the Arkansas GIS Office parcel layer, FEMA, and the State's own aerial imagery. No scraping of anything that asks not to be, no logins.</div>
+    <div><b>Is it every delinquent parcel?</b> No. It's every parcel the State is selling: two-plus years behind. A parcel one year behind is still at the county, and only the Collector has that.</div>
+    <div><b>Can I buy through this?</b> No. You buy on the State's site with your own account. This tells you what to look at and what it's really worth; the buying, and the 90-day litigation period after, are yours.</div>
+    <div><b>Village lots?</b> Hidden by default. Hot Springs Village and Diamondhead lots carry POA dues for life and sell for the debt to bulk buyers. We show them only if you ask.</div>
+  </div>
+</main>
+<footer>MixedMakerShop, Hot Springs, Arkansas. Public records only; values are the county's appraised figures, not sale prices. Not legal, tax or investment advice.</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt$ = v => (v == null || isNaN(v)) ? '—' : '$' + Math.round(v).toLocaleString('en-US');
+const title = s => String(s||'').toLowerCase().replace(/\s+/g,' ').trim().replace(/\b\w/g, c => c.toUpperCase());
+const IMG = 'https://gis.arkansas.gov/arcgis/rest/services/ImageServices/IMAGERY_9IN_2023/ImageServer/exportImage';
+function aerial(x){ if(!x.lat) return null; let [w,s,e,n] = x.extent || [x.lon-0.0004,x.lat-0.0003,x.lon+0.0004,x.lat+0.0003]; const cx=(w+e)/2, cy=(s+n)/2, half=Math.max((e-w)*0.9,(n-s)*1.1,0.0004); return `${IMG}?bbox=${[cx-half,cy-half*0.82,cx+half,cy+half*0.82].map(v=>v.toFixed(6)).join(',')}&bboxSR=4326&imageSR=3857&size=480,394&format=jpg&f=image`; }
+function card(x, tag){ const a = aerial(x); const addr = x.address ? title(x.address) : (x.subdivision ? title(x.subdivision)+' lot' : 'No situs address'); return `<a class="card" style="text-decoration:none;color:inherit" href="state-lands.html?county=${esc(x.county)}&q=${esc(x.rpid)}"><div class="pic">${a?`<img loading="lazy" src="${a}" alt="">`:''}<span class="due">${fmt$(x.starting_bid)} owed</span></div><div class="body"><h3>${esc(addr)}</h3><div class="sub">${esc(title(x.county))} County · ${esc(title(x.owner))}</div><div class="v">${fmt$(x.appraised)} appraised${x.improvements>0?' · building '+fmt$(x.improvements):' · lot'}${x.current_bid>0?` · bid ${fmt$(x.current_bid)}`:''}${tag?' · '+tag:''}</div></div></a>`; }
+fetch('data/radar.json').then(r=>r.json()).then(r => {
+  const cs = Object.values(r.counties||{});
+  const tot = s => cs.reduce((n,c)=>n+(c.summary[s]||0),0);
+  $('stats').innerHTML = [[tot('for_sale').toLocaleString(),'parcels for sale'],[cs.length,'counties'],[tot('new_this_week'),'new this week'],[tot('gone_this_week'),'sold or redeemed this week'],[tot('with_bids'),'carrying a bid']].map(([b,s])=>`<div class="stat"><b>${b}</b><span>${s}</span></div>`).join('');
+  const news = cs.flatMap(c=>c.new).sort((a,b)=>(b.appraised||0)-(a.appraised||0));
+  $('lead').textContent = `${news.length} parcels entered the State's inventory since ${r.week_start}, outside Hot Springs Village and Diamondhead. The twelve with the highest appraised value:`;
+  $('new').innerHTML = news.slice(0,12).map(x=>card(x,'new')).join('') || '<p class="sub">Nothing new this week.</p>';
+  const val = cs.flatMap(c=>c.best_value).sort((a,b)=>((b.appraised||0)/Math.max(b.starting_bid||1,1))-((a.appraised||0)/Math.max(a.starting_bid||1,1)));
+  $('value').innerHTML = val.slice(0,6).map(x=>card(x, `${Math.round((x.appraised||0)/Math.max(x.starting_bid||1,1))}× the debt`)).join('');
+}).catch(()=>{ $('lead').textContent = 'The radar has not been built yet.'; });
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

@@ -9,3 +9,4 @@ __pycache__/
 
 !docs/data/
 !docs/data/*
+data/radar_subscribers.json

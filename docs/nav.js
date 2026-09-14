@@ -6,7 +6,8 @@
     ["state-lands.html", "Tax sale", "⚑"],
     ["campaign.html", "Letters", "✉"],
     ["watch.html", "Watch", "◉"],
-    ["garland.html", "Scan", "▤"]
+    ["garland.html", "Scan", "▤"],
+    ["pro.html", "Radar", "◎"]
   ];
   var here = (location.pathname.split("/").pop() || "index.html").toLowerCase();
   var css = document.createElement("style");

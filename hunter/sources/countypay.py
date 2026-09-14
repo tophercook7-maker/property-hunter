@@ -25,7 +25,8 @@ BASE = "https://countypay.ark.org/index.php"
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) "
       "Chrome/128.0 Safari/537.36 PropertyHunter/1.0 (public-records research)")
 PAUSE = 0.8
-SLUGS = {"05051": "garland", "05125": "saline", "05059": "hotspring"}
+from .cosl import COUNTY_FIPS as _CF
+SLUGS = {fips: name.lower().replace(" ", "").replace(".", "") for name, fips in _CF.items()}   # every county: Arkansas.gov slug
 
 
 def parcel_key(parcel_id: str) -> str:

@@ -15,8 +15,35 @@ from hunter.sources import countypay  # noqa: E402
 from hunter.sources.base import OK  # noqa: E402
 
 
+STATUS = os.path.join(ROOT, "docs", "data", "status.json")
+
+
+def write_status(ok: bool, detail: str, filled: dict | None = None):
+    """docs/data/status.json - the site reads this to say, gently, what it could and could not check."""
+    cur = {}
+    try:
+        cur = json.load(open(STATUS))
+    except Exception:
+        pass
+    now = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+    c = cur.get("countypay", {})
+    if ok and not c.get("open"):
+        c["opened_at"] = now
+    if not ok and c.get("open", True):
+        c["down_since"] = c.get("down_since") or now
+    if ok:
+        c["down_since"] = None
+    c.update({"open": ok, "detail": detail, "checked_at": now})
+    if filled:
+        c["last_fill"] = {"at": now, **filled}
+    cur["countypay"] = c
+    os.makedirs(os.path.dirname(STATUS), exist_ok=True)
+    json.dump(cur, open(STATUS, "w"), indent=1)
+
+
 def open_now() -> tuple[bool, str]:
     res = countypay.CountyPayTaxes().health_check()
+    write_status(res.status == OK, res.detail)
     return res.status == OK, res.detail
 
 
@@ -66,6 +93,7 @@ def main():
         print(time.strftime("%H:%M"), "CountyPay:", detail, flush=True)
         if ok:
             out = fill(top)
+            write_status(True, "open", out)
             print("filled:", out, flush=True)
             log(None, f"CountyPay tax bills filled: {out}", source="countypay")
             subprocess.run([sys.executable, os.path.join(ROOT, "tools", "build_share.py")], check=False,

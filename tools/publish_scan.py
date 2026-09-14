@@ -9,7 +9,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def once():
     subprocess.run([sys.executable, os.path.join(ROOT, "tools", "build_share.py")], cwd=ROOT, stdout=subprocess.DEVNULL, check=False)
-    subprocess.run(["git", "add", "docs/data/scan", "docs/data/scan_index.json", "docs/data/garland.json", "docs/garland.html", "hunter/static/share.html"], cwd=ROOT, check=False)
+    subprocess.run(["git", "add", "docs/data/scan", "docs/data/scan_index.json", "docs/data/garland.json", "docs/data/status.json", "docs/garland.html", "hunter/static/share.html"], cwd=ROOT, check=False)
     r = subprocess.run(["git", "commit", "-qm", "Scan results refresh"], cwd=ROOT, capture_output=True, text=True)
     if r.returncode != 0:
         print(time.strftime("%H:%M"), "nothing new to publish", flush=True); return

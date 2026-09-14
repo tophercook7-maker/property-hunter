@@ -93,6 +93,17 @@ section .lead{color:var(--muted);font-size:14px;margin:0 0 12px}
 .how{background:var(--surface);border:1px solid var(--rule);border-left:4px solid var(--accent);padding:12px 16px;font-size:14px;margin-top:22px}
 .how ol{margin:6px 0 0;padding-left:20px}.how li{margin:4px 0}
 footer{padding:16px 20px 24px;font-size:12px;color:var(--muted);text-align:center;line-height:1.5}
+.cover{position:fixed;inset:0;z-index:700;background:rgba(10,14,18,.6);backdrop-filter:blur(3px);display:grid;place-items:center;padding:16px}
+.cover .sheet{background:var(--surface);border:1px solid var(--rule);max-width:620px;width:100%;padding:26px 26px 20px;box-shadow:var(--shadow)}
+.cover h2{font-size:34px;line-height:1;text-transform:uppercase;margin-bottom:8px}
+.cover p{margin:0 0 10px;font-size:15px}
+.cover ol{margin:8px 0 14px;padding-left:20px;font-size:14.5px}.cover li{margin:6px 0}
+.cover .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cover .small{font-size:12.5px;color:var(--muted)}
+.taxnote{background:var(--surface);border:1px solid var(--rule);border-left:4px solid var(--watch);padding:12px 16px;margin-top:14px;font-size:14px}
+.taxnote b{font-weight:600}
+.taxnote .st{display:inline-block;padding:1px 7px;border:1px solid var(--rule);font-size:12px;margin-right:6px}
+.taxnote .st.d{border-color:var(--pass);color:var(--pass)} .taxnote .st.o{border-color:var(--deal);color:var(--deal)} .taxnote .st.m{border-color:var(--muted);color:var(--muted)}
 html,body{overflow-x:hidden;max-width:100%}
 .top{flex-wrap:wrap}
 .app{min-width:0;flex:1 1 200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -111,10 +122,23 @@ html,body{overflow-x:hidden;max-width:100%}
   <span class="app" id="app"><i></i>checking for the app on this Mac…</span>
   <nav data-nav></nav>
 </header>
+<div class="cover" id="cover" hidden><div class="sheet">
+  <span class="eyebrow">Property Hunter · Garland County and beyond</span>
+  <h2>Houses people have stopped caring about.</h2>
+  <p>This site reads the public record every morning: the county tax roll, the City of Hot Springs' vacant-house and lien lists, the State's tax-sale inventory, and FEMA. It scores every property, shows you the few worth your time, and hands you one button each.</p>
+  <ol>
+    <li><b>Today</b> tells you what to do: drive by three, mail ten letters, check your watchlist.</li>
+    <li><b>Look</b> opens any property: owner, values, aerials, liens, taxes, and what to confirm before you spend a dollar.</li>
+    <li><b>Letter</b> writes the owner, truthfully. You print it. <b>Watch</b> tells you when anything changes.</li>
+  </ol>
+  <p class="small"><b>About taxes, honestly.</b> Two things get checked: whether the State is already selling a parcel for unpaid taxes (checked daily, always right), and whether the county's current bill is paid (read from the Collector's own site). When the Collector's site is down, a card says "not checked yet" rather than guessing. Values are the county's appraised figures, never sale prices, and nothing here is legal advice.</p>
+  <div class="row"><button class="btn" id="cover-go" type="button">Show me today</button><label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="cover-skip" checked> don't show this again</label></div>
+</div></div>
 <main>
   <div class="hero" id="hero"><div class="in"><span class="eyebrow">Loading today's best…</span><h2>&nbsp;</h2></div></div>
 
   <div class="steps" id="steps"></div>
+  <div class="taxnote" id="taxnote"></div>
 
   <section id="today">
     <h2>Look at these</h2>
@@ -176,6 +200,21 @@ function step(n, key, h, big, p, actions){
     <label class="chk"><input type="checkbox" data-k="${key}" ${on?'checked':''}> done for today</label></div>`;
 }
 
+(function(){
+  let seen = null; try { seen = localStorage.getItem('ph-cover-seen'); } catch(e){}
+  const c = $('cover'); if(!seen){ c.hidden = false; }
+  $('cover-go').addEventListener('click', () => { c.hidden = true; if($('cover-skip').checked){ try { localStorage.setItem('ph-cover-seen', '1'); } catch(e){} } });
+})();
+async function taxNote(rows){
+  let st = null; try { st = await (await fetch('data/status.json', {cache:'no-store'})).json(); } catch(e){}
+  const cp = (st||{}).countypay || {};
+  const nState = rows.filter(r=>(r.ts||'').startsWith('CERTIFIED')).length, nCounty = rows.filter(r=>r.tax && /owed|delinquent/i.test(r.tax)).length, nNone = rows.filter(r=>r.tax && /no open/i.test(r.tax)).length;
+  const when = v => v ? new Date(v.replace(/(\d{2})(\d{2})$/,'$1:$2')).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+  const cpLine = cp.open === false ? `The Garland County Collector's online search has said "${esc(cp.detail||'unavailable')}" since ${when(cp.down_since)||'this morning'} (last tried ${when(cp.checked_at)}). The app tries again every twenty minutes; when it opens, the top 80 properties and your watchlist get their real figure automatically.`
+                : cp.open === true ? `The Collector's site is open; ${cp.last_fill ? `${cp.last_fill.checked} properties were checked ${when(cp.last_fill.at)}: ${cp.last_fill.delinquent} delinquent, ${cp.last_fill.owed} with this year's bill unpaid, ${cp.last_fill.none} clear.` : 'checks are running.'}`
+                : 'The Collector\'s site has not been tried yet from this Mac.';
+  $('taxnote').innerHTML = `<b>About the "Taxes" line on each property.</b> It can say three things. <span class="st d">certified to the State</span> means two or more years behind and in the State's sale inventory; checked every day, ${nState} of these properties are. <span class="st d">$ owed to the Collector</span> means this year's county bill is open, read from the Collector's own site (${nCounty} so far). <span class="st m">not checked yet</span> means neither source could say. ${cpLine} What no site has: the one-year-behind list, which the Collector releases on request.`;
+}
 async function main(){
   // the app on this Mac?
   let app = null;
@@ -217,6 +256,7 @@ async function main(){
   document.querySelectorAll('.step input[data-k]').forEach(cb => cb.addEventListener('change', () => { done[cb.dataset.k] = cb.checked; try { localStorage.setItem('ph-today-'+today, JSON.stringify(done)); } catch(e){} cb.closest('.step').classList.toggle('done', cb.checked); cb.closest('.step').querySelector('.n').textContent = cb.checked ? '✓' : ({look:1,mail:2,watch:3})[cb.dataset.k]; }));
 
   $('cards').innerHTML = top.map(card).join('');
+  taxNote(g.rows||[]);
   $('lead').textContent = `${rows.length.toLocaleString()} properties scored across Garland and Saline. These nine score highest and are not rated PASS. Snapshot as of ${(g.built_at||'').slice(0,10)}.`;
 
   // statewide: the best-scoring property in each county the hunt has reached

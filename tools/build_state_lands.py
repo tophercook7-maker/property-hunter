@@ -77,10 +77,9 @@ def build(counties=None, details=False, detail_counties=("GARLAND",)):
                     "lon": round(p["lon"], 6) if p.get("lon") else None,
                     "extent": [round(v, 6) for v in p["extent"]] if p.get("extent") else None,
                     "delinquent_year": None, "taxes": None, "liens": None, "sale_url": None}
-            if fips == "05051":
-                v = exclusions.check(lat=p.get("lat"), lon=p.get("lon"), subdivision=p.get("subdivision"),
-                                     address=addr, city=p.get("adrcity"))
-                item["excluded_area"] = v.label if v.excluded else None
+            v = exclusions.check(lat=p.get("lat"), lon=p.get("lon"), subdivision=p.get("subdivision"),
+                                 address=addr, city=p.get("adrcity"))
+            item["excluded_area"] = v.label if v.excluded else None
             old = prev.get((county, rpid))
             if old and old.get("delinquent_year"):
                 for k in ("delinquent_year", "taxes", "liens", "sale_url"):

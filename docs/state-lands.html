@@ -129,7 +129,7 @@ footer{background:var(--surface);border-top:1px solid var(--rule);padding:10px 2
       <label><input type="checkbox" id="f-addr"> Has a street address</label>
       <label><input type="checkbox" id="f-bldg"> Has a building (improvement value)</label>
       <label><input type="checkbox" id="f-bids"> Someone has already bid</label>
-      <label><input type="checkbox" id="f-nohsv"> Hide Hot Springs Village / Diamondhead lots</label>
+      <label><input type="checkbox" id="f-nohsv" checked> Hide Hot Springs Village / Diamondhead lots <span id="hsvn" style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted)"></span></label>
     </div>
     <p class="note" id="built"></p>
   </aside>
@@ -178,9 +178,12 @@ function init(){
   $('county').innerHTML = `<option value="">All counties (${L_.length.toLocaleString()})</option>` + counties.map(([c,v])=>`<option value="${c}">${title(c)} (${v.count})</option>`).join('');
   const p = new URLSearchParams(location.search);
   $('county').value = p.get('county') || (counties.some(c=>c[0]==='GARLAND') ? 'GARLAND' : '');
+  if(p.get('hsv')==='1') $('f-nohsv').checked = false;
   if(p.get('q')) $('q').value = p.get('q');
   const owed = L_.reduce((s,x)=>s+(+x.starting_bid||0),0);
-  $('stats').innerHTML = [[L_.length.toLocaleString(),'parcels for sale'],[Object.keys(DATA.counties||{}).length,'counties'],[fmt$(owed),'owed in total'],[L_.filter(x=>x.improvements>0).length,'with a building']].map(([b,s])=>`<div class="stat"><b>${b}</b><span>${s}</span></div>`).join('');
+  const hsv = L_.filter(isHSV).length;
+  $('stats').innerHTML = [[L_.length.toLocaleString(),'parcels for sale'],[Object.keys(DATA.counties||{}).length,'counties'],[fmt$(owed),'owed in total'],[L_.filter(x=>x.improvements>0).length,'with a building'],[hsv.toLocaleString(),'Village / Diamondhead lots, hidden by default']].map(([b,s])=>`<div class="stat"><b>${b}</b><span>${s}</span></div>`).join('');
+  $('hsvn').textContent = hsv.toLocaleString() + ' hidden';
   $('built').textContent = 'Inventory as of ' + (DATA.built_at||'?').replace('T',' ').slice(0,16) + ' UTC. Bids and availability change hourly; the listing link is live.';
   map = L.map('map',{zoomControl:false,attributionControl:false}).setView([34.8,-92.4],6);
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}).addTo(map);

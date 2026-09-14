@@ -109,6 +109,8 @@ form.search button[disabled]{opacity:.6;cursor:wait}
 .pics figure{margin:0;background:var(--surface2);border:1px solid var(--rule)}
 .pics img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
 .pics figcaption{font-size:11px;color:var(--muted);padding:4px 6px}
+.village{border:1px solid var(--pass);border-left:6px solid var(--pass);background:var(--pass-soft);color:var(--ink);padding:10px 12px;font-size:13.5px}
+.village b{color:var(--pass)}
 .taxbox{border:1px solid var(--rule);border-left:4px solid var(--watch);padding:10px 12px;background:var(--surface2);font-size:13px}
 .taxbox.cert{border-left-color:var(--pass)}
 .taxbox b.big{font-family:var(--display);font-size:20px;font-weight:600}
@@ -301,6 +303,7 @@ async function select(i){
   const ds = `https://www.actdatascout.com/RealProperty/Arkansas/${encodeURIComponent(county)}`;
   $('detail').innerHTML = `<div class="detail">
     <div><h2>${esc(addr)}</h2><div class="sub">${esc(title(a.adrcity)||'')}${a.adrzip5?' '+a.adrzip5:''} · ${esc(county)} County · parcel <span class="num">${esc(a.parcelid)}</span></div></div>
+    <div id="village"></div>
     <div class="money">
       <div class="hi"><b class="num">${fmt$(a.totalvalue)}</b><span>County appraised</span></div>
       <div><b class="num">${fmt$(a.assessvalue)}</b><span>Assessed for tax</span></div>
@@ -338,6 +341,7 @@ async function select(i){
   $('copy').onclick = () => { navigator.clipboard.writeText(document.querySelector('.detail').innerText).then(()=>{ $('copy').textContent='Copied'; setTimeout(()=>$('copy').textContent='Copy this record as text',1500); }); };
   // live enrichments, each independent, each honest on failure
   visuals(r, a, c);
+  villageCheck(c, a);
   taxStatus(a, c);
   if(c) flood(c);
   const cityOut = isGarland ? await city(a, c) : null;
@@ -418,6 +422,20 @@ $('f').addEventListener('submit', () => { const u = new URL(location.href); u.se
 </script>
 
 <script>
+/* ---------- Hot Springs Village / Diamondhead: the two places this hunt never buys ---------- */
+let EXCL = null;
+async function loadExcl(){ if(EXCL) return EXCL; try { EXCL = await (await fetch('data/exclusions.json')).json(); } catch(e){ EXCL = {}; } return EXCL; }
+function inRings(lon, lat, rings){ let inside=false; for(const ring of rings){ for(let i=0,j=ring.length-1;i<ring.length;j=i++){ const xi=ring[i][0], yi=ring[i][1], xj=ring[j][0], yj=ring[j][1]; if(((yi>lat)!==(yj>lat)) && (lon < (xj-xi)*(lat-yi)/(yj-yi)+xi)) inside=!inside; } } return inside; }
+async function villageCheck(c, a){
+  const el = $('village'); if(!el) return;
+  const ex = await loadExcl(); if(!c) return;
+  let hit = null;
+  for(const k in ex){ const b = ex[k].bbox; if(b && (c[1]<b[0]||c[1]>b[2]||c[0]<b[1]||c[0]>b[3])) continue; if(inRings(c[1], c[0], ex[k].rings)){ hit = ex[k]; break; } }
+  if(!hit && /VILLAGE|DIAMONDHEAD/.test(String(a.subdivision||'').toUpperCase())) hit = {name: /DIAMONDHEAD/.test(String(a.subdivision).toUpperCase()) ? 'Diamondhead' : 'Hot Springs Village'};
+  if(!hit){ el.innerHTML = ''; return; }
+  const poa = /Village/.test(hit.name) ? 'Hot Springs Village POA dues run about $52 a month per lot for as long as you own it, plus a buy-in and transfer fee' : 'Diamondhead POA dues attach to the lot';
+  el.innerHTML = `<div class="village"><b>Inside ${esc(hit.name)}.</b> This hunt never buys here, and the scan never lists it: ${poa}. The State's tax-sale lots here sell for the debt to bulk buyers, and a signed-over deed makes the dues yours. Everything below is still true; it is just not a deal.</div>`;
+}
 /* ---------- visuals: aerials from the State's own imagery, no key needed ---------- */
 const IMG = 'https://gis.arkansas.gov/arcgis/rest/services/ImageServices';
 function aerialUrl(r, c, service, size){
@@ -497,6 +515,7 @@ function renderAcq(r, a, c, cityOut, county){
                                 : {k:'deed', cls:'ok', t:`Last deed recorded ${dt(a.sourcedate)} (${Math.round(dy)} yr ago).`, why:`Book/page ${clean(a.sourceref)||'?'}`});
   // 4. Values sanity
   if(a.totalvalue && a.assessvalue){ const ratio = a.assessvalue/a.totalvalue; auto.push(ratio>0.21||ratio<0.05 ? {k:'values', cls:'warn', t:'Assessed-to-appraised ratio is unusual; the roll may be mid-update.', why:`${fmt$(a.assessvalue)} / ${fmt$(a.totalvalue)} = ${(ratio*100).toFixed(0)}%`} : {k:'values', cls:'ok', t:'Values look internally consistent.', why:`assessed ${(ratio*100).toFixed(0)}% of appraised, Arkansas standard is 20%`}); }
+  if(document.querySelector('#village .village')) auto.push({k:'village', cls:'warn', t:'Inside Hot Springs Village or Diamondhead: POA dues for life, thin resale. The hunt excludes it on purpose.', why:'If you still want it, price the dues into every year you would hold it.'});
   if(a.impvalue===0 && vac.length) auto.push({k:'demo', cls:'warn', t:'The roll carries $0 improvements but the City lists a vacant structure - the building may have been demolished, or the roll not yet caught up.', why:'Drive by. If it is gone, you are pricing a lot, not a house.'});
   if(a.totalvalue && lienTotal>0.5*a.totalvalue) auto.push({k:'lienheavy', cls:'warn', t:`City liens (${fmt$(lienTotal)}) are more than half the appraised value (${fmt$(a.totalvalue)}).`, why:'The lien has to be paid or negotiated with the City; the owner may have no equity to deal with.'});
 

@@ -66,6 +66,16 @@ h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:.01em;margin:
 .chip.d{border-color:var(--pass);color:var(--pass);background:var(--pass-soft)}
 .chip.o{border-color:var(--deal);color:var(--deal);background:var(--deal-soft)}
 .chip.r{border-color:var(--watch);color:var(--watch);background:var(--watch-soft)}
+.hist{margin:0 0 14px;background:var(--surface);border:1px solid var(--rule);padding:12px 14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 18px;font-size:12.5px}
+.hist div b{display:block;font-family:var(--display);font-size:22px;line-height:1.05;font-weight:600}
+.hist div span{color:var(--muted);font-size:11px;letter-spacing:.05em;text-transform:uppercase}
+.hist .wide{grid-column:1/-1;color:var(--muted);font-size:12px}
+.hist .wide b{display:inline;font:inherit;font-weight:600;color:var(--ink)}
+.comps{border:1px solid var(--rule);border-left:4px solid var(--accent);padding:10px 12px;background:var(--surface2);font-size:13px}
+.comps table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+.comps td,.comps th{padding:3px 6px;border-top:1px solid var(--rule);text-align:left}
+.comps th{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.comps td.num,.comps th.num{text-align:right}
 .tbar{display:flex;gap:12px;align-items:center;font-size:12.5px;color:var(--muted);margin-bottom:10px;flex-wrap:wrap}
 .tbar b{font-family:var(--mono);color:var(--ink);font-weight:500}
 .more{display:block;width:100%;background:var(--surface);border:1px solid var(--rule);padding:10px;font-size:13px;margin-top:12px}
@@ -124,6 +134,7 @@ footer{background:var(--surface);border-top:1px solid var(--rule);padding:10px 2
     <p class="note" id="built"></p>
   </aside>
   <section>
+    <div class="hist" id="hist" hidden></div>
     <div class="tbar"><span>Showing <b id="shown"></b> of <b id="total"></b></span><span id="sum"></span></div>
     <div class="grid" id="grid"></div>
     <button class="more" id="more" hidden></button>
@@ -151,6 +162,8 @@ function aerial(item, service, size){
 const isHSV = it => !!it.excluded_area || /DIAMONDHEAD|HOT SPRINGS VILLAGE|\bHSV\b/i.test((it.legal||'')+' '+(it.subdivision||''));
 let DATA = {listings:[]}, view = [], limit = 60, map, layer;
 
+let HIST = null;
+fetch('data/cosl_history.json').then(r=>r.ok?r.json():null).then(h => { HIST = h; if(DATA.listings.length) drawHist(); }).catch(()=>{});
 fetch('data/state_lands.json').then(r=>r.json()).then(d => { DATA = d; init(); }).catch(e => { $('grid').innerHTML = `<p class="warn">Could not load data/state_lands.json (${esc(e.message)}). Run tools/build_state_lands.py.</p>`; });
 
 function init(){
@@ -178,8 +191,36 @@ function apply(){
     (!q || [x.owner,x.address,x.parcel_id,x.rpid,x.subdivision,x.legal,x.city].some(v=>String(v||'').toLowerCase().includes(q))));
   const key = {bid:x=>x.starting_bid||0, bid_desc:x=>-(x.starting_bid||0), value:x=>-(x.appraised||0), ratio:x=>-((x.appraised||0)/Math.max(x.starting_bid||1,1)), acres:x=>-(x.acreage||0), added:x=>-(new Date(x.added||0).getTime())}[sort];
   view.sort((a,b)=>key(a)-key(b));
-  limit = 60; render();
+  limit = 60; render(); drawHist();
   const u=new URL(location.href); c?u.searchParams.set('county',c):u.searchParams.delete('county'); q?u.searchParams.set('q',q):u.searchParams.delete('q'); history.replaceState(null,'',u);
+}
+function histFor(county){ return HIST && HIST.counties && HIST.counties[county]; }
+function drawHist(){
+  const el = $('hist'); if(!el) return;
+  const c = $('county').value; const h = c ? histFor(c) : null;
+  if(!h){ el.hidden = true; return; }
+  const s = h.summary; el.hidden = false;
+  const months = s.first && s.last ? Math.max(1, Math.round((new Date(s.last)-new Date(s.first))/2629800000)) : null;
+  el.innerHTML = `
+    <div><b>${s.sold.toLocaleString()}</b><span>sold by the State${months?` · ${months} mo`:''}</span></div>
+    <div><b>${s.redeemed.toLocaleString()}</b><span>redeemed by owners</span></div>
+    <div><b>${fmt$(s.median_owed)}</b><span>median debt at sale</span></div>
+    <div><b>${s.sold_above_debt?fmt$(s.median_price):'—'}</b><span>median price${s.sold_above_debt?` · ${s.sold_above_debt} beat the debt`:' (none beat the debt)'}</span></div>
+    <div><b>${fmt$(s.max_price)}</b><span>highest price seen</span></div>
+    <div class="wide">${title(c)} County, ${(HIST.years||[]).join('–')} from COSL's monthly deed reports. <b>Who is buying:</b> ${h.top_buyers.slice(0,5).map(b=>`${esc(title(b.buyer))} (${b.n}${b.city?', '+esc(title(b.city.replace(/,? ?[A-Z]{2} \d{5}.*$/,'').trim()))+'':''})`).join(' · ')||'—'}. Sales that show no excess proceeds cleared exactly the debt, so the price you see for those is the floor, not a bid war.</div>`;
+}
+function compsFor(x){
+  const h = histFor(x.county); if(!h) return null;
+  const sales = h.sales.filter(s=>s.date);
+  const v = x.appraised || 0;
+  let pool = v ? sales.filter(s=>s.value && s.value>=v*0.5 && s.value<=v*1.5) : [];
+  const banded = pool.length >= 5;
+  if(!banded) pool = sales;
+  const prices = pool.map(s=>s.price).filter(Boolean).sort((a,b)=>a-b);
+  if(!prices.length) return null;
+  const med = prices[Math.floor(prices.length/2)];
+  return {n: prices.length, banded, low: prices[0], high: prices[prices.length-1], med,
+          above: pool.filter(s=>s.excess).length, recent: pool.slice(0,6)};
 }
 function card(x){
   const k = x.county+'|'+x.rpid;
@@ -215,6 +256,7 @@ function open(k){
       <div class="pics">${a23?`<figure><img src="${esc(a23)}" alt="2023 aerial"><figcaption>2023 nine-inch aerial · Arkansas GIS Office</figcaption></figure>`:''}${a17?`<figure><img src="${esc(a17)}" alt="2017 aerial"><figcaption>2017 one-foot aerial · what changed?</figcaption></figure>`:''}${x.map_url?`<figure><img src="${esc(x.map_url)}" alt="State Lands map"><figcaption>State Lands parcel map</figcaption></figure>`:''}</div>
       <div class="money"><div class="hi"><b class="num">${fmt2(x.starting_bid)}</b><span>Owed · starting bid</span></div><div><b class="num">${fmt$(x.appraised)}</b><span>County appraised</span></div><div><b class="num">${x.current_bid>0?fmt2(x.current_bid):'none'}</b><span>Current bid${x.bids?' · '+x.bids:''}</span></div></div>
       <div class="warn">${x.delinquent_year?`Taxes unpaid since <b>${esc(x.delinquent_year)}</b>${x.taxes?` · base taxes ${fmt2(+x.taxes)}`:''}${x.liens?` · liens noted by COSL: ${esc(x.liens)}`:''}. `:''}The starting bid is the State's figure for taxes, interest, penalties and costs at listing time. It moves as months pass. ${x.ends?`Bidding ends ${esc(String(x.ends).replace('T',' ').slice(0,16))}.`:'No active bidding; a post-auction sale can be bought at the starting bid.'}</div>
+      ${(()=>{ const cp = compsFor(x); if(!cp) return ''; return `<div class="comps"><b>What lots like this actually went for in ${esc(title(x.county))} County</b><br>${cp.n} State sales${cp.banded?` of parcels appraised within half to one-and-a-half times this one`:' (all price bands; too few in this band)'}: median <b>${fmt$(cp.med)}</b>, from ${fmt$(cp.low)} to ${fmt$(cp.high)}; ${cp.above} of them drew a bid above the debt. Against a starting bid of ${fmt$(x.starting_bid)} here.<table><tr><th>Deed date</th><th>Buyer</th><th class="num">Debt</th><th class="num">Price</th></tr>${cp.recent.map(s=>`<tr><td>${esc(s.date||'')}</td><td>${esc(title(s.buyer))}</td><td class="num">${fmt$(s.owed)}</td><td class="num">${s.price_known?fmt$(s.price):fmt$(s.owed)+' (at debt)'}</td></tr>`).join('')}</table></div>`; })()}
       <div class="sec"><h3>From the county roll</h3><dl class="facts">
         <dt>Owner of record</dt><dd>${esc(title(x.owner))}</dd>
         <dt>Address</dt><dd>${esc(x.address?title(x.address):'—')}${x.city?', '+esc(title(x.city)):''}${x.zip?' '+x.zip:''}</dd>

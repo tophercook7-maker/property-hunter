@@ -6,7 +6,8 @@ name: Refresh State Lands inventory
 
 on:
   schedule:
-    - cron: "17 11 * * *"      # daily, ~06:17 Central
+    - cron: "17 11 * * *"      # daily, ~06:17 Central: listings
+    - cron: "47 11 * * 1"      # Mondays: listings + sales history
   workflow_dispatch:
 
 permissions:
@@ -22,10 +23,13 @@ jobs:
           python-version: "3.12"
       - run: pip install httpx xlrd
       - run: python3 tools/build_state_lands.py --details
+      - name: Sales history (Mondays, or when run by hand)
+        if: github.event_name == 'workflow_dispatch' || github.event.schedule == '47 11 * * 1'
+        run: python3 tools/build_cosl_history.py
       - name: Commit if changed
         run: |
           git config user.name "property-hunter-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add docs/data/state_lands.json
+          git add docs/data/state_lands.json docs/data/cosl_history.json
           git diff --cached --quiet || git commit -m "State Lands inventory refresh $(date -u +%F)"
           git push

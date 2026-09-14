@@ -307,7 +307,7 @@ function renderRows(){
     <td><span class="addr">${esc(r.a||'(no address)')}</span><span class="sub">${esc(r.c)} · <span class="num">${esc(r.pid||'no parcel id')}</span></span></td>
     <td class="own"><div title="${esc(r.o)}">${esc(r.o)||'<em>unknown</em>'}</div>${r.m?`<span class="sub" title="${esc(r.m)}">${esc(r.m)}</span>`:''}</td>
     <td class="r num">${fmt$(r.tv)}</td>
-    <td class="r num">${fmt$(r.mk)}</td>
+    <td class="r num">${fmt$(r.mk)}<span class="sub">${r.tax?esc('taxes: '+r.tax.replace(/ owed to the County Collector.*$/,' owed').slice(0,40)):((r.ts||'').startsWith('CERTIFIED')?'taxes: State sale':'taxes: not checked')}</span></td>
     <td class="r num">${r.lien>0?fmt$(r.lien):'<span style="color:var(--muted)">—</span>'}</td>
     <td class="num">${esc(r.z||'—')}</td>
     <td><div class="chips">${chips(r,3)}</div></td>

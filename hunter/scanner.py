@@ -79,6 +79,7 @@ STAGES = [
     ("distress", "Looking for distress signals"),
     ("structures", "Checking for buildings on the ground"),
     ("flood", "Checking FEMA flood zones"),
+    ("taxes", "Asking the County Collector what is owed"),
     ("access", "Checking road access"),
     ("city", "Checking City zoning, utilities, liens and vacancy"),
     ("terrain", "Reading the lay of the land"),
@@ -603,6 +604,7 @@ class Scan:
         for key, source_name, kwargs, budget in (
                 ("structures", "ar_gis_footprints", {}, 180.0),
                 ("flood", "fema_nfhl", {}, 180.0),
+                ("taxes", "county_tax_collector", {}, 240.0),
                 ("access", "ar_gis_roads", {}, 180.0),
                 ("city", "hs_gis_zoning", {}, 240.0),
                 ("terrain", "ar_gis_terrain", {}, 120.0),

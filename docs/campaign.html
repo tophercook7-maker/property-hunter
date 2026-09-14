@@ -173,7 +173,7 @@ function render(){
     <td><span class="why">${leverage(r)}</span><span class="sub">${esc(reasons(r).join(' · '))||'—'}</span></td>
     <td><b>${esc(r.a||'(no address)')}</b><span class="sub">${esc(r.c)} · <span class="num">${esc(r.pid)}</span></span></td>
     <td>${esc(title(r.o))}<span class="sub">${esc(title(r.m))}</span></td>
-    <td class="r num">${fmt$(r.tv)}</td><td class="r num">${r.lien>0?fmt$(r.lien):'—'}</td>
+    <td class="r num">${fmt$(r.tv)}<span class="sub">taxes: ${r.tax?esc(r.tax.replace(/ owed to the County Collector.*$/,' owed').slice(0,40)):((r.ts||'').startsWith('CERTIFIED')?'State sale':'not checked')}</span></td><td class="r num">${r.lien>0?fmt$(r.lien):'—'}</td>
     <td>${r.vac?'<span class="chip d">vacant reg.</span>':''}${r.ab?'<span class="chip d">absentee</span>':''}${r.cc?'<span class="chip d">code case</span>':''}${r.iv>0?'<span class="chip o">building</span>':'<span class="chip">lot</span>'}</td>
     <td><select class="st st-${t.status||''}" data-pid="${esc(r.pid)}">${STATUS.map(s=>`<option value="${s}" ${t.status===s?'selected':''}>${STATUS_LABEL[s]}</option>`).join('')}</select>${t.sent?`<span class="sub">sent ${t.sent}</span>`:''}</td>
     <td><input class="note" data-pid="${esc(r.pid)}" value="${esc(t.note||'')}" placeholder="what they said"></td></tr>`; }).join('');

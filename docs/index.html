@@ -159,6 +159,7 @@ function card(r){
     <div class="body"><h3>${esc(r.a||'(no address)')}</h3><div class="own">${esc(title(r.o))} · ${esc(r.c)}</div>
       <div class="why">${why(r)}</div>
       <div class="money">${fmt$(r.tv)} appraised${r.iv>0?` · building ${fmt$(r.iv)}`:' · lot'}</div>
+      <div class="why" style="font-size:12px">${r.tax ? ('Taxes: ' + (/owed|delinquent|certified/i.test(r.tax) ? '<b>'+esc(r.tax)+'</b>' : esc(r.tax))) : ((r.ts||'').startsWith('CERTIFIED') ? '<b>Taxes: certified to the State, for sale</b>' : 'Taxes: <span style="color:var(--muted)">not checked yet</span>')}</div>
       <div class="acts"><a class="main" href="lookup.html?county=${esc(r.cf||'05051')}&q=${q}">Look</a><a href="watch.html?add=${esc(r.cf||'05051')}:${q}&label=${encodeURIComponent(r.a||'')}">Watch</a>${r.m?`<a href="campaign.html?pid=${q}">Letter</a>`:''}</div>
     </div></div>`;
 }

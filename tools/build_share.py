@@ -30,6 +30,7 @@ def _money(v):
 
 def export_rows():
     mail, vac, code = _latest("owner_mailing_address"), _latest("vacant_structure"), _latest("code_case_open")
+    taxbill, taxchk, taxcosl = _latest("tax_bill"), _latest("tax_status_check"), _latest("tax_delinquent")
     liens = {}
     for r in q("SELECT property_id, value, raw_ref FROM evidence WHERE field='cleanup_lien_amount'"):
         liens.setdefault(r["property_id"], {})[r["raw_ref"] or r["value"]] = r["value"]
@@ -78,6 +79,9 @@ def export_rows():
             "stor": s.get("storage"), "biz": s.get("business"), "wk": s.get("workshop"),
             "rec": p["recommendation"] or "UNSCORED", "d": d, "vac": int(pid in vac), "cc": int(pid in code),
             "ts": p["tax_status"], "yb": p["year_built"],
+            "tax": (taxbill[pid]["value"] if pid in taxbill else
+                    taxcosl[pid]["value"][:80] if pid in taxcosl else
+                    "no open bill at the Collector" if pid in taxchk else None),
             "lien": round(sum(_money(v) for v in liens.get(pid, {}).values()), 2) if pid in liens else 0,
             "inv": inv.get(pid)})
     rows.sort(key=lambda r: -(r["s"] or 0))

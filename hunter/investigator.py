@@ -198,8 +198,25 @@ def _ownership(p):
 
 
 def _taxes(p):
-    return _manual(p, "garland_tax_collector",
-                   "Nothing in the data we can reach says whether taxes are paid.")
+    """Ask the County Collector's own payment site (CountyPay): is there an open
+    bill on this parcel, current or delinquent, and for how much."""
+    src = get_source("county_tax_collector")
+    res = src.enrich(p) if src and p.get("parcel_id") else None
+    if res is not None and res.status == OK:
+        findings = []
+        for rec in res.records:
+            store.store_evidence(p["id"], rec.evidence)
+            if rec.fields:
+                store.set_fields(p["id"], rec.fields, src.name)
+            for ev in rec.evidence:
+                findings.append(_f(ev["value"], ev.get("confidence", "HIGH"), ev.get("evidence_type", "FACT"), src.name))
+        findings.append(_f("Prior years already certified to the State show at State Lands (next stage), "
+                           "not on the Collector's site.", "HIGH", "FACT", "property_hunter"))
+        return findings, res.detail, "done"
+    findings, detail, status = _manual(p, "garland_tax_collector",
+                                       "The Collector's online search did not answer" +
+                                       (f": {res.detail}" if res is not None else "") + ".")
+    return findings, detail, status
 
 
 def _cosl(p):

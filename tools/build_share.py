@@ -43,7 +43,9 @@ def conflict_change_ids() -> dict:
                        (julianday(c.detected_at)-julianday(p.first_seen))*1440 AS mins
                 FROM changes c JOIN properties p ON p.id=c.property_id
                 WHERE c.detected_at > datetime('now','-7 days') AND c.severity IN ('medium','high')""")
-    out = {r["id"]: "conflict" for r in rows if r["mins"] is not None and r["mins"] < 10}
+    # a first reading (nothing -> something) is discovery, not a change and not a conflict: drop it
+    out = {r["id"]: "seed" for r in rows if not (r["old_value"] or "").strip() or r["old_value"] in ("None", "not known")}
+    out.update({r["id"]: "conflict" for r in rows if r["id"] not in out and r["mins"] is not None and r["mins"] < 10})
     series = {}
     for r in rows:
         series.setdefault((r["property_id"], r["field"]), []).append(r)
@@ -91,6 +93,8 @@ def export_rows():
     for r in q("""SELECT id, property_id, field, old_value, new_value, severity, detected_at FROM changes
                   WHERE detected_at > datetime('now','-7 days') AND severity IN ('medium','high')
                   AND field NOT IN ('improved','acreage','property_type','register_attachment','building_sqft') ORDER BY id DESC"""):
+        if conflicts.get(r["id"]) == "seed":
+            continue
         chg.setdefault(r["property_id"], []).append({"f": r["field"], "o": (r["old_value"] or "")[:60], "n": (r["new_value"] or "")[:60],
                                                      "sev": r["severity"], "at": (r["detected_at"] or "")[:10],
                                                      **({"k": conflicts[r["id"]]} if r["id"] in conflicts else {})})
@@ -218,6 +222,7 @@ def build():
                                 WHERE c.detected_at > datetime('now','-7 days') AND c.severity IN ('medium','high') AND p.excluded=0
                                 AND c.field NOT IN ('register_attachment','improved','acreage','property_type','building_sqft') ORDER BY c.id DESC LIMIT 300""")]
         from collections import Counter
+        chrows = [r for r in chrows if r["k"] != "seed"]
         real = [r for r in chrows if r["k"] == "change"]
         byfield = Counter(r["f"] for r in real)
         json.dump({"built_at": built, "week": True, "total": len(real), "conflicts": sum(1 for r in chrows if r["k"] == "conflict"),

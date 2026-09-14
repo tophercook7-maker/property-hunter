@@ -4,8 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Arkansas Tax Sale Radar</title>
+<meta property="og:title" content="Radar · Property Hunter">
+<meta property="og:description" content="Never miss the Arkansas property that changed this week: State tax-sale additions, sales, redemptions and bids, emailed every Monday from the State's own reports.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tophercook7-maker.github.io/property-hunter/pro.html">
+<link rel="canonical" href="https://tophercook7-maker.github.io/property-hunter/pro.html">
 <meta name="description" content="Every Arkansas parcel the State is selling for unpaid taxes, joined to the county roll, with what it is worth, what is owed, what lots like it really sold for, and what changed this week. Public records, refreshed daily.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="ph.css">
 <style>
 :root{
   --ground:#E8ECEF; --surface:#FFFFFF; --surface2:#F3F5F7; --ink:#172029; --muted:#5F6E7B; --rule:#D3DAE0;
@@ -70,25 +76,27 @@ footer{padding:16px 20px;font-size:12px;color:var(--muted);text-align:center}
 <main>
   <section class="hero">
     <span class="eyebrow">Arkansas · every county the State is selling in · public records, refreshed daily</span>
-    <h2>Know what the State is selling before the bulk buyers do.</h2>
-    <p>Every parcel the Commissioner of State Lands has for sale, joined to the county roll: what it's worth, what's owed, whether it has a building, an aerial, who's bidding, and what lots like it actually sold for. Sorted into what changed this week, county by county, in your inbox every Monday.</p>
+    <h2>Never miss the property that changed this week.</h2>
+    <p>Every Monday, for the counties you pick: what entered the State's tax-sale inventory, what sold or was redeemed, where a bid appeared, which parcel carries the most building for the debt. Every line from a public record with its date. Not a guess about what it's worth; a record of what moved.</p>
+    <p><a class="btn" href="#week">See this week's opportunities</a> <a class="btn ghost" href="state-lands.html?county=GARLAND">Start hunting free in Garland</a></p>
+    <div id="example" style="margin-top:14px"></div>
     <div class="stats" id="stats"></div>
   </section>
 
   <div class="plans">
-    <div class="plan"><h3>Free</h3><div class="price">$0</div>
+    <div class="plan"><h3>Free</h3><div class="tag">Start hunting</div><div class="price">$0</div>
       <ul><li>This page: the biggest movers statewide, refreshed daily</li><li>The full parcel lookup, any county</li><li>Garland County, everything</li></ul>
       <a class="btn ghost" href="state-lands.html?county=GARLAND">Browse Garland</a></div>
-    <div class="plan hi"><h3>Radar</h3><div class="price">$29<small> / month</small></div>
+    <div class="plan hi"><h3>Radar</h3><div class="tag">Never miss tax-sale changes</div><div class="price">$29<small> / month</small></div>
       <ul><li>Monday email: new listings, sold or redeemed, new bids, best value per dollar owed, for the counties you pick</li><li>Every county's full inventory with aerials and sold comps</li><li>CSV export per county for your own mail list</li><li>Cancel any time</li></ul>
       <a class="btn" id="buy" href="https://buy.stripe.com/dRm7sE2jgeiz2tv4503cc0D">Start Radar</a>
       <span class="sub" style="font-size:12px;color:var(--muted)">Card checkout by Stripe. Tell it your counties; the first Monday email follows.</span></div>
-    <div class="plan"><h3>Desk</h3><div class="price">$149<small> / month</small></div>
+    <div class="plan"><h3>Desk</h3><div class="tag">Run an acquisition operation</div><div class="price">$149<small> / month</small></div>
       <ul><li>Everything in Radar</li><li>Owner mailing addresses where the county publishes them, and a printable, truthful owner letter per parcel</li><li>Watchlist alerts on any parcel, any county</li><li>One-off pulls: a county's full delinquent picture, on request</li></ul>
       <a class="btn ghost" href="https://buy.stripe.com/6oUfZa2jg6Q79VX4503cc0E">Start Desk</a></div>
   </div>
 
-  <section class="week">
+  <section class="week" id="week">
     <h2>This week, statewide</h2>
     <p class="lead" id="lead">Loading the radar…</p>
     <div class="grid" id="new"></div>
@@ -118,6 +126,18 @@ fetch('data/radar.json').then(r=>r.json()).then(r => {
   const cs = Object.values(r.counties||{});
   const tot = s => cs.reduce((n,c)=>n+(c.summary[s]||0),0);
   $('stats').innerHTML = [[tot('for_sale').toLocaleString(),'parcels for sale'],[cs.length,'counties'],[tot('new_this_week'),'new this week'],[tot('gone_this_week'),'sold or redeemed this week'],[tot('with_bids'),'carrying a bid']].map(([b,s])=>`<div class="stat"><b>${b}</b><span>${s}</span></div>`).join('');
+  const ex = [];
+  const pick = (arr, f) => arr.find(f);
+  const newest = cs.flatMap(c=>c.new).sort((a,b)=>(b.appraised||0)-(a.appraised||0))[0];
+  if(newest) ex.push(['change','NEW', `${title(newest.address||newest.subdivision+' lot'||'parcel')} entered the inventory in ${title(newest.county)} County: ${fmt$(newest.appraised)} appraised, ${fmt$(newest.starting_bid)} owed.`]);
+  const gone = cs.flatMap(c=>c.gone); const soldEx = pick(gone, g=>g.how==='sold'), redEx = pick(gone, g=>g.how==='redeemed');
+  if(soldEx) ex.push(['state','SOLD', `State # ${soldEx.rpid} in ${title(soldEx.county)} County: deed to ${title(soldEx.detail.buyer||'a buyer')} for ${fmt$(soldEx.detail.price||soldEx.detail.owed)} (State deed report).`]);
+  if(redEx) ex.push(['fact','REDEEMED', `State # ${redEx.rpid} in ${title(redEx.county)} County: the owner paid ${fmt$(redEx.detail.paid)} and kept it.`]);
+  const bidEx = cs.flatMap(c=>c.bids).sort((a,b)=>(b.current_bid||0)-(a.current_bid||0))[0];
+  if(bidEx) ex.push(['risk','BID', `${title(bidEx.address||'a parcel')} in ${title(bidEx.county)} County now carries a ${fmt$(bidEx.current_bid)} bid (${bidEx.bids} bids).`]);
+  const bldg = cs.flatMap(c=>c.best_value)[0];
+  if(bldg) ex.push(['signal','MOST HOUSE FOR THE DEBT', `${title(bldg.address||'a parcel')} in ${title(bldg.county)} County: ${fmt$(bldg.appraised)} appraised with a building, ${fmt$(bldg.starting_bid)} owed.`]);
+  document.getElementById('example').innerHTML = ex.length ? `<div class="paper"><b>From this week's real inventory</b><ul style="margin:6px 0 0;padding-left:0;list-style:none;display:grid;gap:6px">${ex.map(([k,l,t])=>`<li><span class="pill ${k}">${l}</span> ${esc(t)}</li>`).join('')}</ul><div style="font-size:12px;margin-top:6px;color:var(--muted)">Change types the Monday email carries: NEW · SOLD · REDEEMED · BID CHANGED · NEW COUNTY · NEW DISTRESS SIGNAL. Sold and redeemed come only from the State's own deed reports.</div></div>` : '';
   const news = cs.flatMap(c=>c.new).sort((a,b)=>(b.appraised||0)-(a.appraised||0));
   $('lead').textContent = `${news.length} parcels entered the State's inventory since ${r.week_start}, outside Hot Springs Village and Diamondhead. The twelve with the highest appraised value:`;
   $('new').innerHTML = news.slice(0,12).map(x=>card(x,'new')).join('') || '<p class="sub">Nothing new this week.</p>';
@@ -125,6 +145,7 @@ fetch('data/radar.json').then(r=>r.json()).then(r => {
   $('value').innerHTML = val.slice(0,6).map(x=>card(x, `${Math.round((x.appraised||0)/Math.max(x.starting_bid||1,1))}× the debt`)).join('');
 }).catch(()=>{ $('lead').textContent = 'The radar has not been built yet.'; });
 </script>
+<script src="ph.js"></script>
 <script src="members.js"></script>
 <script>if(window.PH){ PH.member().then(m => { if(m){ const w = document.getElementById("welcome"); w.hidden = false; w.innerHTML = `<b>Member: ${m.plan==="desk"?"Desk":"Radar"}.</b> Every county is open for you, with CSV export, on the <a href="state-lands.html">tax-sale page</a>. Counties on your Monday email: ${(m.counties||[]).map(c=>c.charAt(0)+c.slice(1).toLowerCase()).join(", ")||"Garland"}.`; document.querySelectorAll(".locked").forEach(el=>el.classList.remove("locked")); } }); }</script>
 <script src="nav.js"></script>

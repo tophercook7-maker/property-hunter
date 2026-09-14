@@ -75,6 +75,7 @@ def export_rows():
             "s": s.get("overall"), "r": s.get("risk"), "rent": s.get("rental"), "land": s.get("land"),
             "stor": s.get("storage"), "biz": s.get("business"), "wk": s.get("workshop"),
             "rec": p["recommendation"] or "UNSCORED", "d": d, "vac": int(pid in vac), "cc": int(pid in code),
+            "ts": p["tax_status"], "yb": p["year_built"],
             "lien": round(sum(_money(v) for v in liens.get(pid, {}).values()), 2) if pid in liens else 0,
             "inv": inv.get(pid)})
     rows.sort(key=lambda r: -(r["s"] or 0))
@@ -118,6 +119,10 @@ def build():
     docs = os.path.join(ROOT, "docs", "garland.html")
     if os.path.isdir(os.path.dirname(docs)):
         open(docs, "w").write(full)
+        os.makedirs(os.path.join(ROOT, "docs", "data"), exist_ok=True)
+        json.dump({"built_at": __import__("datetime").datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                   "labels": labels, "rows": [{k: v for k, v in r.items() if k != "inv"} for r in rows]},
+                  open(os.path.join(ROOT, "docs", "data", "garland.json"), "w"), separators=(",", ":"))
     return {"properties": len(rows), "investigated": n_inv, "kb": len(full) // 1024, "file": out, "desktop": DESKTOP}
 
 

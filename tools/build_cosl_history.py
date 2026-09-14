@@ -152,13 +152,25 @@ def build(counties, years):
                            for b, n in buyers.most_common(8)],
             "sales": sl, "redemptions": rl}
         print(f"{county}: {len(sl)} sold, {len(rl)} redeemed, median price {history[county]['summary']['median_price']}", flush=True)
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    doc = {"built_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "years": years,
-           "note": "price = debt cleared + excess proceeds where COSL reported excess; otherwise the sale "
-                   "cleared exactly the debt (price_known=false means at-or-below-debt).",
-           "counties": history}
-    json.dump(doc, open(OUT, "w"), separators=(",", ":"))
-    return {"counties": len(history), "kb": os.path.getsize(OUT) // 1024}
+    # One small index (summaries + buyers) and one file per county with the rows,
+    # so the site loads a county's history only when it is looked at.
+    hdir = os.path.join(os.path.dirname(OUT), "history")
+    os.makedirs(hdir, exist_ok=True)
+    built = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    note = ("price = debt cleared + excess proceeds where COSL reported excess; otherwise the sale "
+            "cleared exactly the debt (price_known=false means at-or-below-debt).")
+    index = {"built_at": built, "years": years, "note": note, "counties": {}}
+    slim_sale = ("parcel", "date", "deed_type", "buyer", "owed", "excess", "price", "price_known", "value", "del_year")
+    slim_red = ("parcel", "date", "paid", "owner", "years", "del_year")
+    for county, h in history.items():
+        index["counties"][county] = {"fips": h["fips"], "summary": h["summary"], "top_buyers": h["top_buyers"]}
+        json.dump({"built_at": built, "county": county, "years": years, "note": note,
+                   "sales": [{k: s.get(k) for k in slim_sale} for s in h["sales"]],
+                   "redemptions": [{k: r.get(k) for k in slim_red} for r in h["redemptions"]]},
+                  open(os.path.join(hdir, f"{county.replace(' ', '_')}.json"), "w"), separators=(",", ":"))
+    json.dump(index, open(OUT, "w"), separators=(",", ":"))
+    total_kb = sum(os.path.getsize(os.path.join(hdir, f)) for f in os.listdir(hdir)) // 1024
+    return {"counties": len(history), "index_kb": os.path.getsize(OUT) // 1024, "county_files_kb": total_kb}
 
 
 if __name__ == "__main__":

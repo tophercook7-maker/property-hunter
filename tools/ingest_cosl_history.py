@@ -17,7 +17,7 @@ sys.path.insert(0, ROOT)
 from hunter.db import init_db, q  # noqa: E402
 from hunter import store  # noqa: E402
 
-HIST = os.path.join(ROOT, "docs", "data", "cosl_history.json")
+HIST = os.path.join(ROOT, "docs", "data", "history", "GARLAND.json")
 SRC = "cosl_reports"
 LABEL = "Arkansas Commissioner of State Lands - monthly county deed reports"
 
@@ -25,7 +25,7 @@ LABEL = "Arkansas Commissioner of State Lands - monthly county deed reports"
 def main():
     init_db()
     h = json.load(open(HIST))
-    garland = (h.get("counties") or {}).get("GARLAND")
+    garland = h if h.get("sales") is not None else None
     if not garland:
         print("no Garland history in", HIST); return
     by_rpid = {r["rpid"]: r["id"] for r in q("SELECT id, rpid FROM properties WHERE rpid IS NOT NULL AND county_fips='05051'")}
@@ -35,7 +35,7 @@ def main():
         pid = by_rpid.get(s["parcel"])
         if not pid:
             continue
-        key = f"[key cosl-sale:{s['parcel']}:{s['deed_no']}]"
+        key = f"[key cosl-sale:{s['parcel']}:{s.get('deed_no') or s.get('date')}]"
         if (pid, key) in have:
             continue
         price = s["price"] if s.get("price_known") else s["owed"]

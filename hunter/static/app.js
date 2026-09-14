@@ -441,7 +441,7 @@ function drawMarkers(props){
       .addTo(S.layer)
       .bindPopup(`<b>${esc(p.address||'No street address')}</b><br>
         <span style="color:#95a1bb">${esc(p.city||'')} &middot; ${num(p.acreage)} ac
-        &middot; assessed ${money(p.total_value)}</span><br>
+        &middot; appraised ${money(p.total_value)}</span><br>
         score <b>${num(p.overall_score,0)}</b> &middot; risk ${num(p.risk_score,0)}<br>
         <span style="color:#95a1bb">${esc(p.recommendation||'not scored')}</span><br>
         ${(p.distress||[]).slice(0,3).map(s=>'&bull; '+esc(s.label)).join('<br>')}
@@ -636,7 +636,7 @@ function propCard(p){
       <div class="spread"><span class="addr">${esc(p.address||'No street address')}</span>
         <span class="score ${scoreCls(p.overall_score||0)}">${num(p.overall_score,0)}</span></div>
       <div class="meta">${esc(p.city||'')} &middot; ${num(p.acreage)} ac &middot;
-        assessed ${money(p.total_value)} &middot; ${esc(p.parcel_id||'')}</div>
+        appraised ${money(p.total_value)} &middot; ${esc(p.parcel_id||'')}</div>
       <div class="meta">${esc(p.owner_name||'owner unknown')}</div>
       <div class="sigs">
         ${p.recommendation?`<span class="tag ${recCls(p.recommendation)}">${esc(p.recommendation)}</span>`:''}
@@ -833,10 +833,10 @@ function tabOverview(d){
         ${kv('Subdivision', p.subdivision)}
         ${kv('Acreage', p.acreage)}
         ${kv('Municipality', p.city)}
-        ${kv('County assessed total', money(p.total_value), true)}
+        ${kv('County appraised total', money(p.total_value), true)}
         ${kv('Land value', money(p.land_value), true)}
         ${kv('Improvement value', money(p.imp_value), true)}
-        ${kv('Implied market value', money(d.financials.implied_market_value), true)}
+        ${kv('Assessed for tax (20%)', money(d.financials.assessed_total), true)}
         ${kv('Parcel type code', p.parcel_type)}
         ${kv('Property type', p.property_type)}
         ${kv('Building footprint', p.building_sqft?Math.round(p.building_sqft).toLocaleString()+' sqft':'not measured')}
@@ -894,7 +894,7 @@ function tabOverview(d){
   <div class="banner warn" style="margin-top:14px">${esc(d.disclaimer)}</div>`;
 }
 const evVal = (d, field) => { const e = (d.evidence||[]).find(x=>x.field===field); return e ? e.value : null; };
-const TERMS = {'County assessed total':'assessed value','Land value':'assessed value','Improvement value':'assessed value',
+const TERMS = {'County appraised total':'assessed value','Land value':'assessed value','Improvement value':'assessed value',
   'Implied market value':'market value','Parcel ID':'parcel','Flood zone':'flood zone','Zoning':'zoning',
   'Tax status':'delinquent tax','Legal description':'deed','Owner of record':'title',
   'City liens':'cleanup lien','Vacancy register':'condemnation','RPID':'rpid'};
@@ -947,7 +947,7 @@ function tabScores(d){
 
 function tabMoney(d){
   const p = d.property, f = d.financials;
-  const price = f.starting_price_estimate || Math.round((p.total_value||0)*5*0.75) || 30000;
+  const price = f.starting_price_estimate || Math.round((p.total_value||0)*0.75) || 30000;
   const sqft = p.building_sqft || 0;
   const rent = Math.round(sqft*0.95) || 800;
   const rehab = f.rehab?.estimate || Math.round(sqft*55) || 25000;

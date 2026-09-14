@@ -179,10 +179,10 @@ def api_properties(
         where.append("LOWER(p.city)=LOWER(?)")
         params.append(city)
     if min_value is not None:
-        where.append("IFNULL(p.list_price, p.total_value*5) >= ?")
+        where.append("IFNULL(p.list_price, p.total_value) >= ?")
         params.append(min_value)
     if max_value is not None:
-        where.append("IFNULL(p.list_price, p.total_value*5) <= ?")
+        where.append("IFNULL(p.list_price, p.total_value) <= ?")
         params.append(max_value)
     if min_acres is not None:
         where.append("IFNULL(p.acreage,0) >= ?")

@@ -161,7 +161,7 @@ td.own div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:2
 
 <div class="strip"><div class="strip-in">
   <p><b>What this is.</b> Every property Property Hunter has found in Garland County from public records: the Arkansas GIS tax roll (owner, assessed values, parcel), the City of Hot Springs vacant-structure register, cleanup/demolition liens, 2025 code cases, zoning and FEMA flood maps.</p>
-  <p><b>What it is not.</b> There are no asking prices here; none of these are listed for sale. Delinquent taxes have <b>not been checked</b> (the county's tax site is login-only). "Implied market" is Arkansas' assessed value × 5. Scores are a ranking aid, not a valuation. Nothing here is an offer, and paying someone's taxes never makes you the owner.</p>
+  <p><b>What it is not.</b> There are no asking prices here; none of these are listed for sale. Delinquent taxes have <b>not been checked</b> (the county's tax site is login-only). The value shown is the county's <b>appraised</b> total (the assessor's opinion of full value, often behind the market); tax is charged on 20% of it. Scores are a ranking aid, not a valuation. Nothing here is an offer, and paying someone's taxes never makes you the owner. <b>Known limit:</b> City register entries were matched to parcels by a point lookup, and an audit on 2026-09-13 found about 80 of them sitting on the neighbouring lot. Before acting on any one, confirm the parcel in the <a href="index.html">live lookup</a>, which reads the parcel itself.</p>
 </div></div>
 
 <div class="tabs" role="tablist">
@@ -194,8 +194,8 @@ td.own div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:2
             <th data-k="s" class="r" data-dir="desc">Score</th>
             <th data-k="a">Address</th>
             <th data-k="o">Owner of record</th>
-            <th data-k="tv" class="r">Assessed</th>
-            <th data-k="mk" class="r">Implied market</th>
+            <th data-k="tv" class="r">County appraised</th>
+            <th data-k="mk" class="r">Assessed (20%)</th>
             <th data-k="lien" class="r">City lien</th>
             <th data-k="z">Zoning</th>
             <th>Flags</th>
@@ -228,7 +228,7 @@ const FLAGS = [
 const fmt$ = v => v==null ? '—' : '$'+Math.round(v).toLocaleString('en-US');
 const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const title = s => String(s||'').toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
-DATA.forEach(r=>{ r.mk = r.tv==null?null:r.tv*5; r.o = r.o||''; });
+DATA.forEach(r=>{ r.mk = r.tv==null?null:Math.round(r.tv*0.2); r.o = r.o||''; });
 
 /* stats */
 const inv = DATA.filter(r=>r.inv);
@@ -269,7 +269,7 @@ document.getElementById('cards').innerHTML = inv.map((r,i)=>`
     <span class="rank">${i+1}</span>
     <h3>${esc(r.a)}</h3>
     <div class="own">${esc(r.o)} · ${esc(r.c)}</div>
-    <dl class="kv"><dt>Assessed</dt><dd class="num">${fmt$(r.tv)}</dd><dt>Implied market</dt><dd class="num">${fmt$(r.mk)}</dd><dt>City lien</dt><dd class="num">${r.lien>0?fmt$(r.lien):'none on record'}</dd><dt>Taxes owed</dt><dd>not checked</dd></dl>
+    <dl class="kv"><dt>County appraised</dt><dd class="num">${fmt$(r.tv)}</dd><dt>Assessed (20%)</dt><dd class="num">${fmt$(r.mk)}</dd><dt>City lien</dt><dd class="num">${r.lien>0?fmt$(r.lien):'none on record'}</dd><dt>Taxes owed</dt><dd>not checked</dd></dl>
     <div class="chips">${chips(r,5)}</div>
     <div class="foot"><span class="verdict ${vclass(r.inv.verdict)}"><i></i>${esc(r.inv.verdict||'?')} · ${esc(r.inv.conf||'')} confidence</span><span class="score">${r.s??'—'}<small>score</small></span></div>
   </button>`).join('');
@@ -310,7 +310,7 @@ function renderRows(){
   const more=document.getElementById('more'); more.hidden = view.length<=limit;
   more.textContent = `Show ${Math.min(150, view.length-limit)} more (${(view.length-limit).toLocaleString()} left)`;
   document.getElementById('empty').hidden = view.length>0;
-  const names={s:'score',a:'address',o:'owner',tv:'assessed value',mk:'implied market',lien:'City lien',z:'zoning',rec:'our call'};
+  const names={s:'score',a:'address',o:'owner',tv:'county appraised',mk:'assessed (20%)',lien:'City lien',z:'zoning',rec:'our call'};
   document.getElementById('sortnote').textContent = `sorted by ${names[sortK]} ${sortDir==='desc'?'high to low':'low to high'} · ${view.length.toLocaleString()} match`;
 }
 document.getElementById('more').addEventListener('click',()=>{limit+=150;renderRows();});
@@ -361,8 +361,8 @@ function openDrawer(id){
     <div class="dh"><div><h2>${esc(r.a||'(no address)')}</h2><div class="sub">${esc(r.c)}, Garland County · parcel <span class="num">${esc(r.pid||'unknown')}</span></div></div><button class="x" id="dx" aria-label="Close">×</button></div>
     <div class="db">
       <div class="money">
-        <div><b class="num">${fmt$(r.tv)}</b><span>County assessed</span></div>
-        <div class="hi"><b class="num">${fmt$(r.mk)}</b><span>Implied market (×5)</span></div>
+        <div class="hi"><b class="num">${fmt$(r.tv)}</b><span>County appraised</span></div>
+        <div><b class="num">${fmt$(r.mk)}</b><span>Assessed for tax (20%)</span></div>
         <div class="lien"><b class="num">${r.lien>0?fmt$(r.lien):'none'}</b><span>City lien on record</span></div>
       </div>
       <div class="warn">Asking price: none, not listed for sale. Delinquent taxes: <b>not checked</b> (login-only county site). No purchase price exists yet; the number you pay is whatever the owner, the City, or a tax sale will take.</div>

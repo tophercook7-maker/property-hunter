@@ -59,23 +59,26 @@ def default_financials(p: dict) -> dict:
     imp = p.get("imp_value") or 0
     sqft = p.get("building_sqft") or 0
     ac = p.get("acreage") or 0
-    # County assessed values in Arkansas are 20% of appraised market value.
-    appraised = total * 5 if total else 0
+    # The state parcel layer's totalvalue is the county's APPRAISED (full)
+    # value; Arkansas taxes on 20% of that. Verified 2026-09-13 against the
+    # layer's assessvalue column (0.10-0.20 of totalvalue, caps apply).
+    appraised = total
     guess_price = round(appraised * 0.75) if appraised else 0
     out = {
-        "assessed_total": total,
+        "appraised_total": total,
+        "assessed_total": round(total * 0.2) if total else 0,
         "implied_market_value": appraised,
-        "assessed_note": ("Arkansas assesses at 20% of appraised value, so we multiply "
-                          "the county's total by 5 to get an implied market value. That "
-                          "is arithmetic on an assessment, not an appraisal and not a "
-                          "sale price."),
+        "assessed_note": ("The county's total is its APPRAISED value - what the assessor "
+                          "thinks it is worth, updated on a schedule; tax is charged on 20% "
+                          "of it. It is an opinion, not an appraisal for sale and not a "
+                          "sale price. Older records often run under the market."),
         "starting_price_estimate": guess_price,
     }
     if p.get("improved") == 1 and sqft:
         out["rehab"] = finance.rehab_estimate(sqft, "medium")
         rent = round(sqft * finance.FINANCE_DEFAULTS["rent_per_sqft_monthly"])
         out["rental"] = finance.rental_analysis(
-            purchase_price=guess_price or max(total * 5 * 0.7, 1),
+            purchase_price=guess_price or max(total * 0.7, 1),
             monthly_rent=rent, rehab=out["rehab"]["estimate"], assessed_value=total)
         out["deal"] = finance.max_purchase_price(
             after_repair_value=appraised or 1, rehab=out["rehab"]["estimate"])
@@ -110,7 +113,7 @@ def deal_memo(prop_id: int, use_ai: bool = True) -> dict:
                                    key=lambda l: -l["points"])[:5] if l["points"] > 0],
         "what_we_know": [
             f"Owner of record: {p.get('owner_name') or 'unknown'}",
-            f"County assessed total: ${p.get('total_value') or 0:,.0f} "
+            f"County appraised total: ${p.get('total_value') or 0:,.0f} "
             f"(land ${p.get('land_value') or 0:,.0f}, improvements "
             f"${p.get('imp_value') or 0:,.0f})",
             f"Acreage: {p.get('acreage') if p.get('acreage') is not None else 'unknown'}",
@@ -184,8 +187,8 @@ def dossier_html(prop_id: int) -> str:
 <div class="box">
 <table>
 <tr><th>Asking price</th><td>{esc('$%s' % format(p['list_price'], ',.0f')) if p.get('list_price') else 'NOT LISTED FOR SALE that we know of - this came off a City register, not a listing. If you find it listed, enter the price on the property.'}</td></tr>
-<tr><th>County assessed total</th><td>{esc('$%s' % format(p['total_value'], ',.0f')) if p.get('total_value') else 'unknown'} <span class="sub">(FACT, county roll)</span></td></tr>
-<tr><th>Implied market value</th><td>{esc('$%s' % format(fin.get('implied_market_value') or 0, ',.0f')) if fin.get('implied_market_value') else 'unknown'} <span class="sub">(ESTIMATE: assessed &times; 5)</span></td></tr>
+<tr><th>County appraised total</th><td>{esc('$%s' % format(p['total_value'], ',.0f')) if p.get('total_value') else 'unknown'} <span class="sub">(FACT, county roll)</span></td></tr>
+<tr><th>Assessed for tax (20%)</th><td>{esc('$%s' % format(fin.get('assessed_total') or 0, ',.0f')) if fin.get('assessed_total') else 'unknown'} <span class="sub">(CALCULATION: 20% of the appraised total)</span></td></tr>
 <tr><th>The most I'd pay</th><td>{('$%s try &middot; $%s marginal &middot; $%s walk away' % (format(deal['aggressive'], ',.0f'), format(deal['reasonable'], ',.0f'), format(deal['maximum'], ',.0f'))) if deal and deal.get('works_at_any_price') else ('No price works on the current repair estimate - get a real contractor number.' if deal else 'Needs a building size to estimate - see the Money tab in the app.')} <span class="sub">(ESTIMATE)</span></td></tr>
 <tr><th>City liens on it</th><td>{esc('$%s - ' % format(float(lien_total), ',.2f') + str(lien_text)) if lien_total else 'none on the City lien layer'} <span class="sub">(FACT, City GIS)</span></td></tr>
 <tr><th>Delinquent taxes owed</th><td><b>NOT CHECKED - we cannot read this automatically.</b> Look it up here: <a href="https://www.arkansastaxsearch.com/garland.html">arkansastaxsearch.com &rarr; Garland</a> (parcel {esc(p.get('parcel_id') or '?')}). Paying someone's back taxes does NOT make you the owner.</td></tr>

@@ -399,9 +399,9 @@ def _market(p):
     total = p.get("total_value") or 0
     findings = []
     if total:
-        findings.append(_f(f"County assessed total ${total:,.0f}. Arkansas assesses at "
-                           f"20% of appraised value, so the county's implied market "
-                           f"opinion is about ${total*5:,.0f}.",
+        findings.append(_f(f"County appraised total ${total:,.0f} - the assessor's "
+                           f"opinion of full value; tax is charged on 20% of it "
+                           f"(${total*0.2:,.0f}). Not a sale price.",
                            "MEDIUM", "CALCULATION", "property_hunter"))
     city = p.get("city")
     if city and city.lower() not in ("unincorporated", "rural"):
@@ -409,7 +409,7 @@ def _market(p):
                         WHERE excluded=0 AND city=? AND property_type=? AND total_value>0""",
                      (city, p.get("property_type")))
         if peers and peers[0]["n"] > 3:
-            findings.append(_f(f"Average assessed total for {peers[0]['n']} comparable "
+            findings.append(_f(f"Average appraised total for {peers[0]['n']} comparable "
                                f"{p.get('property_type')} parcels we hold in {city}: "
                                f"${peers[0]['a']:,.0f}.",
                                "LOW", "CALCULATION", "property_hunter",

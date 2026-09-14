@@ -51,7 +51,7 @@ def _write_index(f: Path) -> None:
                    WHERE i.status='complete' ORDER BY i.finished_at DESC""")
     with (f / "INVESTIGATIONS - index.csv").open("w", newline="") as fh:
         w = csv.writer(fh)
-        w.writerow(["Address", "Owner of record", "County assessed", "Our call", "Deal or trap",
+        w.writerow(["Address", "Owner of record", "County appraised", "Our call", "Deal or trap",
                     "Overall score", "Risk score", "Still unknown", "Investigated at", "PDF", "Open in app"])
         seen = set()
         for r in rows:

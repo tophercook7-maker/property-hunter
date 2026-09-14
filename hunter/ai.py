@@ -49,7 +49,7 @@ Hard rules you must never break:
   zoning district from the City.
 - A mapped road is not legal access. Legal access is a recorded easement or
   platted frontage, and it lives in the deed.
-- The county's assessed value is not a market value and not an asking price.
+- The county's appraised value is the assessor's opinion, not a sale price and not an asking price.
 """
 
 _available: list[str] | None = None
@@ -193,7 +193,7 @@ def evidence_block(prop: dict, evidence: list[dict], limit: int = 70) -> str:
         f"  parcel id: {prop.get('parcel_id') or 'unknown'}",
         f"  city: {prop.get('city') or 'unknown'}",
         f"  acreage: {prop.get('acreage') if prop.get('acreage') is not None else 'unknown'}",
-        f"  county assessed total: "
+        f"  county appraised total: "
         f"{'$%s' % format(prop['total_value'], ',.0f') if prop.get('total_value') else 'unknown'}",
         f"  county land value: "
         f"{'$%s' % format(prop['land_value'], ',.0f') if prop.get('land_value') else 'unknown'}",

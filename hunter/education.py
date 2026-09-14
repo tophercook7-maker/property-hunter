@@ -11,10 +11,11 @@ GLOSSARY = {
              "says is a bookkeeping entry - the deed is the legal truth."),
     "title": ("The whole history of who owned it and what is attached to it. 'Clear "
               "title' means nothing unexpected is riding along with the property."),
-    "assessed value": ("What the county uses for tax purposes. In Arkansas that is 20% "
-                       "of what the county thinks it is worth, so multiply by 5 to get "
-                       "the county's opinion of market value - and remember it is an "
-                       "opinion, updated on a schedule, not a sale price."),
+    "assessed value": ("Two numbers live on the county roll. The APPRAISED total is what "
+                       "the assessor thinks the property is worth; the ASSESSED value is "
+                       "20% of that and is what the tax bill is figured on. The totals "
+                       "shown here are the appraised ones - an opinion updated on a "
+                       "schedule, not a sale price."),
     "market value": ("What somebody would actually pay for it today. Nobody knows this "
                      "number until a sale happens."),
     "noi": ("Net Operating Income. Rent collected minus everything it costs to run the "
@@ -106,8 +107,8 @@ def _example(key: str, p: dict) -> str | None:
     addr = p.get("address") or f"parcel {p.get('parcel_id')}"
     total = p.get("total_value") or 0
     if key == "assessed value" and total:
-        return (f"On {addr} the county's assessed total is ${total:,.0f}, which implies "
-                f"a county market opinion around ${total*5:,.0f}.")
+        return (f"On {addr} the county's appraised total is ${total:,.0f}; the tax bill "
+                f"is figured on 20% of that, about ${total*0.2:,.0f}.")
     if key == "parcel" and p.get("parcel_id"):
         return f"{addr} is parcel {p['parcel_id']} in Garland County."
     if key == "flood zone":

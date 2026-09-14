@@ -109,7 +109,7 @@ def overall(prop: dict) -> Sheet:
         s.add(w["vacant_land"], "Vacant land - fewer unknowns than a building",
               "You cannot have a bad roof on an empty lot.")
     if "low_improvement_value" in sig:
-        s.add(w["low_improvement_value"], "Building carries a very low assessed value",
+        s.add(w["low_improvement_value"], "Building carries a very low appraised value",
               sig["low_improvement_value"]["why"])
     for key in ("institutional_owner", "estate_owner", "government_owner"):
         if key in sig:
@@ -144,7 +144,7 @@ def overall(prop: dict) -> Sheet:
     total = prop.get("total_value") or 0
     if price and total and price < total * 0.8:
         s.add(w["price_below_assessed"],
-              f"Asking ${price:,.0f} against an assessed ${total:,.0f}", "")
+              f"Asking ${price:,.0f} against a county appraisal of ${total:,.0f}", "")
 
     # Penalties for what we do NOT know - this is the honest half.
     if not _known(prop, "title_status"):

@@ -81,6 +81,22 @@ def export_rows():
     return rows, labels
 
 
+def write_csv(rows, path):
+    """The plain spreadsheet Topher asked for: address, owner, price-ish numbers."""
+    import csv
+    with open(path, "w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(["Address", "City", "Owner of record", "Owner mailing address", "County appraised value",
+                    "Assessed for tax (20%)", "City lien $", "On vacant register", "Delinquent taxes",
+                    "Score", "Risk", "Our call", "Zoning", "Parcel", "Open in app"])
+        for r in rows:
+            w.writerow([r["a"], r["c"], r["o"], r["m"] or "", f"{r['tv']:,.0f}" if r["tv"] else "",
+                        f"{r['tv']*0.2:,.0f}" if r["tv"] else "", f"{r['lien']:,.2f}" if r["lien"] else "",
+                        "YES" if r["vac"] else "", "NOT CHECKED - arkansastaxsearch.com",
+                        r["s"] if r["s"] is not None else "", r["r"] if r["r"] is not None else "",
+                        r["rec"], r["zf"] or "", r["pid"] or "", f"http://127.0.0.1:8234/#property/{r['i']}"])
+
+
 def build():
     init_db()
     rows, labels = export_rows()
@@ -98,6 +114,10 @@ def build():
     open(out, "w").write(full)
     os.makedirs(os.path.dirname(DESKTOP), exist_ok=True)
     open(DESKTOP, "w").write(full)
+    write_csv(rows, os.path.join(os.path.dirname(DESKTOP), "PROPERTIES - address owner price.csv"))
+    docs = os.path.join(ROOT, "docs", "garland.html")
+    if os.path.isdir(os.path.dirname(docs)):
+        open(docs, "w").write(full)
     return {"properties": len(rows), "investigated": n_inv, "kb": len(full) // 1024, "file": out, "desktop": DESKTOP}
 
 

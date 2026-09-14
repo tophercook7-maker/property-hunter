@@ -202,7 +202,7 @@ function step(n, key, h, big, p, actions){
 
 (function(){
   let seen = null; try { seen = localStorage.getItem('ph-cover-seen'); } catch(e){}
-  const c = $('cover'); if(!seen){ c.hidden = false; }
+  const c = $('cover'); if(!seen && !new URLSearchParams(location.search).get('nocover')){ c.hidden = false; }
   $('cover-go').addEventListener('click', () => { c.hidden = true; if($('cover-skip').checked){ try { localStorage.setItem('ph-cover-seen', '1'); } catch(e){} } });
 })();
 async function taxNote(rows){

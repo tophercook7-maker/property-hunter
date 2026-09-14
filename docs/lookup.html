@@ -332,7 +332,7 @@ async function select(i){
       <a href="watch.html?add=${esc(a.countyfips)}:${encodeURIComponent(a.parcelid||'')}&label=${encodeURIComponent(addr)}" style="background:var(--accent);color:var(--accent-ink)">Watch this parcel</a>
       <a href="${gm}" target="_blank" rel="noopener">Google Maps</a>
       <a href="${taxsearch}" target="_blank" rel="noopener">${esc(county)} tax search (login)</a>
-      <a href="${ds}" target="_blank" rel="noopener">actDataScout record</a>
+      <a href="${ds}" target="_blank" rel="noopener" title="The assessor's public record: a ground photo of the house, the deed history with sale prices, the owner's current mailing address, year built and condition. Their terms forbid reading it by script, so this is a click, not a feed.">Assessor record: photo, deeds, mailing</a>
       <a href="https://www.cosl.org/" target="_blank" rel="noopener">State Lands (tax-sale)</a>
       <a href="https://gis.arkansas.gov/" target="_blank" rel="noopener">AR GIS Office</a>
     </div></div>
@@ -522,6 +522,7 @@ function renderAcq(r, a, c, cityOut, county){
   /* --- manual confirmations (the ones no feed can do) --- */
   const taxsearch = `https://www.arkansastaxsearch.com/${(county||'').toLowerCase().replace(/[^a-z]/g,'')}.html`;
   const manual = [
+    {k:'assessor', t:'Assessor record: the house photo, deed history with prices, and the owner\'s current mailing address', why:`One click on <a href="${ds}" target="_blank" rel="noopener">actDataScout</a>, search parcel <span class="num">${esc(a.parcelid||'')}</span>, then View. The City's mailing copy can be years old; the assessor's is current. Their terms forbid automated reading, so this one is yours.`},
     {k:'taxes', t:'Taxes: are they current, how many years delinquent, and the payoff amount', why:`<a href="${taxsearch}" target="_blank" rel="noopener">${esc(county)} County tax search</a> (login) or call the Collector. Delinquent ≠ for sale, and paying them does not make you the owner.`},
     {k:'cosl', t:'State Lands: has the parcel been certified to the State, and is a sale scheduled', why:'<a href="https://www.cosl.org/" target="_blank" rel="noopener">cosl.org</a> parcel search. If it is certified, the owner-direct route changes: the owner can still redeem before the sale.'},
     {k:'title', t:'Title: liens, judgements, mortgages, easements, and who has authority to sell', why:'Circuit Clerk deed records, then a title company for a commitment. Do not close without title insurance.'},

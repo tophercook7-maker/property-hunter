@@ -150,7 +150,7 @@ footer{background:var(--surface);border-top:1px solid var(--rule);padding:10px 2
     <input id="q" type="text" placeholder="Address, owner name, or parcel number" aria-label="Search">
     <button type="submit" id="go">Look up</button>
   </form>
-  <nav><a href="state-lands.html">Tax-delinquent for sale</a><a href="garland.html">Garland scan</a><a href="https://github.com/tophercook7-maker/property-hunter" rel="noopener">Source</a></nav>
+  <nav><a href="state-lands.html">Tax-delinquent for sale</a><a href="watch.html">Watchlist</a><a href="garland.html">Garland scan</a><a href="https://github.com/tophercook7-maker/property-hunter" rel="noopener">Source</a></nav>
 </header>
 <div class="hint">
   <span><b>Try:</b> <button class="ex" type="button" data-q="267 Glade">267 Glade</button> · <button class="ex" type="button" data-q="Monolith">Monolith</button> · <button class="ex" type="button" data-q="400-29150-014-000">400-29150-014-000</button></span>
@@ -326,6 +326,7 @@ async function select(i){
       `<div class="sec"><h3>City registers</h3><div class="warn">Only Hot Springs publishes vacant-structure, lien and code-case layers that this tool knows how to read. For ${esc(county)} County those are a phone call or a records request.</div></div>`}
     <div class="sec" id="acq"><h3>Before you buy <span class="src">what still has to be confirmed, and how you could actually buy this one</span></h3><div class="acq"><span class="pending">building the confirmation list…</span></div></div>
     <div class="sec"><h3>Check it yourself</h3><div class="links">
+      <a href="watch.html?add=${esc(a.countyfips)}:${encodeURIComponent(a.parcelid||'')}&label=${encodeURIComponent(addr)}" style="background:var(--accent);color:var(--accent-ink)">Watch this parcel</a>
       <a href="${gm}" target="_blank" rel="noopener">Google Maps</a>
       <a href="${taxsearch}" target="_blank" rel="noopener">${esc(county)} tax search (login)</a>
       <a href="${ds}" target="_blank" rel="noopener">actDataScout record</a>

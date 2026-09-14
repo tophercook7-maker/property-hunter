@@ -301,6 +301,37 @@ async function drawSchedule(){
     if(!r.started) return toast(r.reason);
     streamScan();
   };
+  drawNotify();
+}
+async function drawNotify(){
+  const c = $('#schedCard'); if(!c) return;
+  const n = await api('/api/notify');
+  const box = document.createElement('div');
+  box.style.marginTop = '12px'; box.style.paddingTop = '10px'; box.style.borderTop = '1px solid var(--rule, #2a343d)';
+  box.innerHTML = `
+    <div class="spread" style="flex-wrap:wrap">
+      <div>
+        <h3 style="margin:0">Morning email</h3>
+        <div class="tiny muted" style="margin-top:4px">
+          ${n.enabled ? `On - goes to <b>${esc(n.to)}</b> after each scheduled scan` : 'Off - the briefing only goes to Alerts and the Desktop folder'}
+          ${n.last_digest ? ` &middot; last sent ${esc(ago(n.last_digest))}` : ''}
+          ${n.can_send ? '' : ` &middot; <span style="color:#ff9b9b">no Gmail app password at ${esc(n.password_file)}</span>`}
+        </div>
+        <div class="tiny dimmer" style="margin-top:3px">Watched-property changes, State Lands arrivals and departures, alerts, the day's three picks. Only when something moved, unless you send it by hand.</div>
+      </div>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="ntfOn" ${n.enabled?'checked':''}> on</label>
+        <input id="ntfTo" value="${esc(n.to||'')}" placeholder="you@example.com" style="width:210px">
+        <button class="btn sm" id="ntfSave">Save</button>
+        <button class="btn sm ghost" id="ntfPreview">Preview</button>
+        <button class="btn sm ghost" id="ntfSend">Send now</button>
+      </div>
+    </div>
+    <pre id="ntfBody" class="tiny" style="display:none;white-space:pre-wrap;margin-top:8px;max-height:320px;overflow:auto"></pre>`;
+  c.appendChild(box);
+  $('#ntfSave').onclick = async ()=>{ const r = await api('/api/notify',{method:'POST',body:JSON.stringify({enabled:$('#ntfOn').checked, to:$('#ntfTo').value})}); toast(r.detail || 'Email settings saved'); };
+  $('#ntfPreview').onclick = async ()=>{ const r = await api('/api/notify/send',{method:'POST',body:JSON.stringify({dry:true})}); const pre=$('#ntfBody'); pre.style.display='block'; pre.textContent = r.body; };
+  $('#ntfSend').onclick = async ()=>{ const r = await api('/api/notify/send',{method:'POST',body:JSON.stringify({force:true})}); toast(r.sent ? 'Sent to '+r.to : 'Not sent: '+r.reason); };
 }
 function streamScan(){
   if(S.scanES) S.scanES.close();

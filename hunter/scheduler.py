@@ -18,7 +18,7 @@ DEFAULTS = {
     "enabled": True,
     "interval_hours": 24,
     "mode": "distress",
-    "limit": 600,
+    "limit": None,          # the whole preset, every time; 400/600 silently re-read the same rows
     "enrich_top": 20,
 }
 
@@ -82,7 +82,7 @@ def run_now(reason: str = "scheduled") -> dict | None:
     if scanner.is_running():
         return None
     cfg = config()
-    scan = scanner.start(mode=cfg["mode"], limit=int(cfg["limit"]),
+    scan = scanner.start(mode=cfg["mode"], limit=int(cfg["limit"]) if cfg.get("limit") else None,
                          enrich_top=int(cfg["enrich_top"]))
     set_setting("last_auto_scan", utcnow())
     _schedule_next(force=True)
@@ -123,6 +123,12 @@ def _wait_and_brief(scan: scanner.Scan) -> None:
                source="scheduler")
     except Exception as exc:                    # pragma: no cover
         db.log(scan.id, f"Desktop refresh failed: {exc}", level="error", source="scheduler")
+    try:
+        from . import notify
+        out = notify.send_digest()
+        db.log(scan.id, f"digest: {'sent to ' + out['to'] if out['sent'] else out['reason']}", source="scheduler")
+    except Exception as exc:                    # pragma: no cover
+        db.log(scan.id, f"digest failed: {exc}", level="error", source="scheduler")
 
 
 def _loop() -> None:

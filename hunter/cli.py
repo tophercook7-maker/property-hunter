@@ -178,6 +178,26 @@ def cmd_investigate(a):
     return None
 
 
+def cmd_digest(a):
+    """Show or send the morning email."""
+    from . import notify
+    out = notify.send_digest(force=a.send, dry=not a.send)
+    print(out["body"])
+    print()
+    print("SENT to " + out["to"] if out["sent"] else f"NOT SENT: {out['reason']}")
+
+
+def cmd_watch(a):
+    """Import parcel ids (from the site's watchlist) into the app's watchlist."""
+    import sys
+    from .api import api_watch_import
+    ids = [l.strip() for l in sys.stdin.read().splitlines() if l.strip()] if a.import_ else []
+    out = api_watch_import({"ids": ids})
+    print(f"added {len(out['added'])}, already watched {len(out['already'])}, unknown {len(out['unknown'])}")
+    for u in out["unknown"]:
+        print("  unknown:", u)
+
+
 def cmd_explain(a):
     base = _server()
     if base:
@@ -210,6 +230,12 @@ def main(argv=None) -> int:
     s.add_argument("--ai", action="store_true", help="let the local model interpret search phrasing")
     s.set_defaults(fn=cmd_ask)
     sub.add_parser("status", help="counts and scan state").set_defaults(fn=cmd_status)
+    s = sub.add_parser("watch", help="watchlist: --import reads FIPS:PARCEL lines from stdin")
+    s.add_argument("--import", dest="import_", action="store_true")
+    s.set_defaults(fn=cmd_watch)
+    s = sub.add_parser("digest", help="the morning email: print it, or --send it now")
+    s.add_argument("--send", action="store_true", help="actually email it (needs the Gmail app password file)")
+    s.set_defaults(fn=cmd_digest)
     s = sub.add_parser("picks", help="Topher picks")
     s.add_argument("--limit", type=int, default=3)
     s.set_defaults(fn=cmd_picks)

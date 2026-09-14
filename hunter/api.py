@@ -1093,6 +1093,56 @@ def api_schedule_update(payload: dict = Body(default={})) -> dict:
     return scheduler.update(payload)
 
 
+# ------------------------------------------------------------------ notify
+@app.get("/api/notify")
+def api_notify() -> dict:
+    from . import notify
+    return notify.config()
+
+
+@app.post("/api/notify")
+def api_notify_update(payload: dict = Body(default={})) -> dict:
+    from . import notify
+    if "to" in payload and "@" not in str(payload["to"]):
+        raise HTTPException(400, "that does not look like an email address")
+    return notify.update(payload)
+
+
+@app.post("/api/notify/send")
+def api_notify_send(payload: dict = Body(default={})) -> dict:
+    """Send the digest now (force=true sends even if nothing changed; dry=true only shows it)."""
+    from . import notify
+    out = notify.send_digest(force=bool(payload.get("force", True)), dry=bool(payload.get("dry", False)))
+    return out
+
+
+@app.post("/api/watch/import")
+def api_watch_import(payload: dict = Body(default={})) -> dict:
+    """Watch a list of parcels pasted from the public site ("FIPS:PARCEL" or bare Garland ids).
+    Parcels the app does not hold yet are reported back, not invented."""
+    from .normalize import normalize_parcel
+    added, already, unknown = [], [], []
+    for line in (payload.get("ids") or []):
+        line = str(line).strip()
+        if not line:
+            continue
+        fips, _, pid = line.rpartition(":") if ":" in line else ("05051", "", line)
+        row = db.q1("SELECT id, address FROM properties WHERE county_fips=? AND "
+                    "REPLACE(REPLACE(parcel_id,'-',''),' ','')=?", (fips or "05051", normalize_parcel(pid)))
+        if not row:
+            unknown.append(line)
+            continue
+        if db.q1("SELECT 1 FROM watchlist WHERE property_id=?", (row["id"],)):
+            already.append(row["address"] or pid)
+            continue
+        db.ex("INSERT INTO watchlist(property_id, priority, notes, added_at) VALUES (?,?,?,?)",
+              (row["id"], "normal", "imported from the public site watchlist", utcnow()))
+        added.append(row["address"] or pid)
+    return {"added": added, "already": already, "unknown": unknown,
+            "note": ("Unknown parcels are not in the app yet; run a scan that covers them, or look "
+                     "them up on the site meanwhile." if unknown else "")}
+
+
 @app.post("/api/desktop/refresh")
 def api_desktop_refresh() -> dict:
     """Rewrite the Desktop folder's briefing and pick PDFs now."""

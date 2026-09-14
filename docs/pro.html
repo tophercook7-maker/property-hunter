@@ -81,11 +81,11 @@ footer{padding:16px 20px;font-size:12px;color:var(--muted);text-align:center}
       <a class="btn ghost" href="state-lands.html?county=GARLAND">Browse Garland</a></div>
     <div class="plan hi"><h3>Radar</h3><div class="price">$29<small> / month</small></div>
       <ul><li>Monday email: new listings, sold or redeemed, new bids, best value per dollar owed, for the counties you pick</li><li>Every county's full inventory with aerials and sold comps</li><li>CSV export per county for your own mail list</li><li>Cancel any time</li></ul>
-      <a class="btn" id="buy" href="mailto:topher@mixedmakershop.com?subject=Tax%20Sale%20Radar&body=Counties%20I%20want%3A%20">Start Radar</a>
-      <span class="sub" style="font-size:12px;color:var(--muted)">Checkout is being connected; until then, email and you'll be set up by hand the same day.</span></div>
+      <a class="btn" id="buy" href="https://buy.stripe.com/dRm7sE2jgeiz2tv4503cc0D">Start Radar</a>
+      <span class="sub" style="font-size:12px;color:var(--muted)">Card checkout by Stripe. Tell it your counties; the first Monday email follows.</span></div>
     <div class="plan"><h3>Desk</h3><div class="price">$149<small> / month</small></div>
       <ul><li>Everything in Radar</li><li>Owner mailing addresses where the county publishes them, and a printable, truthful owner letter per parcel</li><li>Watchlist alerts on any parcel, any county</li><li>One-off pulls: a county's full delinquent picture, on request</li></ul>
-      <a class="btn ghost" href="mailto:topher@mixedmakershop.com?subject=Tax%20Sale%20Desk">Ask about Desk</a></div>
+      <a class="btn ghost" href="https://buy.stripe.com/6oUfZa2jg6Q79VX4503cc0E">Start Desk</a></div>
   </div>
 
   <section class="week">
@@ -125,6 +125,8 @@ fetch('data/radar.json').then(r=>r.json()).then(r => {
   $('value').innerHTML = val.slice(0,6).map(x=>card(x, `${Math.round((x.appraised||0)/Math.max(x.starting_bid||1,1))}× the debt`)).join('');
 }).catch(()=>{ $('lead').textContent = 'The radar has not been built yet.'; });
 </script>
+<script src="members.js"></script>
+<script>if(window.PH){ PH.member().then(m => { if(m){ const w = document.getElementById("welcome"); w.hidden = false; w.innerHTML = `<b>Member: ${m.plan==="desk"?"Desk":"Radar"}.</b> Every county is open for you, with CSV export, on the <a href="state-lands.html">tax-sale page</a>. Counties on your Monday email: ${(m.counties||[]).map(c=>c.charAt(0)+c.slice(1).toLowerCase()).join(", ")||"Garland"}.`; document.querySelectorAll(".locked").forEach(el=>el.classList.remove("locked")); } }); }</script>
 <script src="nav.js"></script>
 </body>
 </html>

@@ -4,9 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Property Hunter · Arkansas parcel lookup</title>
+<meta property="og:title" content="Property Intelligence File · Property Hunter">
+<meta property="og:description" content="One file per Arkansas parcel from public records: tax status, ownership and mailing, value, vacancy and code records, flood, aerials, what is verified, what is unknown, and what to check next.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tophercook7-maker.github.io/property-hunter/lookup.html">
+<link rel="canonical" href="https://tophercook7-maker.github.io/property-hunter/lookup.html">
 <meta name="description" content="Look up any Arkansas parcel by address, owner or parcel number: owner of record, county appraised values, acreage, deed reference, flood zone, and for Hot Springs the vacant-structure register, City liens, code cases and zoning. Live public records, nothing invented.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="ph.css">
 <style>
 :root{
   --ground:#E8ECEF; --surface:#FFFFFF; --surface2:#F3F5F7; --ink:#172029; --muted:#5F6E7B; --rule:#D3DAE0;
@@ -176,6 +182,7 @@ footer{background:var(--surface);border-top:1px solid var(--rule);padding:10px 2
 <footer>Sources queried live in your browser: Arkansas GIS Office statewide parcel layer (county assessor CAMA data, republished by the State), FEMA National Flood Hazard Layer, City of Hot Springs open GIS (vacant-structure register, housing liens, 2025 code cases, zoning, city-owned property, tax-roll copy with mailing addresses). Values are the county's appraised figures, not sale prices. Nothing here is legal, tax or investment advice, and paying someone else's delinquent taxes never makes you the owner. Records that need a login or a visit (tax status, deeds, State Lands) are linked, not scraped. Built by <a href="https://mixedmakershop.com">MixedMakerShop</a>.</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="ph.js"></script>
 <script>
 const PARCELS = 'https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query';
 const FEMA = 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query';
@@ -193,7 +200,7 @@ const LIEN_TYPES = {VWL:'vacant-lot weed / mowing', DEMO:'demolition', CLEAN:'cl
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt$ = v => (v == null || isNaN(v)) ? '—' : '$' + Math.round(v).toLocaleString('en-US');
-const dt = ms => ms ? new Date(ms).toISOString().slice(0,10) : null;
+const dt = ms => { if(!ms) return null; const d = new Date(ms); return d.getUTCFullYear() < 1950 ? null : d.toISOString().slice(0,10); };   // the roll writes 1901 when it has no date
 const sq = s => String(s).replace(/'/g, "''");
 const clean = s => String(s ?? '').replace(/\s+/g,' ').trim();
 const title = s => clean(s).toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
@@ -304,16 +311,18 @@ async function select(i){
   $('detail').innerHTML = `<div class="detail">
     <div><h2>${esc(addr)}</h2><div class="sub">${esc(title(a.adrcity)||'')}${a.adrzip5?' '+a.adrzip5:''} · ${esc(county)} County · parcel <span class="num">${esc(a.parcelid)}</span></div></div>
     <div id="village"></div>
+    <div class="sec" id="whysec"><h3>Why this property? <span class="from">only from records read</span></h3><div id="why"><span class="pending">assembling…</span></div></div>
+    <div class="sec" id="prio"><h3>Research priority <span class="from">from the hunt's scoring, if this parcel was scanned</span></h3><div id="priobox"><span class="pending">looking it up…</span></div></div>
     <div class="money">
       <div class="hi"><b class="num">${fmt$(a.totalvalue)}</b><span>County appraised</span></div>
       <div><b class="num">${fmt$(a.assessvalue)}</b><span>Assessed for tax</span></div>
       <div class="lien" id="lienbox"><b class="num">${isGarland?'…':'n/a'}</b><span>City lien on record</span></div>
     </div>
     <div class="warn">Appraised = the assessor's opinion of full value (land ${fmt$(a.landvalue)} + improvements ${fmt$(a.impvalue)}), current to ${dt(a.camadate)||'an unknown date'}. Not a sale price, not an asking price. Taxes: see the <b>Taxes</b> section below.</div>
-    <div class="sec"><h3>Look at it <span class="src">Arkansas GIS Office orthoimagery · State Lands map</span></h3><div class="pics" id="pics"></div></div>
-    <div class="sec"><h3>Taxes <span class="src">Commissioner of State Lands inventory</span></h3><div id="taxbox" class="taxbox"><span class="pending">checking the State Lands inventory…</span></div></div>
-    <div class="sec"><h3>Who and what <span class="src">county roll via Arkansas GIS Office</span></h3><dl class="facts">
-      <dt>Owner of record</dt><dd>${esc(title(a.ownername))||'<em>blank on the roll</em>'}<span class="tag fact">fact</span></dd>
+    <div class="sec"><h3>Property · look at it <span class="src">Arkansas GIS Office orthoimagery · State Lands map</span></h3><div class="pics" id="pics"></div></div>
+    <div class="sec"><h3>Tax history <span class="src">State Lands daily · County Collector when its search answers</span></h3><div id="taxbox" class="taxbox"><span class="pending">checking the State Lands inventory…</span></div></div>
+    <div class="sec"><h3>Ownership, mailing, parcel <span class="src">county roll via Arkansas GIS Office</span></h3><dl class="facts">
+      <dt>Owner of record</dt><dd>${esc(title(a.ownername))||'<span class="pill unknown">NOT FOUND on the roll</span>'}<span class="tag fact">fact</span><details style="margin-top:4px"><summary style="font-size:11.5px;color:var(--muted);cursor:pointer">what this establishes</summary>${PH.chain({fact:'The county tax roll names this owner of record', source:'Arkansas GIS Office parcel layer (county assessor data)', date: dt(a.camadate)||'roll date not stated', interp:'Who the county bills. Usually the owner, sometimes an estate, trust or custodian.', next:'Circuit Clerk deed index, then a title company', notEstablish:'clear title · authority to sell · absence of mortgages, judgments or heirs'})}</details></dd>
       <dt>Tax bill goes to</dt><dd id="mailing">${isGarland?'<span class="pending">checking the City\'s roll copy…</span>':'<span class="tag unk">not published for this county</span>'}</dd>
       <dt>Last deed ref.</dt><dd>${esc(clean(a.sourceref))||'—'}${a.sourcedate?` · recorded ${dt(a.sourcedate)}`:''}<span class="tag fact">fact</span></dd>
       <dt>Legal</dt><dd>${esc(clean(a.parcellgl))||'—'}</dd>
@@ -325,9 +334,10 @@ async function select(i){
       ${isGarland?'<dt>Zoning</dt><dd id="zoning"><span class="pending">asking the City…</span></dd>':''}
       <dt>Roll published</dt><dd>${dt(a.pubdate)||'—'} · tax code <span class="num">${esc(a.taxcode||'—')}</span></dd>
     </dl></div>
-    ${isGarland?`<div class="sec"><h3>City of Hot Springs registers <span class="src">live from the City's GIS</span></h3><div id="city"><span class="pending">checking vacant register, liens, code cases, city-owned…</span></div></div>`:
+    ${isGarland?`<div class="sec"><h3>Vacancy, code, City records <span class="src">live from the City's GIS</span></h3><div id="city"><span class="pending">checking vacant register, liens, code cases, city-owned…</span></div></div>`:
       `<div class="sec"><h3>City registers</h3><div class="warn">Only Hot Springs publishes vacant-structure, lien and code-case layers that this tool knows how to read. For ${esc(county)} County those are a phone call or a records request.</div></div>`}
-    <div class="sec" id="acq"><h3>Before you buy <span class="src">what still has to be confirmed, and how you could actually buy this one</span></h3><div class="acq"><span class="pending">building the confirmation list…</span></div></div>
+    <div class="sec" id="acq"><h3>Before you buy · acquisition paths · owner outreach <span class="src">what still has to be confirmed, and how you could actually buy this one</span></h3><div class="acq"><span class="pending">building the confirmation list…</span></div></div>
+    <div class="sec"><h3>What this file establishes, and what it does not</h3>${PH.means(['The county roll\'s owner of record, values and legal description on the date shown','City register entries and liens exactly as the City publishes them','Whether the State is selling the parcel, and for how much, as of the daily inventory','FEMA\'s mapped flood zone at the parcel centroid'],['Clear title, or who has authority to sell','Market value or a sale price (appraised is an assessor\'s opinion)','Mortgages, judgments or liens outside the City\'s own layer','Physical condition, occupancy, or that the building still stands','A complete environmental or zoning determination','Any advice to buy, or what to pay'])}</div>
     <div class="sec"><h3>Check it yourself</h3><div class="links">
       <a href="watch.html?add=${esc(a.countyfips)}:${encodeURIComponent(a.parcelid||'')}&label=${encodeURIComponent(addr)}" style="background:var(--accent);color:var(--accent-ink)">Watch this parcel</a>
       <a href="${gm}" target="_blank" rel="noopener">Google Maps</a>
@@ -343,6 +353,7 @@ async function select(i){
   visuals(r, a, c);
   villageCheck(c, a);
   taxStatus(a, c);
+  whyBlock(a, c);
   if(c) flood(c);
   const cityOut = isGarland ? await city(a, c) : null;
   renderAcq(r, a, c, cityOut, county);
@@ -436,6 +447,42 @@ async function villageCheck(c, a){
   const poa = /Village/.test(hit.name) ? 'Hot Springs Village POA dues run about $52 a month per lot for as long as you own it, plus a buy-in and transfer fee' : 'Diamondhead POA dues attach to the lot';
   el.innerHTML = `<div class="village"><b>Inside ${esc(hit.name)}.</b> This hunt never buys here, and the scan never lists it: ${poa}. The State's tax-sale lots here sell for the debt to bulk buyers, and a signed-over deed makes the dues yours. Everything below is still true; it is just not a deal.</div>`;
 }
+/* ---------- WHY THIS PROPERTY + research priority: from the hunt's scan row when this parcel was scanned ---------- */
+const SCANS = {};
+async function scanRow(fips, parcel){
+  if(!fips || !parcel) return null;
+  if(!SCANS[fips]){ try { const r = await fetch(`data/scan/${fips}.json`); SCANS[fips] = r.ok ? await r.json() : {rows:[]}; } catch(e){ SCANS[fips] = {rows:[]}; } }
+  const norm = v => String(v||'').replace(/[^0-9A-Za-z]/g,'').toUpperCase();
+  return (SCANS[fips].rows||[]).find(x => norm(x.pid) === norm(parcel)) || null;
+}
+async function whyBlock(a, c){
+  const el = $('why'), pb = $('priobox'); if(!el) return;
+  const row = await scanRow(a.countyfips, a.parcelid);
+  const verified = [`County roll: ${title(a.ownername)||'owner not found'} · appraised ${fmt$(a.totalvalue)}${a.impvalue>0?`, building ${fmt$(a.impvalue)}`:', no building value'}`];
+  if(a.sourceref) verified.push(`Last deed ${clean(a.sourceref)}${a.sourcedate?' recorded '+dt(a.sourcedate):''}`);
+  const derived = [], unknown = ['Physical condition: not inspected (aerials below are from 2023 and 2017)', 'Title, mortgages, judgments: not read (Circuit Clerk)'];
+  if(row){
+    if(String(row.ts||'').startsWith('CERTIFIED')) verified.push('Certified to the State for unpaid taxes (Commissioner of State Lands)');
+    if(row.vac) verified.push("On the City's vacant-structure register");
+    if(row.lien>0) verified.push(`${PH.money(row.lien)} City lien on record`);
+    if(row.cc) verified.push('Open 2025 code case at this address');
+    if(row.ab) verified.push('Tax bill leaves the county (absentee owner)');
+    (row.d||[]).forEach(k => { const L = PH.LABEL[k]; if(L && L[1]==='derived') derived.push(L[0]); });
+    if(!row.tax && !String(row.ts||'').startsWith('CERTIFIED')) unknown.push("This year's county tax bill: not checked (Collector's search was unavailable)");
+  } else {
+    unknown.push('Tax status beyond the State list: the live Taxes section below asks the daily inventory; the county bill is not checked here');
+  }
+  const risks = row ? (row.d||[]).filter(k=>PH.RISK_KEYS.includes(k)).map(k=>PH.LABEL[k][0]) : [];
+  el.innerHTML = `
+    <div class="paper"><b>Verified signals</b><ul style="margin:6px 0 0;padding-left:18px">${verified.map(v=>`<li>${esc(v)} ${PH.pill('fact','verified')}</li>`).join('')}</ul>
+    ${derived.length?`<b style="display:block;margin-top:8px">Derived from those records</b><ul style="margin:6px 0 0;padding-left:18px">${derived.map(v=>`<li>${esc(v)} ${PH.pill('derived','derived')}</li>`).join('')}</ul>`:''}
+    ${risks.length?`<b style="display:block;margin-top:8px">Risk flags</b><ul style="margin:6px 0 0;padding-left:18px">${risks.map(v=>`<li>${esc(v)} ${PH.pill('risk','risk')}</li>`).join('')}</ul>`:''}
+    <b style="display:block;margin-top:8px">Possible interpretation</b><p style="margin:4px 0 0">${row && (row.s||0)>=65 ? 'This combination of records may justify a closer look. That is a research judgement, not a valuation.' : row ? 'The records read so far do not make this a priority; it may still be worth a look for your own reasons.' : 'This parcel was not part of a hunt preset, so no priority has been computed. The records above stand on their own.'}</p>
+    <b style="display:block;margin-top:8px">Unknown</b><ul style="margin:6px 0 0;padding-left:18px">${unknown.map(v=>`<li>${esc(v)} ${PH.pill('unknown','unknown')}</li>`).join('')}</ul>
+    <b style="display:block;margin-top:8px">Next step</b><p style="margin:4px 0 0">Drive by and verify condition before contacting the owner. Then work the checklist at the bottom of this file.</p></div>`;
+  pb.innerHTML = row ? PH.priorityHtml(row) + `<div style="margin-top:8px"><button class="btn ghost" type="button" id="whybtn">Why this one? · step through the evidence</button></div>` : `<div class="empty">Not scored: this parcel was not in the hunt's distress preset for ${esc(COUNTIES[a.countyfips]||'this county')}, or the county has not been hunted yet. Everything else in this file is read live from the records.</div>`;
+  if(row) $('whybtn').addEventListener('click', ()=>PH.whyOpen(row, row.a));
+}
 /* ---------- visuals: aerials from the State's own imagery, no key needed ---------- */
 const IMG = 'https://gis.arkansas.gov/arcgis/rest/services/ImageServices';
 function aerialUrl(r, c, service, size){
@@ -469,7 +516,9 @@ async function taxStatus(a, c){
     el.className = 'taxbox cert';
     el.innerHTML = `<b class="big">${fmt$(hit.starting_bid)} owed</b> · <b>certified to the State for unpaid taxes and FOR SALE</b>${hit.delinquent_year?` · unpaid since ${esc(hit.delinquent_year)}`:''}${hit.current_bid>0?` · current bid ${fmt$(hit.current_bid)} (${hit.bids} bids)`:''}.<br>Owner-direct is mostly off the table: the owner can redeem until it sells, otherwise it goes to whoever buys it on the State's site. <a href="${esc(hit.listing_url)}" target="_blank" rel="noopener">State Lands listing</a> · <a href="state-lands.html?county=${esc(hit.county)}&q=${esc(hit.rpid)}">in the inventory</a> · inventory as of ${asOf}<span class="tag fact">COSL</span>`;
   } else {
-    el.innerHTML = `<b>Not in the State Lands inventory</b> as of ${asOf}, so not certified for sale for unpaid taxes (that takes roughly two years behind). Whether the <b>current</b> year is paid is only on the county Collector's login-only site: <a href="https://www.arkansastaxsearch.com/" target="_blank" rel="noopener">arkansastaxsearch.com</a>, or call the Collector with parcel <span class="num">${esc(a.parcelid)}</span>.<span class="tag obs">checked against the daily inventory</span>`;
+    let cp = null; try { cp = ((await (await fetch('data/status.json',{cache:'no-store'})).json())||{}).countypay; } catch(e){}
+    const cpLine = cp && cp.open === false ? `The county Collector's online search (CountyPay) is <b>NOT CURRENTLY AVAILABLE</b> (down since ${PH.when(cp.down_since)}), so this year's bill is <b>not checked</b>; the app retries every 20 minutes.` : `Whether this year's county bill is paid comes from the Collector's site (CountyPay) when it answers; the app checks the top properties daily.`;
+    el.innerHTML = `<b>Not in the State Lands inventory</b> as of ${asOf}: not certified for sale for unpaid taxes (that takes roughly two years behind). ${cpLine} The one-year-behind list is a records request: <a href="request.html">the kit</a>.<span class="tag obs">daily inventory · status file</span>`;
   }
 }
 
@@ -510,7 +559,7 @@ function renderAcq(r, a, c, cityOut, county){
                    : {k:'owner', cls:'warn', t:'The owner changed since the City copied the roll - use the State\'s (newer) name and re-check the mailing address.', why:`State: ${title(a.ownername)} · City copy: ${title(roll[0].OwnerName)} (${dt(roll[0].SourceDate)||'?'})`});
   }
   // 3. Deed age / stale record
-  const dy = ageYears(a.sourcedate);
+  const dy = dt(a.sourcedate) ? ageYears(a.sourcedate) : null;
   if(dy!=null) auto.push(dy>15 ? {k:'deed', cls:'warn', t:`Last recorded deed is ${Math.round(dy)} years old - heirs, estates and unrecorded transfers are common on records this old.`, why:'Pull the deed at the Circuit Clerk and ask who actually has authority to sell.'}
                                 : {k:'deed', cls:'ok', t:`Last deed recorded ${dt(a.sourcedate)} (${Math.round(dy)} yr ago).`, why:`Book/page ${clean(a.sourceref)||'?'}`});
   // 4. Values sanity

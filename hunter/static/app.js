@@ -44,25 +44,28 @@ const scoreCls = s => s>=68?'hi':s>=52?'mid':'lo';
 
 /* ------------------------------------------------------------------- nav */
 const NAV = [
-  {g:'Hunt'},
-  {k:'home',  t:'Dashboard',      i:'&#128200;'},
-  {k:'scan',  t:'Scan',           i:'&#128269;'},
-  {k:'map',   t:'Map',            i:'&#128506;'},
-  {k:'props', t:'Properties',     i:'&#127968;'},
+  {g:'Command center'},
+  {k:'home',  t:'Today',          i:'&#9673;'},
+  {k:'scan',  t:'Hunt',           i:'&#128269;'},
+  {k:'counties', t:'Counties',    i:'&#128506;'},
+  {k:'props', t:'Investigations', i:'&#128193;'},
+  {k:'watch',    t:'Watchlist',    i:'&#11088;', badge:'watchlist'},
+  {k:'alerts', t:'Alerts',      i:'&#128276;', badge:'alerts'},
   {g:'Lists'},
   {k:'newprops', t:'New',         i:'&#10024;'},
   {k:'vacant',   t:'Vacant houses',i:'&#127761;'},
-  {k:'tax',      t:'Tax & state',  i:'&#127974;'},
+  {k:'tax',      t:'Tax & State',  i:'&#127974;'},
   {k:'land',     t:'Cheap land',   i:'&#127807;'},
   {k:'snowcone', t:'Snow-cone sites',i:'&#127847;'},
-  {k:'watch',    t:'Watchlist',    i:'&#11088;', badge:'watchlist'},
-  {k:'field',    t:'Near me',      i:'&#128205;'},
+  {k:'map',   t:'Map',            i:'&#128205;'},
+  {k:'field',    t:'Near me',      i:'&#128663;'},
   {g:'Work'},
-  {k:'tasks',  t:'To do',       i:'&#9989;', badge:'open_tasks'},
-  {k:'alerts', t:'Alerts',      i:'&#128276;', badge:'alerts'},
-  {k:'deals',  t:'Money',       i:'&#128176;'},
+  {k:'tasks',  t:'Reports & to-do', i:'&#9989;', badge:'open_tasks'},
+  {k:'deals',  t:'Letters & money', i:'&#9993;'},
   {k:'portfolio', t:'My properties', i:'&#128273;'},
+  {k:'radar',  t:'Radar',         i:'&#9678;'},
   {g:'System'},
+  {k:'system', t:'System',      i:'&#9881;'},
   {k:'sources', t:'Sources',    i:'&#128225;'},
   {k:'health',  t:'Health',     i:'&#129658;'},
   {k:'learn',   t:'Glossary',   i:'&#10067;'},
@@ -107,12 +110,13 @@ async function render(){
 
 /* -------------------------------------------------------------- dashboard */
 VIEWS.home = async (v)=>{
-  const [st, brief, picks] = await Promise.all([
-    api('/api/status'), api('/api/briefing'), api('/api/picks?limit=3')]);
+  const [st, brief, picks, cur] = await Promise.all([
+    api('/api/status'), api('/api/briefing'), api('/api/picks?limit=3'), api('/api/scan/current').catch(()=>null)]);
+  setTimeout(()=>{ if(cur && cur.stages) paintPipeline(cur); if(cur && cur.status==='running' && S.view==='home') setTimeout(()=>{ if(S.view==='home') VIEWS.home(v); }, 8000); }, 0);
   S.status = st; renderNav();
   const c = st.counts;
   v.innerHTML = `
-  <h1>Property Hunter</h1>
+  <h1>Today</h1>
   <p class="lede">${esc(brief.greeting)} ${esc(brief.headline)}
     <span class="dimmer">&middot; ${esc(st.territory.label)}, excluding
     ${st.exclusions.map(e=>esc(e.label)).join(' and ')}.</span></p>
@@ -137,6 +141,7 @@ VIEWS.home = async (v)=>{
     </div>
     <div id="batchBox"></div>
     </div>
+    <div id="pipeHost" aria-live="polite"></div>
   </div>
 
   <div class="grid g4">
@@ -333,6 +338,7 @@ async function drawNotify(){
   $('#ntfPreview').onclick = async ()=>{ const r = await api('/api/notify/send',{method:'POST',body:JSON.stringify({dry:true})}); const pre=$('#ntfBody'); pre.style.display='block'; pre.textContent = r.body; };
   $('#ntfSend').onclick = async ()=>{ const r = await api('/api/notify/send',{method:'POST',body:JSON.stringify({force:true})}); toast(r.sent ? 'Sent to '+r.to : 'Not sent: '+r.reason); };
 }
+function paintPipeline(scan){ const host = $('#pipeHost'); if(host) host.innerHTML = pipelineHtml(scan); }
 function streamScan(){
   if(S.scanES) S.scanES.close();
   const es = new EventSource('/api/scan/stream'); S.scanES = es;
@@ -1669,6 +1675,46 @@ VIEWS.tasks = async (v)=>{
     ${rest.map(t=>taskRow(t)).join('')||'<p class="muted tiny">Nothing.</p>'}</div>`;
 };
 
+/* --------------------------------------------------- command center views */
+const PIPE = [['discovery','PARCELS'],['state_lands','STATE LANDS'],['taxes','TAX'],['city_registers','CITY'],['distress','VACANCY · CODE'],['city','ZONING'],['flood','FLOOD'],['structures','VALUE · STRUCTURES'],['context','MARKET'],['changes','CHANGES'],['scoring','RESEARCH PRIORITY']];
+function pipelineHtml(scan){
+  if(!scan || !scan.stages) return '';
+  const st = Object.fromEntries(scan.stages.map(x=>[x.key,x]));
+  return `<div class="pipe" aria-label="Pipeline">${PIPE.map(([k,l])=>{ const x = st[k]||{status:'waiting'}; const cls = x.status==='done'?'done':x.status==='running'?'run':x.status==='skipped'?'skip':(x.status==='failed'||x.status==='unavailable')?'bad':'wait';
+    return `<div class="pstage ${cls}" title="${esc(x.detail||'')}"><b>${l}</b><span>${esc(({done:'done',running:'running',skipped:'skipped',failed:'failed',unavailable:'source unavailable',waiting:'waiting'})[x.status]||x.status)}</span>${x.total?`<i style="width:${Math.min(100,Math.round(100*(x.done||0)/x.total))}%"></i>`:''}</div>`; }).join('<span class="parrow" aria-hidden="true">↓</span>')}</div>`;
+}
+VIEWS.counties = async (v)=>{
+  let d; try { d = await api('/api/counties'); } catch(e){ v.innerHTML = `<div class="banner">Counties view needs the app restarted once (new endpoint). ${esc(e.message)}</div>`; return; }
+  const order = {scanning:0, failed:1, done:2, waiting:3};
+  const cs = d.counties.sort((a,b)=>order[a.status]-order[b.status] || a.county.localeCompare(b.county));
+  v.innerHTML = `<h2>Counties</h2><p class="muted">${d.done} of ${cs.length} hunted${d.scanning.length?` · scanning ${esc(d.scanning.join(', '))} now`:''}. A county is done when every parcel in its distress preset has been read and scored. Village and Diamondhead parcels are excluded at ingest and counted separately.</p>
+    <div class="grid g3">${cs.map(c=>`<div class="card cty ${c.status}"><div class="spread"><h3 style="margin:0">${esc(c.county)}</h3><span class="pill ${c.status==='done'?'ok':c.status==='scanning'?'warn':''}">${esc(c.status)}</span></div>
+      <div class="tiny muted">${c.status==='done'?`hunted ${esc((c.finished_at||'').replace('T',' ').slice(0,16))}`:c.status==='scanning'?'in progress':c.status==='failed'?('failed: '+esc(c.error||''))+'':'not yet hunted'}</div>
+      <div class="row" style="margin-top:6px;gap:14px"><span><b>${(c.properties-c.excluded).toLocaleString()}</b> <span class="tiny muted">scored</span></span><span><b>${c.strong}</b> <span class="tiny muted">65+</span></span><span><b>${c.excluded}</b> <span class="tiny muted">excluded</span></span></div>
+      ${c.status!=='scanning'?`<button class="btn sm ghost" style="margin-top:8px" onclick="startCounty('${esc(c.key)}')">${c.status==='done'?'Re-hunt':'Hunt this county'}</button>`:''}</div>`).join('')}</div>`;
+};
+window.startCounty = async (key)=>{ const r = await api('/api/scan',{method:'POST',body:JSON.stringify({mode:'distress',territory:key,limit:null,enrich_top:5})}); if(!r.started) return toast(r.reason||'not started'); toast('Hunting '+key); go('scan'); };
+VIEWS.system = async (v)=>{
+  const [st, srcs, health, sch, ntf] = await Promise.all([api('/api/status'), api('/api/sources').catch(()=>({sources:[]})), api('/api/health').catch(()=>({})), api('/api/schedule').catch(()=>({})), api('/api/notify').catch(()=>({}))]);
+  const last = st.scan && st.scan.last;
+  const okSrc = (srcs.sources||[]).filter(x=>x.status==='ok').length, badSrc = (srcs.sources||[]).filter(x=>x.status==='unavailable'||x.status==='blocked');
+  v.innerHTML = `<h2>System</h2>
+    <div class="grid g4">
+      <div class="card"><div class="tiny muted">SCAN</div><b>${st.scan&&st.scan.running?'running':'idle'}</b><div class="tiny muted">${last?`last: ${esc(last.mode)} ${esc(last.territory)} ${esc(last.status)} ${esc((last.finished_at||'').replace('T',' ').slice(0,16))}`:'no scan yet'}</div></div>
+      <div class="card"><div class="tiny muted">NEXT SCHEDULED RUN</div><b>${sch.next_run?esc(until(sch.next_run)):'off'}</b><div class="tiny muted">every ${esc(String(sch.interval_hours||24))} h · ${esc(sch.mode||'')} ${sch.thread_alive?'':'· <span style="color:#ff9b9b">scheduler thread not running</span>'}</div></div>
+      <div class="card"><div class="tiny muted">SOURCES</div><b>${okSrc} ok</b><div class="tiny muted">${badSrc.length?badSrc.map(x=>esc(x.label||x.name)).join('; ')+' unavailable':'all answering'}</div></div>
+      <div class="card"><div class="tiny muted">MORNING EMAIL</div><b>${ntf.enabled?'on':'off'}</b><div class="tiny muted">${ntf.enabled?'to '+esc(ntf.to||''):'switch on under Hunt → schedule'}${ntf.last_digest?' · last '+esc(ago(ntf.last_digest)):''}</div></div>
+    </div>
+    <h3 style="margin-top:16px">Source availability</h3>
+    <div class="card">${(srcs.sources||[]).map(x=>`<div class="spread" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(x.label||x.name)}</span><span class="pill ${x.status==='ok'?'ok':x.status==='manual'?'':'warn'}">${esc(x.status)}</span></div>`).join('')||'<span class="muted">no source report yet</span>'}</div>
+    <p class="tiny dimmer" style="margin-top:10px">Nothing here is faked: a stage shows "source unavailable" when the source did not answer, and the site's cards then say "not checked".</p>`;
+};
+VIEWS.radar = async (v)=>{
+  v.innerHTML = `<h2>Radar</h2><p class="muted">The paid product runs from this Mac: Monday 7:05, the launchd job pulls subscribers from Stripe, publishes their key hashes, builds the week's changes and sends the emails.</p>
+    <div class="grid g3"><div class="card"><b>Product page</b><div class="tiny muted"><a href="https://tophercook7-maker.github.io/property-hunter/pro.html" target="_blank">pro.html</a></div></div>
+    <div class="card"><b>Preview this week's email</b><div class="tiny muted">Terminal: <code>python3 tools/send_radar.py</code> (dry run)</div></div>
+    <div class="card"><b>Subscribers</b><div class="tiny muted"><code>python3 tools/sync_radar_subscribers.py</code> · list lives in data/radar_subscribers.json, never in the repo</div></div></div>`;
+};
 VIEWS.alerts = async (v)=>{
   const a = await api('/api/alerts?limit=150');
   v.innerHTML = `<div class="spread"><h1>Alerts</h1>

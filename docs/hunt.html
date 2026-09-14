@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Hunt Arkansas</title>
+<meta property="og:title" content="Hunt Arkansas · Property Hunter">
+<meta property="og:description" content="A statewide map of Arkansas property research from public records: counties hunted, State tax-sale parcels, vacant and distressed properties, recent changes, and the unusual ones.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tophercook7-maker.github.io/property-hunter/hunt.html">
+<link rel="canonical" href="https://tophercook7-maker.github.io/property-hunter/hunt.html">
+<meta name="description" content="A statewide map of Arkansas property research from public records: counties hunted, State tax-sale parcels, vacant and distressed properties, recent changes, and the unusual ones.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="ph.css">
+<style>
+.wrap{display:grid;grid-template-columns:300px 1fr;height:calc(100vh - 58px);min-height:520px}
+@media (max-width:820px){.wrap{grid-template-columns:1fr;height:auto}.mapbox{height:52vh}}
+.rail{background:var(--surface);border-right:1px solid var(--rule);overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:12px}
+.mapbox{position:relative;background:var(--surface2)}
+#map{position:absolute;inset:0}
+.legend{position:absolute;left:10px;bottom:10px;z-index:500;background:var(--surface);border:1px solid var(--rule);padding:6px 9px;font-size:11.5px;display:flex;gap:10px;flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:4px;vertical-align:middle}
+.crumbs{position:absolute;left:10px;top:10px;z-index:500;background:var(--surface);border:1px solid var(--rule);padding:6px 10px;font-size:12.5px;display:flex;gap:6px;align-items:center}
+.crumbs button{background:none;border:0;color:var(--accent);padding:0;font-weight:500}
+.filters{display:flex;flex-wrap:wrap;gap:6px}
+.filters button{border:1px solid var(--rule);background:var(--surface2);padding:6px 9px;font-size:12px;min-height:34px}
+.filters button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.rail h2{font-size:20px;text-transform:uppercase}
+.rail .n{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.list{display:grid;gap:8px}
+.row{background:var(--surface2);border:1px solid var(--rule);padding:8px 10px;font-size:12.5px;display:grid;grid-template-columns:1fr auto;gap:2px 8px;cursor:pointer}
+.row:hover{border-color:var(--accent)}
+.row b{font-size:14px}.row .m{font-family:var(--mono);font-size:11.5px;color:var(--muted);grid-column:1/-1}
+.row .rp{font-family:var(--display);font-size:18px;font-weight:700}
+.unusual{background:var(--paper);color:var(--paper-ink);border:1px solid var(--rule);padding:8px 10px;font-size:12.5px}
+.unusual b{font-family:var(--display);font-size:15px;text-transform:uppercase;letter-spacing:.04em}
+.leaflet-container{font:inherit}
+.county-label{font-family:var(--display);font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink);text-shadow:0 0 3px var(--surface);pointer-events:none}
+</style>
+</head>
+<body>
+<header class="ph-top"><h1><small>Statewide · counties hunted, State sales, changes</small>Hunt Arkansas</h1><nav data-nav aria-label="Sections"></nav></header>
+<div class="wrap">
+  <aside class="rail" aria-label="Filters and results">
+    <div><h2 id="railh">Arkansas</h2><div class="n" id="railn">loading…</div></div>
+    <div class="filters" id="filters" role="group" aria-label="Show only">
+      <button type="button" data-f="tax" aria-pressed="false">Tax distress</button>
+      <button type="button" data-f="vacant" aria-pressed="false">Vacant</button>
+      <button type="button" data-f="cheaphouse" aria-pressed="false">Cheap houses</button>
+      <button type="button" data-f="cheapland" aria-pressed="false">Cheap land</button>
+      <button type="button" data-f="state" aria-pressed="false">State sale</button>
+      <button type="button" data-f="changed" aria-pressed="false">Recently changed</button>
+      <button type="button" data-f="high" aria-pressed="false">High research priority</button>
+      <button type="button" data-f="develop" aria-pressed="false">Potential development</button>
+      <button type="button" data-f="new" aria-pressed="false">New this week</button>
+      <button type="button" data-f="unusual" aria-pressed="false" style="border-color:var(--warn)">Show me the unusual ones</button>
+    </div>
+    <div class="unusual" id="unusualnote" hidden><b>Unusual, defined</b> Combinations the scanner rarely sees: a building worth under a tenth of its land; a State-sale parcel that still has a building; ten or more acres with a very low value; five or more distress signals on one parcel; a high-priority parcel with no risk flag at all. Real signals only, nothing invented.</div>
+    <div class="list" id="list"></div>
+  </aside>
+  <div class="mapbox">
+    <div id="map" role="application" aria-label="Map of Arkansas counties and properties"></div>
+    <div class="crumbs" id="crumbs"><button type="button" id="toState">Arkansas</button></div>
+    <div class="legend"><span><i style="background:var(--good)"></i>hunted</span><span><i style="background:var(--warn)"></i>scanning</span><span><i style="background:var(--rule)"></i>waiting</span><span><i style="background:var(--accent);border-radius:50%"></i>property</span><span><i style="background:var(--bad);border-radius:50%"></i>State sale</span></div>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="ph.js"></script>
+<script>
+const $ = id => document.getElementById(id); const esc = PH.esc;
+const reduced = PH.reducedMotion();
+const map = L.map('map', {zoomControl:true}).setView([34.9, -92.4], 7);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, attribution:'Esri'}).addTo(map);
+let COUNTIES = null, HUNT = {}, SL = {listings:[]}, IDX = {counties:{}}, CHG = {rows:[]}, counties_layer, points = L.layerGroup().addTo(map), cache = {}, current = null, filters = new Set();
+const css = k => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+const styleFor = f => { const fips = '05' + String(f.properties.countyfips).padStart(3,'0'); const h = HUNT.counties && HUNT.counties[fips]; const st = h ? h.status : 'waiting'; return {color: css('--ink'), weight: st==='waiting'?1:1.5, opacity: st==='waiting'?.35:.7, dashArray: st==='waiting'?'4 4':null, fillColor: st==='done'?css('--good'):st==='scanning'?css('--warn'):css('--muted'), fillOpacity: st==='done'?.4:st==='scanning'?.55:.06}; };
+async function load(url, fb){ try { const r = await fetch(url, {cache:'no-store'}); if(!r.ok) throw 0; return await r.json(); } catch(e){ return fb; } }
+async function init(){
+  [COUNTIES, HUNT, SL, IDX, CHG] = await Promise.all([load('data/counties.json', null), load('data/hunt_status.json', {counties:{}}), load('data/state_lands.json', {listings:[]}), load('data/scan_index.json', {counties:{}}), load('data/changes.json', {rows:[]})]);
+  if(!COUNTIES){ $('railn').textContent = 'County boundaries not available.'; return; }
+  counties_layer = L.geoJSON(COUNTIES, {style: styleFor, onEachFeature: (f, l) => {
+    const fips = '05' + String(f.properties.countyfips).padStart(3,'0'); const h = (HUNT.counties||{})[fips] || {status:'waiting', county:f.properties.county};
+    l.bindTooltip(`${f.properties.county} County · ${h.status}${h.n?` · ${h.n} scored`:''}`, {sticky:true});
+    l.on('click', () => openCounty(fips, f.properties.county, l));
+    l.on('mouseover', () => l.setStyle({weight:2, opacity:.9})); l.on('mouseout', () => counties_layer.resetStyle(l));
+  }}).addTo(map);
+  const done = Object.values(HUNT.counties||{}).filter(c=>c.status==='done').length, scanning = Object.values(HUNT.counties||{}).filter(c=>c.status==='scanning');
+  $('railn').textContent = `${done} of 75 counties hunted${scanning.length?` · scanning ${scanning[0].county} now`:''} · ${(SL.listings||[]).filter(x=>!x.excluded_area).length} State tax-sale parcels outside the Village`;
+  drawStateList();
+  const p = new URLSearchParams(location.search); if(p.get('county')){ const f = COUNTIES.features.find(x=>x.properties.county.toUpperCase()===p.get('county').toUpperCase()); if(f) openCounty('05'+String(f.properties.countyfips).padStart(3,'0'), f.properties.county, null); }
+}
+function drawStateList(){
+  const cs = Object.entries(HUNT.counties||{}).map(([cf,c])=>({cf,...c})).filter(c=>c.status==='done').sort((a,b)=>(b.strong||0)-(a.strong||0));
+  $('railh').textContent = 'Arkansas'; $('unusualnote').hidden = true;
+  $('list').innerHTML = cs.length ? cs.map(c=>`<div class="row" data-cf="${c.cf}" tabindex="0" role="button"><b>${esc(c.county)}</b><span class="rp">${c.strong||0}</span><span class="m">${(c.n||0).toLocaleString()} scored · ${c.strong||0} strong · hunted ${esc((c.finished_at||'').slice(0,10))}</span></div>`).join('') : '<div class="empty">No counties hunted yet.</div>';
+  $('list').querySelectorAll('.row').forEach(r => { const go = () => { const f = COUNTIES.features.find(x=>'05'+String(x.properties.countyfips).padStart(3,'0')===r.dataset.cf); openCounty(r.dataset.cf, f.properties.county, null); }; r.addEventListener('click', go); r.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); } }); });
+}
+async function openCounty(fips, name, layer){
+  current = {fips, name};
+  $('crumbs').innerHTML = `<button type="button" id="toState">Arkansas</button><span>›</span><span>${esc(name)} County</span>`; $('toState').addEventListener('click', backToState);
+  const f = COUNTIES.features.find(x=>'05'+String(x.properties.countyfips).padStart(3,'0')===fips);
+  const bounds = L.geoJSON(f).getBounds(); reduced ? map.fitBounds(bounds.pad(0.05)) : map.flyToBounds(bounds.pad(0.05), {duration:.7});
+  if(!cache[fips]) cache[fips] = await load(`data/scan/${fips}.json`, {rows:[]});
+  drawCounty();
+}
+function backToState(){ current = null; points.clearLayers(); $('crumbs').innerHTML = `<button type="button" id="toState">Arkansas</button>`; $('toState').addEventListener('click', backToState); reduced ? map.setView([34.9,-92.4],7) : map.flyTo([34.9,-92.4], 7, {duration:.7}); drawStateList(); }
+const isUnusual = r => { const d = r.d||[]; return (r.iv>0 && r.lv>0 && r.iv < r.lv/10) || (String(r.ts||'').startsWith('CERTIFIED') && r.iv>0) || ((r.ac||0)>=10 && (r.tv||0)<15000) || (d.filter(k=>PH.LABEL[k]&&PH.LABEL[k][1]!=='unknown').length>=5) || ((r.s||0)>=85 && !d.some(k=>PH.RISK_KEYS.includes(k))); };
+const TESTS = {
+  tax: r => String(r.ts||'').startsWith('CERTIFIED') || (r.tax && /owed|delinquent/i.test(r.tax)) || r.lien>0,
+  vacant: r => r.vac || (r.d||[]).includes('vacant_per_lien_record'),
+  cheaphouse: r => r.iv>0 && r.tv>0 && r.tv<60000,
+  cheapland: r => (r.iv||0)===0 && r.tv>0 && r.tv<25000,
+  state: r => String(r.ts||'').startsWith('CERTIFIED'),
+  changed: r => (r.chg||[]).length>0,
+  high: r => (r.s||0)>=80,
+  develop: r => (r.ac||0)>=2 && (r.iv||0)===0,
+  new: r => r.seen && (Date.now()-new Date(r.seen).getTime()) < 7*86400000,
+  unusual: isUnusual,
+};
+function drawCounty(){
+  if(!current) return;
+  const rows = (cache[current.fips]||{}).rows || [];
+  let v = rows.filter(r => r.rec!=='PASS');
+  for(const f of filters) v = v.filter(TESTS[f]);
+  const sl = (SL.listings||[]).filter(x=>x.fips===current.fips && !x.excluded_area);
+  v.sort((a,b)=>(b.s||0)-(a.s||0));
+  $('railh').textContent = `${current.name} County`; $('unusualnote').hidden = !filters.has('unusual');
+  $('railn').textContent = `${v.length.toLocaleString()} of ${rows.length.toLocaleString()} scored${filters.size?` match ${[...filters].join(', ')}`:''} · ${sl.length} State sale parcels here`;
+  points.clearLayers();
+  v.slice(0,1500).forEach(r => { if(!r.lat) return; L.circleMarker([r.lat,r.lon],{radius:4,color:css('--accent'),weight:1,fillOpacity:.75}).bindTooltip(`${r.a||'no address'} · priority ${Math.round(r.s||0)}`).on('click', ()=>openFile(r)).addTo(points); });
+  if(filters.size===0 || filters.has('state')) sl.forEach(x => { if(!x.lat) return; L.circleMarker([x.lat,x.lon],{radius:5,color:css('--bad'),weight:1.5,fillOpacity:.7}).bindTooltip(`State sale · ${PH.money(x.starting_bid)} owed`).on('click', ()=>location.href=`state-lands.html?county=${x.county}&q=${x.rpid}`).addTo(points); });
+  $('list').innerHTML = v.slice(0,40).map(r=>`<div class="row" data-k="${esc(r.pid||r.a)}" tabindex="0" role="button"><b>${esc(r.a||'No situs address')}</b><span class="rp">${Math.round(r.s||0)}</span><span class="m">${PH.money(r.tv)??'no value on roll'}${r.iv>0?' · building':' · lot'}${r.lien>0?' · lien '+PH.money(r.lien):''}${String(r.ts||'').startsWith('CERTIFIED')?' · State sale':''}${isUnusual(r)?' · unusual':''}</span></div>`).join('') || '<div class="empty">Nothing in this county matches those filters.</div>';
+  $('list').querySelectorAll('.row').forEach(el => { const r = v.find(x=>(x.pid||x.a)===el.dataset.k); const go = () => { if(r.lat){ reduced ? map.setView([r.lat,r.lon],17) : map.flyTo([r.lat,r.lon],17,{duration:.6}); } setTimeout(()=>openFile(r), reduced?0:650); }; el.addEventListener('click', go); el.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); } }); });
+}
+function openFile(r){ location.href = `lookup.html?county=${r.cf||current.fips}&q=${encodeURIComponent(r.pid||r.a||'')}`; }
+$('filters').addEventListener('click', e => { const b = e.target.closest('button[data-f]'); if(!b) return; const on = b.getAttribute('aria-pressed')==='true'; b.setAttribute('aria-pressed', String(!on)); if(on) filters.delete(b.dataset.f); else filters.add(b.dataset.f); drawCounty(); });
+init();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

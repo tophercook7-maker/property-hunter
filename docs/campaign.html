@@ -3,9 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Owner Letter Campaign · Garland County</title>
+<title>Owner Outreach · Garland County</title>
+<meta name="description" content="Find Arkansas property owners who may actually be receptive: behind on taxes, holding a vacant house, or facing a City lien. Letters you review, print and send yourself.">
+<meta property="og:title" content="Owner outreach · Property Hunter">
+<meta property="og:description" content="Find Arkansas property owners who may actually be receptive: behind on taxes, holding a vacant house, or facing a City lien. Letters you review, print and send yourself.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tophercook7-maker.github.io/property-hunter/campaign.html">
+<link rel="canonical" href="https://tophercook7-maker.github.io/property-hunter/campaign.html">
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="ph.css">
 <style>
 :root{
   --ground:#E8ECEF; --surface:#FFFFFF; --surface2:#F3F5F7; --ink:#172029; --muted:#5F6E7B; --rule:#D3DAE0;
@@ -76,9 +83,10 @@ td input.note{font:inherit;font-size:12px;background:var(--surface2);border:1px 
 </head>
 <body>
 <header class="top">
-  <h1><small>Garland County · from the scan · nothing is sent from this page</small>Owner letter campaign</h1>
+  <h1><small>Garland County · from the scan · Property Hunter does not send mail</small>Owner outreach</h1>
   <nav data-nav></nav>
 </header>
+<div class="rules" style="border-left-color:var(--accent)"><b style="font-family:var(--display);font-size:22px;text-transform:uppercase;display:block;margin-bottom:4px">Find owners who may actually be receptive.</b>Every candidate below appeared for a reason the public record supports, and the reason is printed next to the name. <b>Property Hunter does not send mail. You review, print, and send it yourself.</b></div>
 <div class="rules"><b>Ground rules baked into every letter.</b> It says who you are and that you intend to resell. Every dollar figure is from the public record and labelled. It states the owner's other options (pay it, sell it themselves, do nothing). It never implies you are the City, the County or the State, never invents a deadline, and never says their taxes make it yours. Hot Springs Village and Diamondhead lots are not in this list at all: signing one over gives <em>you</em> the POA dues. Parcels already certified to the State are out too: a signed deed there does not stop the tax sale.</div>
 
 <div class="wrap">
@@ -93,12 +101,12 @@ td input.note{font:inherit;font-size:12px;background:var(--surface2);border:1px 
     <label>Return address<textarea id="from" rows="2" placeholder="Street&#10;Hot Springs, AR 71901"></textarea></label>
     <label>What you offer (pick one)<select id="offer"><option value="costs">I pay the closing costs and take it as-is (no cash)</option><option value="cash">A small cash amount (below) plus closing costs</option></select></label>
     <label>Cash amount, if any ($)<input type="number" id="cash" step="100" placeholder="500"></label>
-    <div class="btnrow"><button class="btn" id="print" type="button">Print packet for shown</button><button class="btn ghost" id="csv" type="button">Copy list as CSV</button><button class="btn ghost" id="track" type="button">Copy tracking sheet</button></div>
+    <p class="eyebrow" style="font-weight:400;text-transform:none;letter-spacing:0;line-height:1.45;margin:0 0 6px">Property Hunter does not send mail. You review, print, and send it yourself.</p><div class="btnrow"><button class="btn" id="print" type="button">Print packet for shown</button><button class="btn ghost" id="csv" type="button">Copy list as CSV</button><button class="btn ghost" id="track" type="button">Copy tracking sheet</button></div>
     <p class="eyebrow" style="font-weight:400;text-transform:none;letter-spacing:0;line-height:1.45">Printing gives one letter plus reply card per owner, addressed to where the tax bill goes. Status and notes are saved on this device only.</p>
   </aside>
   <div class="tablebox">
     <div class="tbar"><span>Showing <b id="shown"></b> of <b id="total"></b> eligible</span><span id="sum"></span></div>
-    <table><thead><tr><th>Why they might let it go</th><th>Property</th><th>Owner · tax bill goes to</th><th class="r">Appraised</th><th class="r">City lien</th><th>Signals</th><th>Status</th><th>Note</th></tr></thead><tbody id="rows"></tbody></table>
+    <table><thead><tr><th>Why they appeared</th><th>Property</th><th>Owner · tax bill goes to</th><th class="r">Appraised</th><th class="r">City lien</th><th>Signals</th><th>Status</th><th>Note</th></tr></thead><tbody id="rows"></tbody></table>
     <button class="more" id="more" hidden></button>
   </div>
 </div>
@@ -208,7 +216,7 @@ function letterFor(r){
     <p><b>About: ${esc(addr)}, Hot Springs, Garland County parcel ${esc(r.pid)}</b></p>
     <p>Dear ${esc(who)},</p>
     <p>My name is ${esc(me)}. I am a private buyer in the Hot Springs area, not an agent and not connected with the City, the County or the State. I am writing about the property above because the public record suggests it may be costing you more than it gives you, and I would like to take it off your hands. To be plain about my side of it: I would fix what needs fixing and resell it or hold it.</p>
-    <p>Here is what the public record shows today. I have not checked anything that is not public.</p>
+    <p>Our review of public records shows the following today. Nothing here comes from anything that is not public, and none of it is a judgement about you.</p>
     <table>${facts.map(([k,v])=>`<tr><td>${esc(k)}</td><td style="text-align:right;white-space:nowrap">${esc(v)}</td></tr>`).join('')}</table>
     <p>What that means in practice: ${esc(carry.join('; '))}.</p>
     <div class="box"><b>My offer.</b> ${esc(offer)} We would sign at a local title company, which handles the deed and records it, and you would be done with the property that day. You would owe me nothing.</div>

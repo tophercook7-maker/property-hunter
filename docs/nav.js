@@ -2,6 +2,7 @@
 (function () {
   var pages = [
     ["index.html", "Today", "⌂"],
+    ["hunt.html", "Hunt", "⌖"],
     ["lookup.html", "Look up", "⌕"],
     ["state-lands.html", "Tax sale", "⚑"],
     ["campaign.html", "Letters", "✉"],
@@ -19,8 +20,8 @@
     "nav[data-nav] a.on{background:var(--accent,#0E7C73);color:var(--accent-ink,#fff)}" +
     "nav[data-nav] a i{display:none}" +
     "@media (max-width:700px){" +
-    " nav[data-nav]{position:fixed;left:0;right:0;bottom:0;z-index:600;margin:0;background:var(--surface,#fff);border-top:1px solid var(--rule,#d3dae0);display:grid;grid-template-columns:repeat(8,1fr);gap:0;padding:4px 0 max(4px,env(safe-area-inset-bottom))}" +
-    " nav[data-nav] a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;padding:4px 0;border-radius:0}" +
+    " nav[data-nav]{position:fixed;left:0;right:0;bottom:0;z-index:600;margin:0;background:var(--surface,#fff);border-top:1px solid var(--rule,#d3dae0);display:grid;grid-template-columns:repeat(9,1fr);gap:0;padding:4px 0 max(4px,env(safe-area-inset-bottom))}" +
+    " nav[data-nav] a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9.5px;padding:4px 0;border-radius:0;min-height:44px;justify-content:center}" +
     " nav[data-nav] a i{display:block;font-style:normal;font-size:18px;line-height:1}" +
     " nav[data-nav] a.on{background:none;color:var(--accent,#0E7C73)}" +
     " body{padding-bottom:64px}" +

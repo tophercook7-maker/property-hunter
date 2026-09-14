@@ -4,8 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Property Watchlist</title>
+<meta name="description" content="Properties you are watching, with every change the scanner recorded and a pipeline status that never says sold unless the State's deed report does.">
+<meta property="og:title" content="Watchlist · Property Hunter">
+<meta property="og:description" content="Properties you are watching, with every change the scanner recorded and a pipeline status that never says sold unless the State's deed report does.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tophercook7-maker.github.io/property-hunter/watch.html">
+<link rel="canonical" href="https://tophercook7-maker.github.io/property-hunter/watch.html">
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="ph.css">
 <style>
 :root{
   --ground:#E8ECEF; --surface:#FFFFFF; --surface2:#F3F5F7; --ink:#172029; --muted:#5F6E7B; --rule:#D3DAE0;
@@ -51,7 +58,7 @@ textarea{width:100%;font:inherit;font-size:12px;color:var(--ink);background:var(
 </head>
 <body>
 <header class="top">
-  <h1><small>Saved on this device · checked live when you ask</small>Watchlist</h1>
+  <h1><small>Your pipeline · saved on this device · re-checked live when you ask</small>Watch</h1>
   <nav data-nav></nav>
 </header>
 <main>
@@ -70,8 +77,24 @@ textarea{width:100%;font:inherit;font-size:12px;color:var(--ink);background:var(
   <div class="note">What "check" compares, per parcel: owner of record, county appraised value and the last deed reference from the State roll; for Hot Springs parcels, the City liens total, vacant-register and open code-case status from the City's GIS; and whether it is in the State's tax-sale inventory (from the daily file) and any bid on it. A change shows in red until you check again. The morning email with the same changes comes from the app on your Mac, which watches the same list once you paste the ids into it.</div>
 </main>
 
+<script src="ph.js"></script>
 <script>
 const $ = id => document.getElementById(id);
+const STATUS_TEXT = {new:'NEW', watching:'WATCHING', rechecked:'RECHECKED', changed:'CHANGED', action:'ACTION NEEDED', researched:'RESEARCHED', sold:'SOLD (State deed report)', redeemed:'REDEEMED (State report)', withdrawn:'LEFT THE STATE LIST', dropped:'NO LONGER INTERESTING'};
+const USER_STATUS = ['watching','researched','action','dropped'];
+async function stateHistory(fips){
+  const county = Object.entries(COUNTY_BY_FIPS).find(([n,f])=>f===fips); if(!county) return null;
+  try { const r = await fetch(`data/history/${county[0].replace(/ /g,'_')}.json`); return r.ok ? await r.json() : null; } catch(e){ return null; }
+}
+const COUNTY_BY_FIPS = {"ARKANSAS":"05001","ASHLEY":"05003","BAXTER":"05005","BENTON":"05007","BOONE":"05009","BRADLEY":"05011","CALHOUN":"05013","CARROLL":"05015","CHICOT":"05017","CLARK":"05019","CLAY":"05021","CLEBURNE":"05023","CLEVELAND":"05025","COLUMBIA":"05027","CONWAY":"05029","CRAIGHEAD":"05031","CRAWFORD":"05033","CRITTENDEN":"05035","CROSS":"05037","DALLAS":"05039","DESHA":"05041","DREW":"05043","FAULKNER":"05045","FRANKLIN":"05047","FULTON":"05049","GARLAND":"05051","GRANT":"05053","GREENE":"05055","HEMPSTEAD":"05057","HOT_SPRING":"05059","HOWARD":"05061","INDEPENDENCE":"05063","IZARD":"05065","JACKSON":"05067","JEFFERSON":"05069","JOHNSON":"05071","LAFAYETTE":"05073","LAWRENCE":"05075","LEE":"05077","LINCOLN":"05079","LITTLE_RIVER":"05081","LOGAN":"05083","LONOKE":"05085","MADISON":"05087","MARION":"05089","MILLER":"05091","MISSISSIPPI":"05093","MONROE":"05095","MONTGOMERY":"05097","NEVADA":"05099","NEWTON":"05101","OUACHITA":"05103","PERRY":"05105","PHILLIPS":"05107","PIKE":"05109","POINSETT":"05111","POLK":"05113","POPE":"05115","PRAIRIE":"05117","PULASKI":"05119","RANDOLPH":"05121","ST_FRANCIS":"05123","SALINE":"05125","SCOTT":"05127","SEARCY":"05129","SEBASTIAN":"05131","SEVIER":"05133","SHARP":"05135","STONE":"05137","UNION":"05139","VAN_BUREN":"05141","WASHINGTON":"05143","WHITE":"05145","WOODRUFF":"05147","YELL":"05149"};
+function derivedStatus(w){
+  // facts first: the State's own reports decide sold / redeemed / withdrawn; the user's own status otherwise
+  if(w.state === 'sold') return 'sold'; if(w.state === 'redeemed') return 'redeemed'; if(w.state === 'withdrawn') return 'withdrawn';
+  if(w.user) return w.user;
+  if((w.changes||[]).length && !(w.changes||[]).every(c=>/could not check/.test(c))) return 'changed';
+  if(w.snap && w.snap.at) return 'rechecked';
+  return 'new';
+}
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt$ = v => (v == null || isNaN(v)) ? '—' : '$' + Math.round(v).toLocaleString('en-US');
 const title = s => String(s||'').toLowerCase().replace(/\s+/g,' ').trim().replace(/\b\w/g, c => c.toUpperCase());
@@ -98,6 +121,13 @@ async function snapshot(w){
   const d = await loadSL();
   const hit = d.listings.find(x => x.fips===w.fips && (x.parcel_id===w.parcel_id || x.rpid===s.rpid));
   s.cosl = hit ? 'for sale by the State' : 'not in the State inventory'; s.bid = hit ? (hit.current_bid||0) : null; s.owed = hit ? hit.starting_bid : null;
+  if(!hit && w.snap && w.snap.cosl === 'for sale by the State'){
+    // it was on the State list and now is not: only the State's deed reports may say sold or redeemed
+    const h = await stateHistory(w.fips); const key = s.rpid || w.parcel_id;
+    const sold = h && (h.sales||[]).find(x => x.parcel === key), red = h && (h.redemptions||[]).find(x => x.parcel === key);
+    w.state = sold ? 'sold' : red ? 'redeemed' : 'withdrawn';
+    s.cosl = sold ? `sold by the State ${sold.date||''} to ${sold.buyer||'?'}` : red ? `redeemed by the owner ${red.date||''}` : 'left the State inventory (no deed report yet: not sold, not redeemed, as far as the State has published)';
+  }
   return s;
 }
 const FIELDS = [['owner','Owner of record', v=>title(v)], ['appraised','County appraised', fmt$], ['improvements','Building value', fmt$], ['deed','Last deed', v=>v||'—'], ['liens','City liens', v=>v==null?'n/a':fmt$(v)], ['vacant','Vacant register', v=>v==null?'n/a':(v?'ON':'no')], ['cases','Open code cases', v=>v==null?'n/a':String(v)], ['cosl','State Lands', v=>v||'—'], ['bid','Current bid', v=>v==null?'—':fmt$(v)]];
@@ -105,15 +135,17 @@ function diff(a, b){ if(!a||!b||a.missing||b.missing) return []; return FIELDS.f
 
 function render(){
   if(!LIST.length){ $('list').innerHTML = `<div class="empty">Nothing watched yet. Open a parcel in the <a href="lookup.html">lookup</a> or the <a href="state-lands.html">tax-sale inventory</a> and press <b>Watch</b>, or paste parcel ids below.</div>`; return; }
-  $('list').innerHTML = LIST.map((w,i) => { const s = w.snap||{}; const ch = w.changes||[]; return `<div class="card">
-    <div><h3>${esc(w.label||s.address||w.parcel_id)}</h3><div class="sub">${esc(title(s.city||''))} · parcel <span class="num">${esc(w.parcel_id)}</span> · county ${esc(w.fips)} · added ${esc((w.added||'').slice(0,10))}${s.at?` · checked ${esc(s.at.slice(0,16).replace('T',' '))}`:' · never checked'}</div></div>
+  $('list').innerHTML = LIST.map((w,i) => { const s = w.snap||{}; const ch = w.changes||[]; const st = derivedStatus(w); return `<div class="card">
+    <div><h3>${esc(w.label||s.address||w.parcel_id)} <span class="pill ${st==='changed'?'change':st==='sold'||st==='redeemed'?'state':st==='action'?'risk':st==='withdrawn'?'unknown':'fact'}">${esc(STATUS_TEXT[st])}</span></h3>
+      <div class="sub"><label>your status: <select class="ust" data-i="${i}" aria-label="Your status for this property">${['','watching','researched','action','dropped'].map(u=>`<option value="${u}" ${(w.user||'')===u?'selected':''}>${u?STATUS_TEXT[u]:'(automatic)'}</option>`).join('')}</select></label></div><div class="sub">${esc(title(s.city||''))} · parcel <span class="num">${esc(w.parcel_id)}</span> · county ${esc(w.fips)} · added ${esc((w.added||'').slice(0,10))}${s.at?` · checked ${esc(s.at.slice(0,16).replace('T',' '))}`:' · never checked'}</div></div>
     <button class="x" data-i="${i}">Remove</button>
-    ${ch.length?`<div class="chg"><b>Changed since last check:</b> ${ch.map(esc).join(' · ')}</div>`:(s.at?`<div class="ok">No change since the previous check.</div>`:'')}
+    ${ch.length?`<div class="chg"><b>What changed since last check</b>${ch.map(c=>{ const m=c.match(/^(.*?): (.*?) → (.*)$/); return m?`<div class="diff"><span>${esc(m[1])}</span><span class="o">${esc(m[2])}</span><span class="n">${esc(m[3])}</span></div>`:`<div>${esc(c)}</div>`; }).join('')}</div>`:(s.at?`<div class="ok">Re-checked ${esc(s.at.slice(0,16).replace('T',' '))}: the sources that answered show no change. A source that did not answer is not "no change".</div>`:'')}
     ${s.missing?`<div class="chg"><b>Parcel not found on the State roll</b> — the id may have been retired (split or merged).</div>`:''}
     <div class="facts">${FIELDS.map(([k,l,f])=>`<div><span>${l}</span>${esc(f(s[k]))}</div>`).join('')}</div>
     <div class="ok"><a href="lookup.html?county=${esc(w.fips)}&q=${encodeURIComponent(w.parcel_id)}">Open in the lookup</a></div>
   </div>`; }).join('');
   document.querySelectorAll('.card .x').forEach(b => b.addEventListener('click', () => { LIST.splice(+b.dataset.i,1); store.set(LIST); render(); }));
+  document.querySelectorAll('.card .ust').forEach(sel => sel.addEventListener('change', () => { LIST[+sel.dataset.i].user = sel.value || null; store.set(LIST); render(); }));
 }
 async function checkAll(){
   $('check').disabled = true; let n=0, changed=0;

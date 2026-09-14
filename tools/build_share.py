@@ -34,9 +34,23 @@ def export_rows():
     liens = {}
     for r in q("SELECT property_id, value, raw_ref FROM evidence WHERE field='cleanup_lien_amount'"):
         liens.setdefault(r["property_id"], {})[r["raw_ref"] or r["value"]] = r["value"]
-    sc = {}
-    for r in q("SELECT property_id, kind, score FROM scores"):
+    sc, lines, conf = {}, {}, {}
+    for r in q("SELECT property_id, kind, score, confidence, breakdown_json FROM scores"):
         sc.setdefault(r["property_id"], {})[r["kind"]] = r["score"]
+        if r["kind"] == "overall":
+            conf[r["property_id"]] = r["confidence"]
+            try:
+                b = json.loads(r["breakdown_json"] or "{}")
+                lines[r["property_id"]] = [{"p": l.get("points"), "r": (l.get("reason") or "")[:90]}
+                                           for l in sorted(b.get("lines", []), key=lambda l: -abs(l.get("points") or 0))[:8]]
+            except Exception:
+                pass
+    chg = {}
+    for r in q("""SELECT property_id, field, old_value, new_value, severity, detected_at FROM changes
+                  WHERE detected_at > datetime('now','-7 days') AND severity IN ('medium','high')
+                  AND field NOT IN ('improved','acreage','property_type','register_attachment','building_sqft') ORDER BY id DESC"""):
+        chg.setdefault(r["property_id"], []).append({"f": r["field"], "o": (r["old_value"] or "")[:60], "n": (r["new_value"] or "")[:60],
+                                                     "sev": r["severity"], "at": (r["detected_at"] or "")[:10]})
     inv = {}
     for r in q("SELECT * FROM investigations WHERE status='complete' ORDER BY finished_at"):
         s = json.loads(r["summary_json"] or "{}")
@@ -79,6 +93,8 @@ def export_rows():
             "stor": s.get("storage"), "biz": s.get("business"), "wk": s.get("workshop"),
             "rec": p["recommendation"] or "UNSCORED", "d": d, "vac": int(pid in vac), "cc": int(pid in code),
             "ts": p["tax_status"], "yb": p["year_built"],
+            "conf": conf.get(pid), "lines": lines.get(pid, []), "chg": chg.get(pid, [])[:6],
+            "seen": (p["first_seen"] or "")[:10], "upd": (p["last_seen"] or "")[:10],
             "tax": (taxbill[pid]["value"] if pid in taxbill else
                     taxcosl[pid]["value"][:80] if pid in taxcosl else
                     "no open bill at the Collector" if pid in taxchk else None),
@@ -148,6 +164,32 @@ def build():
                                      "with_building": sum(1 for r in rs if (r.get("iv") or 0) > 0),
                                      "top": [r for r in rs if r.get("rec") != "PASS"][:25]}
         json.dump(index, open(os.path.join(ROOT, "docs", "data", "scan_index.json"), "w"), separators=(",", ":"))
+        # what changed this week, and where the hunt stands, for the Today page and the map
+        county_name = {t["county_fips"]: t["county"] for t in __import__("hunter.config", fromlist=["TERRITORIES"]).TERRITORIES}
+        chrows = [{"id": r["property_id"], "a": r["address"], "cn": county_name.get(r["county_fips"], r["county_fips"]), "cf": r["county_fips"],
+                   "f": r["field"], "o": (r["old_value"] or "")[:60], "n": (r["new_value"] or "")[:60], "sev": r["severity"], "at": (r["detected_at"] or "")[:16]}
+                  for r in q("""SELECT c.property_id, c.field, c.old_value, c.new_value, c.severity, c.detected_at, p.address, p.county_fips
+                                FROM changes c JOIN properties p ON p.id=c.property_id
+                                WHERE c.detected_at > datetime('now','-7 days') AND c.severity IN ('medium','high') AND p.excluded=0
+                                AND c.field NOT IN ('register_attachment','improved','acreage','property_type','building_sqft') ORDER BY c.id DESC LIMIT 300""")]
+        from collections import Counter
+        byfield = Counter(r["f"] for r in chrows)
+        json.dump({"built_at": built, "week": True, "total": len(chrows), "by_field": byfield.most_common(12), "rows": chrows[:120]},
+                  open(os.path.join(ROOT, "docs", "data", "changes.json"), "w"), separators=(",", ":"))
+        terr = {t["county_fips"]: t for t in __import__("hunter.config", fromlist=["TERRITORIES"]).TERRITORIES}
+        scans = {}
+        for r in q("SELECT territory, status, finished_at, started_at, stats_json FROM scans WHERE mode='distress' ORDER BY id"):
+            scans[r["territory"]] = r
+        hunt = {"built_at": built, "counties": {}}
+        for fips, t in terr.items():
+            sr = scans.get(t["key"])
+            st = json.loads(sr["stats_json"] or "{}") if sr else {}
+            hunt["counties"][fips] = {"county": t["county"], "key": t["key"],
+                                      "status": ("done" if sr and sr["status"] == "complete" else "scanning" if sr and sr["status"] == "running" else "failed" if sr else "waiting"),
+                                      "finished_at": (sr["finished_at"] or "")[:16] if sr else None,
+                                      "n": index["counties"].get(fips, {}).get("n", 0), "strong": index["counties"].get(fips, {}).get("strong", 0),
+                                      "examined": st.get("records_examined"), "excluded": st.get("excluded")}
+        json.dump(hunt, open(os.path.join(ROOT, "docs", "data", "hunt_status.json"), "w"), separators=(",", ":"))
     return {"properties": len(rows), "investigated": n_inv, "kb": len(full) // 1024, "file": out, "desktop": DESKTOP}
 
 

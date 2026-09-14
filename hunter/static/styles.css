@@ -325,3 +325,16 @@ audio::-webkit-media-controls-panel{background:var(--panel2)}
 .whats:hover{background:var(--accent);color:#fff}
 .watchbox{margin-top:6px;padding:7px 9px;border-radius:var(--r2);background:rgba(245,195,68,.07);
   border:1px solid rgba(245,195,68,.22)}
+
+/* ---- command center: pipeline + counties ---- */
+.pipe{display:flex;flex-direction:column;gap:2px;margin:10px 0}
+.pstage{position:relative;border:1px solid var(--line);border-radius:var(--r2);padding:6px 10px;background:var(--panel);display:flex;justify-content:space-between;align-items:center;overflow:hidden}
+.pstage b{font-size:12px;letter-spacing:.06em}.pstage span{font-size:11px;color:var(--dim)}
+.pstage i{position:absolute;left:0;bottom:0;height:2px;background:var(--accent)}
+.pstage.done{border-color:rgba(47,191,113,.5)}.pstage.done span{color:var(--green)}
+.pstage.run{border-color:var(--accent);animation:pglow 1.2s ease-in-out infinite}.pstage.run span{color:var(--accent2)}
+.pstage.bad span{color:var(--red)}.pstage.skip span{color:var(--dimmer)}.pstage.wait{opacity:.6}
+.parrow{text-align:center;color:var(--dimmer);font-size:11px;line-height:1}
+@keyframes pglow{50%{box-shadow:0 0 0 3px rgba(91,140,255,.18)}}
+.card.cty.done{border-left:3px solid var(--green)}.card.cty.scanning{border-left:3px solid var(--yellow)}.card.cty.waiting{opacity:.7}.card.cty.failed{border-left:3px solid var(--red)}
+@media (prefers-reduced-motion:reduce){.pstage.run{animation:none}}

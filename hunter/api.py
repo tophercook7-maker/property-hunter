@@ -1150,6 +1150,34 @@ def api_watch_import(payload: dict = Body(default={})) -> dict:
                      "them up on the site meanwhile." if unknown else "")}
 
 
+@app.get("/api/counties")
+def api_counties() -> dict:
+    """Every territory: last distress scan, status, counts. Real rows from the scans table."""
+    scans = {}
+    for r in db.q("SELECT territory, status, started_at, finished_at, stats_json, error FROM scans WHERE mode='distress' ORDER BY id"):
+        scans[r["territory"]] = dict(r)
+    counts = {r["county_fips"]: dict(r) for r in db.q(
+        "SELECT county_fips, COUNT(*) n, SUM(excluded) excluded FROM properties GROUP BY county_fips")}
+    strong = {r["county_fips"]: r["n"] for r in db.q(
+        """SELECT p.county_fips, COUNT(*) n FROM properties p JOIN scores s ON s.property_id=p.id AND s.kind='overall'
+           WHERE p.excluded=0 AND s.score>=65 GROUP BY p.county_fips""")}
+    out = []
+    for t in TERRITORIES:
+        sr = scans.get(t["key"])
+        st = json.loads(sr["stats_json"] or "{}") if sr else {}
+        out.append({"key": t["key"], "county": t["county"], "fips": t["county_fips"],
+                    "status": ("done" if sr and sr["status"] == "complete" else "scanning" if sr and sr["status"] == "running"
+                               else "failed" if sr else "waiting"),
+                    "started_at": sr["started_at"] if sr else None, "finished_at": sr["finished_at"] if sr else None,
+                    "error": (sr["error"] or None) if sr else None,
+                    "examined": st.get("records_examined"), "new": st.get("new_properties"),
+                    "properties": (counts.get(t["county_fips"]) or {}).get("n", 0),
+                    "excluded": (counts.get(t["county_fips"]) or {}).get("excluded", 0) or 0,
+                    "strong": strong.get(t["county_fips"], 0)})
+    return {"counties": out, "done": sum(1 for c in out if c["status"] == "done"),
+            "scanning": [c["county"] for c in out if c["status"] == "scanning"]}
+
+
 @app.post("/api/desktop/refresh")
 def api_desktop_refresh() -> dict:
     """Rewrite the Desktop folder's briefing and pick PDFs now."""

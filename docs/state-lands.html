@@ -4,9 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tax-Delinquent Parcels for Sale · Arkansas</title>
+<meta property="og:title" content="Arkansas tax-sale parcels · Property Hunter">
+<meta property="og:description" content="The Commissioner of State Lands' tax-sale inventory, county by county, with the debt owed, what sold and what was redeemed, from the State's own reports.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tophercook7-maker.github.io/property-hunter/state-lands.html">
+<link rel="canonical" href="https://tophercook7-maker.github.io/property-hunter/state-lands.html">
 <meta name="description" content="Every Arkansas parcel the Commissioner of State Lands is selling for unpaid taxes, joined to the county tax roll: owner, address, appraised value, what is owed, and an aerial of each one. Refreshed daily from public records.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="ph.css">
 <style>
 :root{
   --ground:#E8ECEF; --surface:#FFFFFF; --surface2:#F3F5F7; --ink:#172029; --muted:#5F6E7B; --rule:#D3DAE0;
@@ -117,11 +123,12 @@ footer{background:var(--surface);border-top:1px solid var(--rule);padding:10px 2
   <div class="stats" id="stats"></div>
   <nav data-nav></nav>
 </header>
-<div class="strip">
+<div class="strip" id="strip">
   <p><b>What this is.</b> Every parcel the Commissioner of State Lands is currently selling because the taxes went unpaid long enough for the county to certify it to the State. The starting bid is what is owed: taxes, interest, penalties and costs. Each one is joined to the county tax roll for the owner, address, appraised value and an aerial. Rebuilt from the live feed every morning.</p>
   <p><b>What it is not.</b> Not every delinquent parcel: one that is a year behind is still at the county, and only the county Collector's login-only site shows that. Buying here means bidding on the State's site with an account, a card on file and identity verification; there is a 90-day litigation period after a sale before you can do anything with it. Paying someone's taxes never makes you the owner.</p>
 </div>
 
+<div style="margin:12px 20px 0" id="limits"></div>
 <div class="wrap">
   <aside class="rail">
     <div id="map" aria-label="Where the listings are"></div>
@@ -148,6 +155,7 @@ footer{background:var(--surface);border-top:1px solid var(--rule);padding:10px 2
 <footer>Sources: Arkansas Commissioner of State Lands auction feed (auction.cosl.org) and county reports (cosl.org); Arkansas GIS Office statewide parcel layer (county assessor CAMA data); Arkansas GIS Office 2023 nine-inch and 2017 one-foot orthoimagery. Values are the county's appraised figures, not sale prices. Nothing here is legal, tax or investment advice. Built by <a href="https://mixedmakershop.com">MixedMakerShop</a>.</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="ph.js"></script>
 <script src="members.js"></script>
 <script>
 const $ = id => document.getElementById(id);
@@ -190,6 +198,7 @@ function init(){
   const hsv = L_.filter(isHSV).length;
   $('stats').innerHTML = [[L_.length.toLocaleString(),'parcels for sale'],[Object.keys(DATA.counties||{}).length,'counties'],[fmt$(owed),'owed in total'],[L_.filter(x=>x.improvements>0).length,'with a building'],[hsv.toLocaleString(),'Village / Diamondhead lots, hidden by default']].map(([b,s])=>`<div class="stat"><b>${b}</b><span>${s}</span></div>`).join('');
   $('hsvn').textContent = hsv.toLocaleString() + ' hidden';
+  document.getElementById('limits').innerHTML = PH.means(['A parcel is listed here because the Commissioner of State Lands lists it for sale, on the date shown','The amount owed is the State\'s starting bid: taxes, interest, penalties and costs at listing','Owner, values and acreage are the county roll\'s, joined by parcel number; "joined by" says how','Sold and redeemed come only from the State\'s own monthly deed reports'],['That you can buy it: the owner can redeem until the sale, and bidding is on the State\'s site','Clear title: the State issues a limited warranty deed and there is a 90-day litigation period','Condition, occupancy, or that a building shown on the roll still stands','Municipal liens or POA dues, which survive the sale','Any profit; prices shown are what other lots cleared, not what this one will']);
   $('built').textContent = 'Inventory as of ' + (DATA.built_at||'?').replace('T',' ').slice(0,16) + ' UTC. Bids and availability change hourly; the listing link is live.';
   map = L.map('map',{zoomControl:false,attributionControl:false}).setView([34.8,-92.4],6);
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}).addTo(map);
@@ -284,7 +293,7 @@ async function open(k){
       ${!x.parcel_id?`<div class="warn"><b>No parcel joined.</b> The county appears to have renumbered this parcel since it was certified, so there is no owner, value or aerial from the roll here. The State Lands listing's legal description is the thing to read; the map link there still works.</div>`:''}
       <div class="money"><div class="hi"><b class="num">${fmt2(x.starting_bid)}</b><span>Owed · starting bid</span></div><div><b class="num">${fmt$(x.appraised)}</b><span>County appraised</span></div><div><b class="num">${x.current_bid>0?fmt2(x.current_bid):'none'}</b><span>Current bid${x.bids?' · '+x.bids:''}</span></div></div>
       <div class="warn">${x.delinquent_year?`Taxes unpaid since <b>${esc(x.delinquent_year)}</b>${x.taxes?` · base taxes ${fmt2(+x.taxes)}`:''}${x.liens?` · liens noted by COSL: ${esc(x.liens)}`:''}. `:''}The starting bid is the State's figure for taxes, interest, penalties and costs at listing time. It moves as months pass. ${x.ends?`Bidding ends ${esc(String(x.ends).replace('T',' ').slice(0,16))}.`:'No active bidding; a post-auction sale can be bought at the starting bid.'}</div>
-      ${(()=>{ const cp = compsFor(x); if(!cp) return ''; return `<div class="comps"><b>What lots like this actually went for in ${esc(title(x.county))} County</b><br>${cp.n} State sales${cp.banded?` of parcels appraised within half to one-and-a-half times this one`:' (all price bands; too few in this band)'}: median <b>${fmt$(cp.med)}</b>, from ${fmt$(cp.low)} to ${fmt$(cp.high)}; ${cp.above} of them drew a bid above the debt. Against a starting bid of ${fmt$(x.starting_bid)} here.<table><tr><th>Deed date</th><th>Buyer</th><th class="num">Debt</th><th class="num">Price</th></tr>${cp.recent.map(s=>`<tr><td>${esc(s.date||'')}</td><td>${esc(title(s.buyer))}</td><td class="num">${fmt$(s.owed)}</td><td class="num">${s.price_known?fmt$(s.price):fmt$(s.owed)+' (at debt)'}</td></tr>`).join('')}</table></div>`; })()}
+      ${(()=>{ const cp = compsFor(x); if(!cp) return ''; return `<div class="comps"><b>What lots like this actually went for in ${esc(title(x.county))} County</b><br>${cp.n} State sales${cp.banded?` of parcels appraised within half to one-and-a-half times this one`:' (all price bands; too few in this band)'}: median <b>${fmt$(cp.med)}</b>, from ${fmt$(cp.low)} to ${fmt$(cp.high)}; ${cp.above} of them drew a bid above the debt. Against a starting bid of ${fmt$(x.starting_bid)} here.<table><tr><th>Deed date</th><th>Buyer</th><th class="num">Debt</th><th class="num">Price</th></tr>${cp.recent.map(s=>`<tr><td>${esc(s.date||'')}</td><td>${esc(title(s.buyer))}</td><td class="num">${fmt$(s.owed)}</td><td class="num">${s.price_known?fmt$(s.price):fmt$(s.owed)+' (cleared the debt; no excess reported)'}</td></tr>`).join('')}</table></div>`; })()}
       <div class="sec"><h3>From the county roll</h3><dl class="facts">
         <dt>Owner of record</dt><dd>${esc(title(x.owner))}</dd>
         <dt>Address</dt><dd>${esc(x.address?title(x.address):'—')}${x.city?', '+esc(title(x.city)):''}${x.zip?' '+x.zip:''}</dd>

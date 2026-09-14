@@ -220,7 +220,7 @@ td.own div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:2
 <script type="application/json" id="data">__DATA__</script>
 <script>
 const DATA = JSON.parse(document.getElementById('data').textContent);
-const LABELS = __LABELS__;
+let LABELS = __LABELS__;
 const FLAGS = [
   ['vac','On the City vacant-structure register', r=>r.vac],
   ['lien','City cleanup / demolition lien', r=>r.lien>0],
@@ -282,17 +282,26 @@ document.getElementById('cards').addEventListener('click',e=>{const c=e.target.c
 
 /* filters */
 const cities = [...new Set(DATA.map(r=>r.c))].sort();
-const counties = [...new Set(DATA.map(r=>r.cn||'?'))].sort();
-document.getElementById('county').innerHTML = '<option value="">Any</option>'+counties.map(c=>`<option>${esc(c)}</option>`).join('');
+let counties = [...new Set(DATA.map(r=>r.cn||'?'))].sort();
+let SCAN_INDEX = null; const LOADED = new Set(DATA.map(r=>r.cf));
+function drawCountyOptions(){ const sel = document.getElementById('county'); const cur = sel.value; sel.innerHTML = '<option value="">Garland + Saline</option>'+counties.map(c=>`<option>${esc(c)}</option>`).join(''); sel.value = cur; }
+drawCountyOptions();
+fetch('data/scan_index.json').then(r=>r.ok?r.json():null).then(idx => { if(!idx) return; SCAN_INDEX = idx; counties = [...new Set([...counties, ...Object.values(idx.counties).map(c=>c.county)])].sort(); drawCountyOptions(); const want = new URLSearchParams(location.search).get('county'); if(want){ document.getElementById('county').value = want; apply(); } }).catch(()=>{});
+async function ensureCounty(name){
+  if(!SCAN_INDEX || !name) return;
+  const ent = Object.entries(SCAN_INDEX.counties).find(([cf,c])=>c.county===name); if(!ent || LOADED.has(ent[0])) return;
+  try { const d = await (await fetch(`data/scan/${ent[0]}.json`)).json(); d.rows.forEach(r=>{ r.mk = r.tv==null?null:Math.round(r.tv*0.2); r.o = r.o||''; DATA.push(r); }); LOADED.add(ent[0]); Object.assign(LABELS, d.labels||{}); } catch(e){}
+}
 document.getElementById('city').innerHTML = '<option value="">Any</option>'+cities.map(c=>`<option>${esc(c)}</option>`).join('');
 document.getElementById('flags').innerHTML = FLAGS.map(([k,t,fn])=>`<label><input type="checkbox" data-f="${k}"> ${t}<span class="cnt">${DATA.filter(fn).length}</span></label>`).join('');
 let sortK='s', sortDir='desc', limit=150, view=[];
 function state(){ try{ return JSON.parse(localStorage.getItem('ph-filters')||'{}'); }catch(e){ return {}; } }
-function apply(){
+async function apply(){
+  await ensureCounty(document.getElementById('county').value);
   const q=document.getElementById('q').value.trim().toLowerCase();
   const city=document.getElementById('city').value, rec=document.getElementById('rec').value, county=document.getElementById('county').value;
   const on=[...document.querySelectorAll('#flags input:checked')].map(i=>FLAGS.find(f=>f[0]===i.dataset.f)[2]);
-  view = DATA.filter(r=> (!county||(r.cn||'?')===county) && (!city||r.c===city) && (!rec||r.rec===rec) && on.every(fn=>fn(r)) &&
+  view = DATA.filter(r=> (county ? (r.cn||'?')===county : ['05051','05125'].includes(r.cf)) && (!city||r.c===city) && (!rec||r.rec===rec) && on.every(fn=>fn(r)) &&
     (!q || (r.a||'').toLowerCase().includes(q) || r.o.toLowerCase().includes(q) || (r.pid||'').includes(q) || (r.m||'').toLowerCase().includes(q)));
   const dir = sortDir==='asc'?1:-1;
   view.sort((x,y)=>{ let a=x[sortK], b=y[sortK]; if(a==null&&b==null) return 0; if(a==null) return 1; if(b==null) return -1;

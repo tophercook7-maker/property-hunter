@@ -219,37 +219,132 @@ def read_report(url: str) -> list[dict]:
     return rows
 
 
-def parcels_for_rpids(rpids: list[str], county_fips: str) -> dict[str, dict]:
-    """RPID -> State parcel attributes + centroid + extent, via camakey, 100 at a time."""
-    out = {}
+def _alnum(v) -> str:
+    return re.sub(r"[^A-Z0-9]", "", str(v or "").upper())
+
+
+def _digit_run(v) -> str:
+    runs = re.findall(r"\d{4,}", str(v or ""))
+    return max(runs, key=len) if runs else ""
+
+
+def _owner_tokens(v) -> set:
+    return {t for t in re.split(r"[^A-Z]+", str(v or "").upper()) if len(t) > 2 and t not in ("THE", "AND", "LLC", "INC", "TRUST", "ETUX", "ETAL", "JR", "SR")}
+
+
+_STATE_FIELDS = ("parcelid,camakey,ownername,adrlabel,adrcity,adrzip5,parceltype,assessvalue,impvalue,"
+                 "landvalue,totalvalue,subdivision,parcellgl,sourceref,sourcedate,camadate,Shape__Area")
+
+
+def _state_rows(where: str) -> list[dict]:
+    data = arcgis_query(STATE_SERVICE, STATE_LAYER, where=where, out_fields=_STATE_FIELDS,
+                        geometry=True, extra={"returnCentroid": "true"})
+    out = []
+    for f in data.get("features") or []:
+        a = f["attributes"]
+        rings = (f.get("geometry") or {}).get("rings") or []
+        c = f.get("centroid") or {}
+        xs = [p[0] for ring in rings for p in ring]
+        ys = [p[1] for ring in rings for p in ring]
+        out.append({**a, "lat": c.get("y"), "lon": c.get("x"),
+                    "extent": [min(xs), min(ys), max(xs), max(ys)] if xs else None, "rings": rings})
+    return out
+
+
+def parcels_for_rpids(rpids: list[str], county_fips: str, owners: dict | None = None) -> dict[str, dict]:
+    """COSL number -> State parcel record (attributes + centroid + extent).
+
+    Three passes, honest about which one matched (rec["join"]):
+      exact     Garland: camakey == RPID; elsewhere parcelid == COSL number
+      normalized  same characters once dashes/dots are removed (Pulaski prints
+                  44L0920003001 for the State's 44L-092.00-030.01), or the State id
+                  carries a trailing letter the COSL number lacks
+      owner     same long digit run inside the county AND the owner names share
+                two words (COSL writes FIRST LAST, the roll LAST FIRST)
+    Anything else stays unjoined rather than guessed.
+    """
+    owners = owners or {}
+    out: dict[str, dict] = {}
     numeric = [str(int(r)) for r in rpids if str(r).strip().isdigit()]
     textual = [str(r).strip().replace("'", "") for r in rpids if not str(r).strip().isdigit()]
+
+    def run(where):
+        try:
+            return _state_rows(where)
+        except Exception:
+            return None
+
+    # pass 1: exact, in batches; a batch the service rejects is retried one id at a time
     batches = [("camakey", numeric[i:i + 100]) for i in range(0, len(numeric), 100)]
     batches += [("parcelid", textual[i:i + 100]) for i in range(0, len(textual), 100)]
     for kind, chunk in batches:
-        # Garland's COSL number is the RPID (= camakey); most other counties
-        # use the county parcel id itself, which the State layer carries verbatim.
         where = (f"countyfips='{county_fips}' AND camakey IN ({','.join(chunk)})" if kind == "camakey"
                  else f"countyfips='{county_fips}' AND parcelid IN ({','.join(repr(c) for c in chunk)})")
-        data = arcgis_query(STATE_SERVICE, STATE_LAYER, where=where,
-                            out_fields="parcelid,camakey,ownername,adrlabel,adrcity,adrzip5,parceltype,"
-                                       "assessvalue,impvalue,landvalue,totalvalue,subdivision,parcellgl,"
-                                       "sourceref,sourcedate,camadate,Shape__Area",
-                            geometry=True, extra={"returnCentroid": "true", "returnExtentOnly": "false"})
-        for f in data.get("features") or []:
-            a = f["attributes"]
-            rings = (f.get("geometry") or {}).get("rings") or []
-            c = f.get("centroid") or {}
-            xs = [p[0] for ring in rings for p in ring]
-            ys = [p[1] for ring in rings for p in ring]
-            rec = {**a, "lat": c.get("y"), "lon": c.get("x"),
-                   "extent": [min(xs), min(ys), max(xs), max(ys)] if xs else None,
-                   "rings": rings}
-            if a.get("camakey") is not None:
-                out[str(int(a["camakey"]))] = rec
-            if a.get("parcelid"):
-                out[str(a["parcelid"]).strip()] = rec
+        rows = run(where)
+        if rows is None:
+            rows = []
+            for one in chunk:
+                w1 = (f"countyfips='{county_fips}' AND camakey={one}" if kind == "camakey"
+                      else f"countyfips='{county_fips}' AND parcelid={one!r}")
+                rows += run(w1) or []
+                time.sleep(PAUSE / 3)
+        for rec in rows:
+            rec["join"] = "exact"
+            if rec.get("camakey") is not None:
+                out[str(int(rec["camakey"]))] = rec
+            if rec.get("parcelid"):
+                out[str(rec["parcelid"]).strip()] = rec
         time.sleep(PAUSE)
+
+    # passes 2 and 3: the textual ids still unmatched. Counties print their
+    # tax-district prefix differently on the two sites (Desha 005- vs 004-,
+    # Ouachita 999- vs 001-), Pulaski drops the separators, Miller adds an R.
+    def groups(v):
+        return [g for g in re.split(r"[^A-Z0-9]+", str(v or "").upper()) if g]
+    def core(v):                       # everything after the first group, letters at the end dropped
+        g = groups(v)
+        return re.sub(r"[A-Z]+$", "", "".join(g[1:] if len(g) > 1 else g))
+    def strip_tail(v):
+        return re.sub(r"[A-Z]+$", "", _alnum(v))
+    for cid in textual:
+        if cid in out:
+            continue
+        g = groups(cid)
+        patterns = []
+        if len(g) > 1 and len(g[1]) >= 4:
+            patterns.append(f"%{g[1]}%")                                  # the parcel number proper
+        run_digits = _digit_run(cid)
+        if len(run_digits) >= 4 and f"%{run_digits}%" not in patterns:
+            patterns.append(f"%{run_digits}%")
+        a = _alnum(cid)
+        if len(g) == 1 and len(a) >= 6:                                   # no separators (Pulaski)
+            patterns.append(f"{a[:3]}-{a[3:6]}%")
+        if len(a) >= 5:
+            patterns.append(f"{strip_tail(cid)[:5]}%")                    # Miller-style digit strings
+        cands, seen = [], set()
+        for pat in patterns[:3]:
+            for c in run(f"countyfips='{county_fips}' AND parcelid LIKE '{pat}'") or []:
+                if c.get("parcelid") not in seen:
+                    seen.add(c.get("parcelid")); cands.append(c)
+            time.sleep(PAUSE / 2)
+            if any(strip_tail(c.get("parcelid")) == strip_tail(cid) for c in cands):
+                break
+        hit, how = None, None
+        for c in cands:
+            if strip_tail(c.get("parcelid")) == strip_tail(cid):
+                hit, how = c, "normalized"
+                break
+        if hit is None and cands:
+            mine = _owner_tokens(owners.get(cid))
+            same_core = [c for c in cands if core(c.get("parcelid")) == core(cid) and core(cid)]
+            if len(same_core) == 1 and (not mine or len(mine & _owner_tokens(same_core[0].get("ownername"))) >= 1):
+                hit, how = same_core[0], "prefix"
+            elif mine:
+                scored = sorted(((len(mine & _owner_tokens(c.get("ownername"))), c) for c in cands), key=lambda t: -t[0])
+                if scored and scored[0][0] >= 2:
+                    hit, how = scored[0][1], "owner"
+        if hit is not None:
+            out[cid] = dict(hit, join=how)
     return out
 
 

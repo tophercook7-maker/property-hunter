@@ -119,3 +119,26 @@ def test_scanner_removal_detection_keys_on_the_listing(boundaries, monkeypatch):
     assert scan._state_lands_removals({"cosl:99999"}) == 1
     assert store.latest_evidence(pid, "tax_delinquent_removed")
     assert scan._state_lands_removals({"cosl:99999"}) == 0      # not reported twice
+
+
+def test_join_falls_back_to_normalized_and_owner_matches(monkeypatch):
+    """Pulaski prints 44L0920003001 for the State's 44L-092.00-030.01; Chicot's prefix differs but the owner agrees."""
+    def fake_query(service, layer, *, where, out_fields, geometry=False, extra=None, **kw):
+        if "parcelid IN" in where:
+            return {"features": []}                      # nothing exact
+        if "0920003001" in where:
+            return {"features": [{"attributes": {"parcelid": "44L-092.00-030.01", "camakey": 2937540.0, "ownername": "MORTON JALETTE"},
+                                  "centroid": {"x": -92.3, "y": 34.7}, "geometry": {"rings": []}}]}
+        if "04031" in where:
+            return {"features": [{"attributes": {"parcelid": "010-04031-000C", "camakey": 1.0, "ownername": "ROARK GIDION THOMAS JR"},
+                                  "centroid": {"x": -91.3, "y": 33.3}, "geometry": {"rings": []}},
+                                 {"attributes": {"parcelid": "010-04031-000", "camakey": 2.0, "ownername": "SMITH JOHN"},
+                                  "centroid": {"x": -91.3, "y": 33.3}, "geometry": {"rings": []}}]}
+        return {"features": []}
+    monkeypatch.setattr(cosl, "arcgis_query", fake_query)
+    monkeypatch.setattr(cosl.time, "sleep", lambda s: None)
+    out = cosl.parcels_for_rpids(["44L0920003001", "050-04031-000", "999-00001-000"], "05119",
+                                 owners={"050-04031-000": "GIDION THOMAS  ROARK JR"})
+    assert out["44L0920003001"]["join"] == "normalized"
+    assert out["050-04031-000"]["parcelid"] == "010-04031-000C" and out["050-04031-000"]["join"] == "owner"
+    assert "999-00001-000" not in out                  # no evidence, no guess

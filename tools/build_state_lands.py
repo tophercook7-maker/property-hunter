@@ -48,7 +48,8 @@ def build(counties=None, details=False, detail_counties=("GARLAND",)):
         if not fips:
             print("skip unknown county", county); continue
         rows = cosl.listings(county)
-        parcels = cosl.parcels_for_rpids([r["CoSLParcelNumber"] for r in rows], fips)
+        parcels = cosl.parcels_for_rpids([r["CoSLParcelNumber"] for r in rows], fips,
+                                         owners={str(r["CoSLParcelNumber"]).strip(): r.get("Owner") for r in rows})
         joined = 0
         for r in rows:
             rpid = str(r.get("CoSLParcelNumber") or "").strip()
@@ -64,7 +65,7 @@ def build(counties=None, details=False, detail_counties=("GARLAND",)):
                     "listing_url": f"{cosl.AUCTION}/Auction/Listing/{r.get('ListingToken')}",
                     "map_url": f"{cosl.AUCTION}/auction/get-static-map?gisId={r.get('GisId')}" if r.get("GisId") else None,
                     "gis_id": r.get("GisId"),
-                    "parcel_id": p.get("parcelid"), "address": addr or None,
+                    "parcel_id": p.get("parcelid"), "join": p.get("join"), "address": addr or None,
                     "city": (p.get("adrcity") or "").strip() or None, "zip": p.get("adrzip5") or None,
                     "appraised": p.get("totalvalue"), "assessed": p.get("assessvalue"),
                     "land": p.get("landvalue"), "improvements": p.get("impvalue"),

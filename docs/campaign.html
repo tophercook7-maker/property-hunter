@@ -77,7 +77,7 @@ td input.note{font:inherit;font-size:12px;background:var(--surface2);border:1px 
 <body>
 <header class="top">
   <h1><small>Garland County · from the scan · nothing is sent from this page</small>Owner letter campaign</h1>
-  <nav><a href="index.html">Parcel lookup</a><a href="state-lands.html">Tax-delinquent for sale</a><a href="garland.html">Garland scan</a></nav>
+  <nav data-nav></nav>
 </header>
 <div class="rules"><b>Ground rules baked into every letter.</b> It says who you are and that you intend to resell. Every dollar figure is from the public record and labelled. It states the owner's other options (pay it, sell it themselves, do nothing). It never implies you are the City, the County or the State, never invents a deadline, and never says their taxes make it yours. Hot Springs Village and Diamondhead lots are not in this list at all: signing one over gives <em>you</em> the POA dues. Parcels already certified to the State are out too: a signed deed there does not stop the tax sale.</div>
 
@@ -162,7 +162,9 @@ fetch('data/garland.json').then(r=>r.json()).then(d => {
 function apply(){
   const on = [...document.querySelectorAll('#flags input:checked')].map(i=>FLAGS.find(f=>f[0]===i.dataset.f)[2]);
   const vmin = +$('vmin').value || 0, vmax = +$('vmax').value || Infinity;
-  view = ROWS.filter(r => on.every(fn=>fn(r)) && r.tv >= vmin && r.tv <= vmax);
+  const only = new URLSearchParams(location.search).get('pid');
+  view = ROWS.filter(r => (only ? r.pid === only : (on.every(fn=>fn(r)) && r.tv >= vmin && r.tv <= vmax)));
+  if(only && !view.length){ $('sum').textContent = 'That parcel is not eligible for a letter (no mailing address on file, certified to the State, or rated PASS).'; }
   const key = {lev:r=>-leverage(r), lien:r=>-(r.lien||0), value:r=>-(r.tv||0), score:r=>-(r.s||0)}[$('sort').value];
   view.sort((a,b)=>key(a)-key(b)); limit = 100; render();
 }
@@ -238,5 +240,6 @@ function copyTrack(){
   navigator.clipboard.writeText(lines.join('\n')).then(()=>{ $('track').textContent='Copied'; setTimeout(()=>$('track').textContent='Copy tracking sheet',1500); });
 }
 </script>
+<script src="nav.js"></script>
 </body>
 </html>

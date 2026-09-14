@@ -14,6 +14,7 @@ from typing import Any
 from fastapi import Body, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
                                PlainTextResponse, Response, StreamingResponse)
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from . import (analyzers, ask as askmod, db, distress, exclusions, files, finance,
@@ -46,6 +47,12 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title=APP_NAME, version=VERSION, lifespan=lifespan,
               description="Personal real-estate acquisition intelligence. "
                           "Research assistant, not a lawyer.")
+# The public site (GitHub Pages) may talk to this app when it is open on the same Mac:
+# watchlist import, status, a scan kick. Local only, nothing secret, GET and POST.
+app.add_middleware(CORSMiddleware,
+                   allow_origins=["https://tophercook7-maker.github.io", "http://localhost:8765",
+                                  "http://127.0.0.1:8765"],
+                   allow_methods=["GET", "POST"], allow_headers=["content-type"])
 
 
 # ------------------------------------------------------------------- helpers

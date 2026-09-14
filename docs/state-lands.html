@@ -111,7 +111,7 @@ footer{background:var(--surface);border-top:1px solid var(--rule);padding:10px 2
 <header class="top">
   <h1><small>Arkansas · Commissioner of State Lands · public records</small>Tax-delinquent, for sale by the State</h1>
   <div class="stats" id="stats"></div>
-  <nav><a href="index.html">Parcel lookup</a><a href="watch.html">Watchlist</a><a href="garland.html">Garland scan</a><a href="https://github.com/tophercook7-maker/property-hunter" rel="noopener">Source</a></nav>
+  <nav data-nav></nav>
 </header>
 <div class="strip">
   <p><b>What this is.</b> Every parcel the Commissioner of State Lands is currently selling because the taxes went unpaid long enough for the county to certify it to the State. The starting bid is what is owed: taxes, interest, penalties and costs. Each one is joined to the county tax roll for the owner, address, appraised value and an aerial. Rebuilt from the live feed every morning.</p>
@@ -256,7 +256,7 @@ async function open(k){
   const a23 = aerial(x,'IMAGERY_9IN_2023',700), a17 = aerial(x,'IMAGERY_1FT_2017',700);
   const gm = x.lat ? `https://www.google.com/maps/search/?api=1&query=${x.lat},${x.lon}` : null;
   const sv = x.lat ? `https://www.google.com/maps?q=&layer=c&cbll=${x.lat},${x.lon}` : null;
-  const lookup = x.parcel_id ? `index.html?county=${x.fips}&q=${encodeURIComponent(x.parcel_id)}` : null;
+  const lookup = x.parcel_id ? `lookup.html?county=${x.fips}&q=${encodeURIComponent(x.parcel_id)}` : null;
   $('drawer-root').innerHTML = `<div class="scrim" id="scrim"></div><aside class="drawer" role="dialog" aria-label="${esc(addr)}">
     <div class="dh"><div><h2>${esc(addr)}</h2><div class="sub">${esc(title(x.county))} County · parcel <span class="num">${esc(x.parcel_id||'not joined')}</span> · RPID <span class="num">${esc(x.rpid)}</span></div></div><button class="x" id="dx" aria-label="Close">×</button></div>
     <div class="db">
@@ -278,7 +278,7 @@ async function open(k){
       </dl></div>
       <div class="sec"><h3>How to actually buy this one</h3><ol class="steps">
         <li>Open the State Lands listing (button below). Read the legal description against the aerial: you are buying exactly that shape, nothing else.</li>
-        <li>Check the parcel in the <a href="${lookup||'index.html'}">lookup tool</a> for flood zone, zoning and, in Hot Springs, City liens; COSL sells subject to municipal liens and POA dues.</li>
+        <li>Check the parcel in the <a href="${lookup||'lookup.html'}">lookup tool</a> for flood zone, zoning and, in Hot Springs, City liens; COSL sells subject to municipal liens and POA dues.</li>
         <li>Drive by. A tax-sale lot can be a ravine, a strip between two houses, or a burned shell.</li>
         <li>Register on auction.cosl.org (card on file, identity verified), then bid or buy at the starting bid if it is a post-auction sale.</li>
         <li>After you win: a limited warranty deed, a 90-day litigation period, and title insurance is hard to get until a quiet-title action. Budget for that.</li>
@@ -290,5 +290,6 @@ async function open(k){
 function close(){ $('drawer-root').innerHTML=''; document.body.style.overflow=''; }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') close(); });
 </script>
+<script src="nav.js"></script>
 </body>
 </html>

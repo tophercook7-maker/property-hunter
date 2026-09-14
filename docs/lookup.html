@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Property Hunter · Arkansas parcel lookup</title>
+<meta name="description" content="Look up any Arkansas parcel by address, owner or parcel number: owner of record, county appraised values, acreage, deed reference, flood zone, and for Hot Springs the vacant-structure register, City liens, code cases and zoning. Live public records, nothing invented.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --ground:#E8ECEF; --surface:#FFFFFF; --surface2:#F3F5F7; --ink:#172029; --muted:#5F6E7B; --rule:#D3DAE0;
+  --accent:#0E7C73; --accent-ink:#FFFFFF; --accent-soft:#D6EEEB;
+  --deal:#2E7D4F; --deal-soft:#DCEFE3; --watch:#B0771A; --watch-soft:#F6EAD2; --pass:#B3433B; --pass-soft:#F5DDDB;
+  --shadow:0 12px 32px rgba(23,32,41,.16);
+  --display:"Barlow Condensed","Arial Narrow",Impact,sans-serif; --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif; --mono:"IBM Plex Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root{
+  --ground:#101519; --surface:#171E24; --surface2:#1E262D; --ink:#E4E9ED; --muted:#93A0AB; --rule:#2A343D;
+  --accent:#3BB8AC; --accent-ink:#0B1214; --accent-soft:#163A37;
+  --deal:#5CC48A; --deal-soft:#1B3A2A; --watch:#E0A64A; --watch-soft:#3D2E14; --pass:#E2746B; --pass-soft:#42221F;
+  --shadow:0 12px 32px rgba(0,0,0,.5);
+}}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.45;margin:0;display:flex;flex-direction:column;min-height:100vh}
+a{color:var(--accent)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:.01em;margin:0;text-wrap:balance}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+
+.top{background:var(--surface);border-bottom:1px solid var(--rule);padding:12px 20px;display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.top h1{font-size:30px;line-height:1;text-transform:uppercase;letter-spacing:.02em}
+.top h1 small{display:block;font-family:var(--body);font-weight:500;font-size:11px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+.top nav{margin-left:auto;display:flex;gap:14px;font-size:13px}
+.top nav a{text-decoration:none;font-weight:500}
+
+form.search{display:flex;gap:8px;flex:1 1 520px;max-width:760px;align-items:stretch}
+form.search select,form.search input{font:inherit;font-size:14px;color:var(--ink);background:var(--surface2);border:1px solid var(--rule);padding:9px 11px}
+form.search select{flex:0 0 190px}
+form.search input{flex:1;min-width:160px}
+form.search button{background:var(--accent);color:var(--accent-ink);border:0;padding:9px 18px;font-family:var(--display);font-size:18px;letter-spacing:.04em;text-transform:uppercase;font-weight:600}
+form.search button[disabled]{opacity:.6;cursor:wait}
+
+.hint{background:var(--surface);border-bottom:1px solid var(--rule);padding:8px 20px;font-size:12.5px;color:var(--muted);display:flex;gap:18px;flex-wrap:wrap}
+.hint b{color:var(--ink);font-weight:500}
+.hint .ex{cursor:pointer;color:var(--accent);background:none;border:0;padding:0;font-size:12.5px;text-decoration:underline dotted}
+
+.body{flex:1;display:grid;grid-template-columns:minmax(380px,520px) 1fr;min-height:0}
+@media (max-width:860px){.body{grid-template-columns:1fr}.mapwrap{height:360px}}
+.panel{border-right:1px solid var(--rule);background:var(--surface);overflow-y:auto;display:flex;flex-direction:column}
+.mapwrap{position:relative;min-height:420px}
+#map{position:absolute;inset:0;background:var(--surface2)}
+.maptools{position:absolute;top:10px;right:10px;z-index:500;display:flex;gap:6px}
+.maptools button{background:var(--surface);border:1px solid var(--rule);padding:6px 10px;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.maptools button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.mapnote{position:absolute;bottom:10px;left:10px;z-index:500;background:var(--surface);border:1px solid var(--rule);padding:5px 9px;font-size:11.5px;color:var(--muted)}
+
+.status{padding:10px 18px;border-bottom:1px solid var(--rule);font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:8px;min-height:38px}
+.status .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.status.busy .dot{background:var(--watch);animation:pulse 1s infinite}
+.status.err .dot{background:var(--pass)}
+.status.ok .dot{background:var(--deal)}
+@keyframes pulse{50%{opacity:.3}}
+@media (prefers-reduced-motion: reduce){.status.busy .dot{animation:none}}
+
+.results{list-style:none;margin:0;padding:0}
+.results li{border-bottom:1px solid var(--rule)}
+.results button{width:100%;text-align:left;background:none;border:0;padding:10px 18px;display:grid;grid-template-columns:1fr auto;gap:2px 12px}
+.results button:hover,.results button[aria-current="true"]{background:var(--surface2)}
+.results .addr{font-weight:600}
+.results .own{color:var(--muted);font-size:12.5px;grid-column:1}
+.results .val{text-align:right;font-family:var(--mono);font-size:13px}
+.results .pid{text-align:right;font-family:var(--mono);font-size:11px;color:var(--muted)}
+
+.detail{padding:16px 18px 40px;display:flex;flex-direction:column;gap:18px}
+.detail h2{font-size:28px;line-height:1;text-transform:uppercase}
+.detail .sub{color:var(--muted);font-size:12.5px;margin-top:4px}
+.money{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.money div{background:var(--surface2);border:1px solid var(--rule);padding:8px 10px}
+.money b{display:block;font-family:var(--display);font-size:24px;line-height:1.05;font-weight:600}
+.money span{font-size:11px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.money div.hi{border-color:var(--accent)}
+.money div.lien b{color:var(--pass)}
+.sec h3{font-size:17px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;display:flex;align-items:baseline;gap:8px}
+.sec h3 .src{font-family:var(--body);font-size:11px;letter-spacing:.04em;color:var(--muted);text-transform:none;font-weight:400}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:13px}
+.facts dt{color:var(--muted);margin:0;white-space:nowrap}.facts dd{margin:0;overflow-wrap:anywhere}
+.tag{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border:1px solid;margin-left:6px;vertical-align:middle}
+.tag.fact{color:var(--accent);border-color:var(--accent)} .tag.calc{color:var(--muted);border-color:var(--muted)} .tag.obs{color:var(--watch);border-color:var(--watch)} .tag.unk{color:var(--muted);border-color:var(--rule);background:var(--surface2)}
+.chip{display:inline-block;font-size:11px;font-weight:500;padding:2px 7px;border:1px solid var(--rule);background:var(--surface2);margin:2px 4px 2px 0}
+.chip.d{border-color:var(--pass);color:var(--pass);background:var(--pass-soft)}
+.chip.o{border-color:var(--deal);color:var(--deal);background:var(--deal-soft)}
+.chip.r{border-color:var(--watch);color:var(--watch);background:var(--watch-soft)}
+.rows{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.rows div{display:grid;grid-template-columns:96px 1fr auto;gap:10px;border-top:1px solid var(--rule);padding-top:6px}
+.rows .num{text-align:right}
+.warn{font-size:12.5px;color:var(--muted);border:1px dashed var(--rule);padding:8px 10px}
+.links{display:flex;flex-wrap:wrap;gap:8px}
+.links a{font-size:12.5px;padding:6px 10px;border:1px solid var(--accent);text-decoration:none;font-weight:500}
+.links a:hover{background:var(--accent-soft)}
+.empty{padding:30px 18px;color:var(--muted);font-size:13px;line-height:1.55}
+.empty h2{font-size:22px;text-transform:uppercase;margin-bottom:8px;color:var(--ink)}
+.pending{color:var(--muted);font-style:italic}
+.copy{background:none;border:1px solid var(--rule);padding:5px 10px;font-size:12px}
+.pics{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pics figure{margin:0;background:var(--surface2);border:1px solid var(--rule)}
+.pics img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.pics figcaption{font-size:11px;color:var(--muted);padding:4px 6px}
+.taxbox{border:1px solid var(--rule);border-left:4px solid var(--watch);padding:10px 12px;background:var(--surface2);font-size:13px}
+.taxbox.cert{border-left-color:var(--pass)}
+.taxbox b.big{font-family:var(--display);font-size:20px;font-weight:600}
+.acq{display:flex;flex-direction:column;gap:14px}
+.check{display:flex;gap:10px;align-items:flex-start;border-top:1px solid var(--rule);padding:8px 0 2px;font-size:13px}
+.check .st{flex:none;width:22px;height:22px;border:1px solid var(--rule);display:grid;place-items:center;font-size:12px;font-weight:600;font-family:var(--mono)}
+.check.ok .st{background:var(--deal-soft);color:var(--deal);border-color:var(--deal)}
+.check.warn .st{background:var(--pass-soft);color:var(--pass);border-color:var(--pass)}
+.check.todo .st{background:var(--watch-soft);color:var(--watch);border-color:var(--watch)}
+.check.done .st{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.check label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+.check input{accent-color:var(--accent);margin-top:3px}
+.check .why{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.route{border:1px solid var(--rule);border-left:4px solid var(--accent);padding:10px 12px;background:var(--surface2)}
+.route h4{font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;margin:0 0 4px}
+.route p{margin:4px 0;font-size:13px}
+.route.dim{border-left-color:var(--rule);opacity:.85}
+.route .fit{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.offer{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;font-size:13px}
+.offer label{display:flex;flex-direction:column;gap:3px;color:var(--muted);font-size:12px}
+.offer input,.offer select{font:inherit;font-size:13px;color:var(--ink);background:var(--surface2);border:1px solid var(--rule);padding:6px 8px;width:100%}
+.offer .full{grid-column:1/-1}
+.sumline{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:13px;border-top:1px solid var(--rule);padding-top:6px;margin-top:4px}
+.sumline b{font-family:var(--mono);font-weight:500}
+.gate{border:1px dashed var(--pass);padding:8px 10px;font-size:12.5px;color:var(--pass)}
+.letter{white-space:pre-wrap;font-family:var(--mono);font-size:12px;line-height:1.5;background:var(--surface2);border:1px solid var(--rule);padding:12px;max-height:340px;overflow:auto}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;padding:8px 14px;font-family:var(--display);font-size:16px;letter-spacing:.04em;text-transform:uppercase;font-weight:600}
+.btn.ghost{background:none;color:var(--ink);border:1px solid var(--rule);font-family:var(--body);font-size:12.5px;text-transform:none;letter-spacing:0;font-weight:500}
+@media print{.top,.hint,.mapwrap,.results,.status,.btnrow,.maptools{display:none!important}.body{display:block}.panel{border:0;overflow:visible}.detail{padding:0}body{background:#fff;color:#000}}
+footer{background:var(--surface);border-top:1px solid var(--rule);padding:10px 20px;font-size:12px;color:var(--muted);line-height:1.5}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1><small>Arkansas · every county · live public records</small>Property Hunter</h1>
+  <form class="search" id="f" autocomplete="off">
+    <select id="county" aria-label="County"></select>
+    <input id="q" type="text" placeholder="Address, owner name, or parcel number" aria-label="Search">
+    <button type="submit" id="go">Look up</button>
+  </form>
+  <nav data-nav></nav>
+</header>
+<div class="hint">
+  <span><b>Try:</b> <button class="ex" type="button" data-q="267 Glade">267 Glade</button> · <button class="ex" type="button" data-q="Monolith">Monolith</button> · <button class="ex" type="button" data-q="400-29150-014-000">400-29150-014-000</button></span>
+  <span>Or <b>click any parcel on the map</b>.</span>
+  <span>Owner and values come from the county tax roll as republished by the State. Taxes owed and listings are <b>not</b> here; the links in each record take you to those.</span>
+</div>
+
+<div class="body">
+  <section class="panel">
+    <div class="status" id="status"><span class="dot"></span><span id="stext">Pick a county and type an address, owner or parcel number.</span></div>
+    <ul class="results" id="results"></ul>
+    <div id="detail"></div>
+  </section>
+  <section class="mapwrap">
+    <div id="map" role="application" aria-label="Parcel map"></div>
+    <div class="maptools"><button type="button" id="b-aerial" aria-pressed="true">Aerial</button><button type="button" id="b-street" aria-pressed="false">Streets</button></div>
+    <div class="mapnote">Click a parcel to identify it · aerial by Esri</div>
+  </section>
+</div>
+
+<footer>Sources queried live in your browser: Arkansas GIS Office statewide parcel layer (county assessor CAMA data, republished by the State), FEMA National Flood Hazard Layer, City of Hot Springs open GIS (vacant-structure register, housing liens, 2025 code cases, zoning, city-owned property, tax-roll copy with mailing addresses). Values are the county's appraised figures, not sale prices. Nothing here is legal, tax or investment advice, and paying someone else's delinquent taxes never makes you the owner. Records that need a login or a visit (tax status, deeds, State Lands) are linked, not scraped. Built by <a href="https://mixedmakershop.com">MixedMakerShop</a>.</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const PARCELS = 'https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query';
+const FEMA = 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query';
+const HS = s => `https://services1.arcgis.com/lCwVhIwyitVebu0v/arcgis/rest/services/${s}/query`;
+const HS_VACANT = HS('Vacant_Structures_view/FeatureServer/99'), HS_LIENS = HS('Housing_Lien_Parcels/FeatureServer/90'),
+      HS_CASES = HS('Addressing_Points_for_Housing_Cases_2025/FeatureServer/33'), HS_ZONING = HS('Zoning_/FeatureServer/100'),
+      HS_ROLL = HS('Housing_Liens_WFL1/FeatureServer/0'), HS_CITY = HS('City_Owned_Property/FeatureServer/91');
+const FIELDS = 'parcelid,parcellgl,ownername,adrnum,predir,pstrnam,pstrtype,psufdir,adrcity,adrzip5,adrlabel,parceltype,assessvalue,impvalue,landvalue,totalvalue,subdivision,nbhd,str,taxcode,sourceref,sourcedate,camadate,pubdate,county,countyfips,Shape__Area';
+const COUNTIES = {"05001":"Arkansas","05003":"Ashley","05005":"Baxter","05007":"Benton","05009":"Boone","05011":"Bradley","05013":"Calhoun","05015":"Carroll","05017":"Chicot","05019":"Clark","05021":"Clay","05023":"Cleburne","05025":"Cleveland","05027":"Columbia","05029":"Conway","05031":"Craighead","05033":"Crawford","05035":"Crittenden","05037":"Cross","05039":"Dallas","05041":"Desha","05043":"Drew","05045":"Faulkner","05047":"Franklin","05049":"Fulton","05051":"Garland","05053":"Grant","05055":"Greene","05057":"Hempstead","05059":"Hot Spring","05061":"Howard","05063":"Independence","05065":"Izard","05067":"Jackson","05069":"Jefferson","05071":"Johnson","05073":"Lafayette","05075":"Lawrence","05077":"Lee","05079":"Lincoln","05081":"Little River","05083":"Logan","05085":"Lonoke","05087":"Madison","05089":"Marion","05091":"Miller","05093":"Mississippi","05095":"Monroe","05097":"Montgomery","05099":"Nevada","05101":"Newton","05103":"Ouachita","05105":"Perry","05107":"Phillips","05109":"Pike","05111":"Poinsett","05113":"Polk","05115":"Pope","05117":"Prairie","05119":"Pulaski","05121":"Randolph","05123":"St. Francis","05125":"Saline","05127":"Scott","05129":"Searcy","05131":"Sebastian","05133":"Sevier","05135":"Sharp","05137":"Stone","05139":"Union","05141":"Van Buren","05143":"Washington","05145":"White","05147":"Woodruff","05149":"Yell"};
+const CLASS = {R:'residential',C:'commercial',A:'agricultural',I:'industrial',E:'exempt',P:'public',M:'mineral',U:'utility'};
+const IMPROVE = {I:'improved',V:'vacant',M:'manufactured / mobile'};
+const GARLAND_ZIPS = ['71901','71902','71903','71909','71910','71913','71914','71949','71956','71964','71968','72087'];
+const LIEN_TYPES = {VWL:'vacant-lot weed / mowing', DEMO:'demolition', CLEAN:'cleanup', SEC:'securing'};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt$ = v => (v == null || isNaN(v)) ? '—' : '$' + Math.round(v).toLocaleString('en-US');
+const dt = ms => ms ? new Date(ms).toISOString().slice(0,10) : null;
+const sq = s => String(s).replace(/'/g, "''");
+const clean = s => String(s ?? '').replace(/\s+/g,' ').trim();
+const title = s => clean(s).toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+
+/* county select */
+$('county').innerHTML = Object.entries(COUNTIES).map(([f,n]) => `<option value="${f}">${n} County</option>`).join('');
+try { $('county').value = localStorage.getItem('ph-county') || '05051'; } catch(e) { $('county').value = '05051'; }
+
+/* map */
+const map = L.map('map', {zoomControl:true}).setView([34.55, -93.05], 11);
+const aerial = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, attribution:'Esri, Maxar, Earthstar Geographics'});
+const streets = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, attribution:'Esri, HERE, Garmin'});
+aerial.addTo(map);
+$('b-aerial').onclick = () => { map.removeLayer(streets); aerial.addTo(map); $('b-aerial').setAttribute('aria-pressed','true'); $('b-street').setAttribute('aria-pressed','false'); };
+$('b-street').onclick = () => { map.removeLayer(aerial); streets.addTo(map); $('b-street').setAttribute('aria-pressed','true'); $('b-aerial').setAttribute('aria-pressed','false'); };
+const resultLayer = L.geoJSON(null, {style: () => ({color:'#3BB8AC', weight:2, fillOpacity:.08})}).addTo(map);
+let selectedLayer = null;
+map.on('click', e => identify(e.latlng.lat, e.latlng.lng));
+
+/* status */
+function status(kind, text){ const s = $('status'); s.className = 'status ' + kind; $('stext').textContent = text; }
+
+/* fetch helper */
+async function arc(url, params){
+  const p = new URLSearchParams({f:'json', ...params});
+  const r = await fetch(url + '?' + p.toString());
+  if(!r.ok) throw new Error(`${url.split('/services/')[1].split('/query')[0]} answered ${r.status}`);
+  const j = await r.json();
+  if(j.error) throw new Error(j.error.message || 'service error');
+  return j;
+}
+
+/* search */
+function buildWhere(fips, raw){
+  const q = clean(raw).toUpperCase();
+  const c = `countyfips='${fips}'`;
+  if(!q) return null;
+  if(/^[\d-]{5,}[A-Z]?$/.test(q)) return `${c} AND parcelid LIKE '%${sq(q)}%'`;
+  const m = q.match(/^(\d+)\s+(.+)$/);
+  if(m){
+    const num = parseInt(m[1],10), rest = m[2].replace(/[.,]/g,'');
+    const street = rest.split(' ')[0];
+    return `${c} AND ((adrnum=${num} AND UPPER(pstrnam) LIKE '${sq(street)}%') OR UPPER(adrlabel) LIKE '%${sq(m[1]+' '+rest)}%')`;
+  }
+  return `${c} AND (UPPER(ownername) LIKE '%${sq(q)}%' OR UPPER(adrlabel) LIKE '%${sq(q)}%' OR UPPER(subdivision) LIKE '%${sq(q)}%')`;
+}
+let current = [];
+async function search(raw){
+  const fips = $('county').value; const where = buildWhere(fips, raw);
+  if(!where) return;
+  try { localStorage.setItem('ph-county', fips); localStorage.setItem('ph-q', raw); } catch(e){}
+  $('go').disabled = true; status('busy', `Asking the State parcel layer for "${clean(raw)}" in ${COUNTIES[fips]} County…`);
+  $('detail').innerHTML = ''; $('results').innerHTML = '';
+  try {
+    const j = await arc(PARCELS, {where, outFields:FIELDS, outSR:4326, returnGeometry:true, returnCentroid:true, resultRecordCount:60, orderByFields:'adrlabel'});
+    current = (j.features || []).map(f => ({a:f.attributes, geom:f.geometry, centroid:f.centroid}));
+    drawResults(current);
+    if(!current.length){ status('ok', `Nothing on the ${COUNTIES[fips]} County roll matches "${clean(raw)}". Try fewer words, or the owner's last name.`); }
+    else { status('ok', `${current.length}${current.length===60?'+':''} parcel${current.length===1?'':'s'} on the ${COUNTIES[fips]} County roll.`); if(current.length===1) select(0); }
+  } catch(err){ status('err', 'The State parcel service did not answer: ' + err.message); }
+  $('go').disabled = false;
+}
+function addrOf(a){ const s = clean(a.adrlabel); return s ? title(s) : (clean(a.parcellgl) ? 'No situs address · ' + clean(a.parcellgl).slice(0,40) : 'No situs address'); }
+function drawResults(rows){
+  $('results').innerHTML = rows.map((r,i) => `<li><button type="button" data-i="${i}"><span class="addr">${esc(addrOf(r.a))}</span><span class="val">${fmt$(r.a.totalvalue)}</span><span class="own">${esc(title(r.a.ownername) || 'no owner name')} · ${esc(title(r.a.adrcity))}</span><span class="pid">${esc(r.a.parcelid)}</span></button></li>`).join('');
+  resultLayer.clearLayers();
+  rows.forEach((r,i) => { if(r.geom && r.geom.rings){ const gj = {type:'Feature', properties:{i}, geometry:{type:'Polygon', coordinates:r.geom.rings}}; resultLayer.addData(gj); } });
+  resultLayer.eachLayer(l => l.on('click', ev => { L.DomEvent.stop(ev); select(l.feature.properties.i); }));
+  if(rows.length){ try { map.fitBounds(resultLayer.getBounds().pad(0.2), {maxZoom:17}); } catch(e){} }
+}
+$('results').addEventListener('click', e => { const b = e.target.closest('button'); if(b) select(+b.dataset.i); });
+$('f').addEventListener('submit', e => { e.preventDefault(); search($('q').value); });
+document.querySelectorAll('.ex').forEach(b => b.addEventListener('click', () => { $('county').value='05051'; $('q').value=b.dataset.q; search(b.dataset.q); }));
+
+/* identify by map click */
+async function identify(lat, lon){
+  status('busy', `Identifying the parcel at ${lat.toFixed(5)}, ${lon.toFixed(5)}…`);
+  try {
+    const j = await arc(PARCELS, {geometry:`${lon},${lat}`, geometryType:'esriGeometryPoint', inSR:4326, spatialRel:'esriSpatialRelIntersects', outFields:FIELDS, outSR:4326, returnGeometry:true, returnCentroid:true});
+    const f = (j.features||[])[0];
+    if(!f){ status('ok', 'No parcel is mapped at that point.'); return; }
+    current = [{a:f.attributes, geom:f.geometry, centroid:f.centroid}];
+    if(COUNTIES[f.attributes.countyfips]) $('county').value = f.attributes.countyfips;
+    drawResults(current); select(0);
+  } catch(err){ status('err', 'Could not identify: ' + err.message); }
+}
+
+/* detail */
+function centroidOf(r){
+  if(r.centroid) return [r.centroid.y, r.centroid.x];
+  const ring = r.geom && r.geom.rings && r.geom.rings[0]; if(!ring) return null;
+  let x=0,y=0; ring.forEach(p=>{x+=p[0];y+=p[1];}); return [y/ring.length, x/ring.length];
+}
+async function select(i){
+  const r = current[i]; if(!r) return; const a = r.a;
+  document.querySelectorAll('.results button').forEach(b => b.setAttribute('aria-current', b.dataset.i==i));
+  if(selectedLayer) map.removeLayer(selectedLayer);
+  if(r.geom && r.geom.rings){ selectedLayer = L.geoJSON({type:'Feature',geometry:{type:'Polygon',coordinates:r.geom.rings}}, {style:{color:'#E2746B',weight:3,fillOpacity:.15}}).addTo(map); try{ map.fitBounds(selectedLayer.getBounds().pad(0.6), {maxZoom:18}); }catch(e){} }
+  const c = centroidOf(r);
+  const acres = a.Shape__Area ? a.Shape__Area / 4046.8564 : null;
+  const pt = String(a.parceltype||''); const cls = CLASS[pt[0]] || null; const imp = IMPROVE[pt[1]] || null;
+  const isGarland = a.countyfips === '05051';
+  const county = COUNTIES[a.countyfips] || a.county || '';
+  const addr = addrOf(a);
+  const gm = c ? `https://www.google.com/maps/search/?api=1&query=${c[0]},${c[1]}` : '#';
+  const taxsearch = `https://www.arkansastaxsearch.com/${(county||'').toLowerCase().replace(/[^a-z]/g,'')}.html`;
+  const ds = `https://www.actdatascout.com/RealProperty/Arkansas/${encodeURIComponent(county)}`;
+  $('detail').innerHTML = `<div class="detail">
+    <div><h2>${esc(addr)}</h2><div class="sub">${esc(title(a.adrcity)||'')}${a.adrzip5?' '+a.adrzip5:''} · ${esc(county)} County · parcel <span class="num">${esc(a.parcelid)}</span></div></div>
+    <div class="money">
+      <div class="hi"><b class="num">${fmt$(a.totalvalue)}</b><span>County appraised</span></div>
+      <div><b class="num">${fmt$(a.assessvalue)}</b><span>Assessed for tax</span></div>
+      <div class="lien" id="lienbox"><b class="num">${isGarland?'…':'n/a'}</b><span>City lien on record</span></div>
+    </div>
+    <div class="warn">Appraised = the assessor's opinion of full value (land ${fmt$(a.landvalue)} + improvements ${fmt$(a.impvalue)}), current to ${dt(a.camadate)||'an unknown date'}. Not a sale price, not an asking price. Taxes: see the <b>Taxes</b> section below.</div>
+    <div class="sec"><h3>Look at it <span class="src">Arkansas GIS Office orthoimagery · State Lands map</span></h3><div class="pics" id="pics"></div></div>
+    <div class="sec"><h3>Taxes <span class="src">Commissioner of State Lands inventory</span></h3><div id="taxbox" class="taxbox"><span class="pending">checking the State Lands inventory…</span></div></div>
+    <div class="sec"><h3>Who and what <span class="src">county roll via Arkansas GIS Office</span></h3><dl class="facts">
+      <dt>Owner of record</dt><dd>${esc(title(a.ownername))||'<em>blank on the roll</em>'}<span class="tag fact">fact</span></dd>
+      <dt>Tax bill goes to</dt><dd id="mailing">${isGarland?'<span class="pending">checking the City\'s roll copy…</span>':'<span class="tag unk">not published for this county</span>'}</dd>
+      <dt>Last deed ref.</dt><dd>${esc(clean(a.sourceref))||'—'}${a.sourcedate?` · recorded ${dt(a.sourcedate)}`:''}<span class="tag fact">fact</span></dd>
+      <dt>Legal</dt><dd>${esc(clean(a.parcellgl))||'—'}</dd>
+      <dt>Subdivision</dt><dd>${esc(clean(a.subdivision))||'—'}${a.nbhd?` · nbhd ${esc(a.nbhd)}`:''}</dd>
+      <dt>Sec-Twp-Rng</dt><dd class="num">${esc(a.str||'—')}</dd>
+      <dt>Parcel class</dt><dd>${cls?esc(cls):'—'}${imp?` · ${esc(imp)}`:''} <span class="num">(${esc(pt)})</span>${imp?'<span class="tag obs">2nd letter inferred</span>':''}</dd>
+      <dt>Size</dt><dd class="num">${acres!=null?acres.toFixed(3)+' ac from the mapped polygon':'—'}<span class="tag calc">calc</span></dd>
+      <dt>Flood zone</dt><dd id="flood"><span class="pending">asking FEMA…</span></dd>
+      ${isGarland?'<dt>Zoning</dt><dd id="zoning"><span class="pending">asking the City…</span></dd>':''}
+      <dt>Roll published</dt><dd>${dt(a.pubdate)||'—'} · tax code <span class="num">${esc(a.taxcode||'—')}</span></dd>
+    </dl></div>
+    ${isGarland?`<div class="sec"><h3>City of Hot Springs registers <span class="src">live from the City's GIS</span></h3><div id="city"><span class="pending">checking vacant register, liens, code cases, city-owned…</span></div></div>`:
+      `<div class="sec"><h3>City registers</h3><div class="warn">Only Hot Springs publishes vacant-structure, lien and code-case layers that this tool knows how to read. For ${esc(county)} County those are a phone call or a records request.</div></div>`}
+    <div class="sec" id="acq"><h3>Before you buy <span class="src">what still has to be confirmed, and how you could actually buy this one</span></h3><div class="acq"><span class="pending">building the confirmation list…</span></div></div>
+    <div class="sec"><h3>Check it yourself</h3><div class="links">
+      <a href="watch.html?add=${esc(a.countyfips)}:${encodeURIComponent(a.parcelid||'')}&label=${encodeURIComponent(addr)}" style="background:var(--accent);color:var(--accent-ink)">Watch this parcel</a>
+      <a href="${gm}" target="_blank" rel="noopener">Google Maps</a>
+      <a href="${taxsearch}" target="_blank" rel="noopener">${esc(county)} tax search (login)</a>
+      <a href="${ds}" target="_blank" rel="noopener">actDataScout record</a>
+      <a href="https://www.cosl.org/" target="_blank" rel="noopener">State Lands (tax-sale)</a>
+      <a href="https://gis.arkansas.gov/" target="_blank" rel="noopener">AR GIS Office</a>
+    </div></div>
+    <div><button class="copy" type="button" id="copy">Copy this record as text</button></div>
+  </div>`;
+  $('copy').onclick = () => { navigator.clipboard.writeText(document.querySelector('.detail').innerText).then(()=>{ $('copy').textContent='Copied'; setTimeout(()=>$('copy').textContent='Copy this record as text',1500); }); };
+  // live enrichments, each independent, each honest on failure
+  visuals(r, a, c);
+  taxStatus(a, c);
+  if(c) flood(c);
+  const cityOut = isGarland ? await city(a, c) : null;
+  renderAcq(r, a, c, cityOut, county);
+}
+async function flood([lat,lon]){
+  const el = $('flood'); if(!el) return;
+  try {
+    const j = await arc(FEMA, {geometry:`${lon},${lat}`, geometryType:'esriGeometryPoint', inSR:4326, spatialRel:'esriSpatialRelIntersects', outFields:'FLD_ZONE,ZONE_SUBTY,SFHA_TF', returnGeometry:false});
+    const f = (j.features||[])[0];
+    if(!f){ el.innerHTML = 'not in a mapped FEMA zone at the centroid<span class="tag unk">unknown</span>'; return; }
+    const z = f.attributes; const sf = z.SFHA_TF === 'T';
+    el.innerHTML = `${esc(z.FLD_ZONE)}${z.ZONE_SUBTY?' · '+esc(z.ZONE_SUBTY.toLowerCase()):''} ${sf?'<span class="chip d">special flood hazard area</span>':'<span class="chip o">minimal flood hazard</span>'}<span class="tag fact">FEMA NFHL</span>`;
+  } catch(err){ el.innerHTML = `FEMA did not answer (${esc(err.message)})<span class="tag unk">unknown</span>`; }
+}
+async function city(a, c){
+  const pt = c ? {geometry:`${c[1]},${c[0]}`, geometryType:'esriGeometryPoint', inSR:4326, spatialRel:'esriSpatialRelIntersects', returnGeometry:false} : null;
+  const pid = sq(a.parcelid||'');
+  const num = a.adrnum, street = clean(a.pstrnam).toUpperCase();
+  const jobs = {
+    roll: arc(HS_ROLL, {where:`ParcelId='${pid}'`, outFields:'MailingAdd,OwnerName,SourceDate', returnGeometry:false}),
+    vacant: pt ? arc(HS_VACANT, {...pt, outFields:'RPID,Street_Number,Street_Name,created_date'}) : Promise.resolve({features:[]}),
+    liens: pt ? arc(HS_LIENS, {...pt, outFields:'Date_of_Lien,Amount,Type_of_Lien,Vacant,Comments,Address,RPID'}) : Promise.resolve({features:[]}),
+    zoning: pt ? arc(HS_ZONING, {...pt, outFields:'Zoning_Code,Zoning_Description,Ordinance'}) : Promise.resolve({features:[]}),
+    owned: pt ? arc(HS_CITY, {...pt, outFields:'DEPARTMENT,ADDRESS,VACANT,LEASED'}) : Promise.resolve({features:[]}),
+    cases: (num && street) ? arc(HS_CASES, {where:`UPPER(Address) LIKE '${num} ${sq(street)}%'`, outFields:'Enforcement,Address,Status,Filed,Closed', returnGeometry:false}) : Promise.resolve({features:[]}),
+  };
+  const out = {};
+  await Promise.all(Object.entries(jobs).map(([k,p]) => p.then(j => out[k] = {ok:true, rows:(j.features||[]).map(f=>f.attributes)}).catch(e => out[k] = {ok:false, err:e.message})));
+  // mailing
+  const m = $('mailing');
+  if(m){
+    if(!out.roll.ok) m.innerHTML = `City roll copy did not answer<span class="tag unk">unknown</span>`;
+    else if(!out.roll.rows.length) m.innerHTML = `not in the City's roll copy<span class="tag unk">unknown</span>`;
+    else {
+      const mail = clean(out.roll.rows[0].MailingAdd);
+      const local = GARLAND_ZIPS.some(z => mail.includes(z)) || /HOT SPRINGS/.test(mail.toUpperCase());
+      m.innerHTML = `${esc(title(mail))||'—'} ${mail?(local?'<span class="chip o">in Garland County</span>':'<span class="chip d">absentee</span>'):''}<span class="tag fact">City roll copy</span>`;
+    }
+  }
+  const z = $('zoning');
+  if(z){
+    if(!out.zoning.ok) z.innerHTML = `City zoning layer did not answer<span class="tag unk">unknown</span>`;
+    else if(!out.zoning.rows.length) z.innerHTML = `outside the City's zoning layer (county jurisdiction)<span class="tag fact">City GIS</span>`;
+    else { const r = out.zoning.rows[0]; z.innerHTML = `${esc(r.Zoning_Code)} · ${esc(r.Zoning_Description)}${r.Ordinance?' · ord. '+esc(r.Ordinance):''}<span class="tag fact">City GIS</span>`; }
+  }
+  const el = $('city'); if(!el) return out;
+  const parts = [];
+  const lienRows = out.liens.ok ? out.liens.rows : [];
+  const lienTotal = lienRows.reduce((s,r)=>s+(+r.Amount||0),0);
+  const lb = $('lienbox'); if(lb) lb.querySelector('b').textContent = out.liens.ok ? (lienRows.length ? fmt$(lienTotal) : 'none') : '?';
+  // vacant
+  if(!out.vacant.ok) parts.push(`<div class="warn">Vacant-structure register did not answer (${esc(out.vacant.err)}).</div>`);
+  else if(out.vacant.rows.length){ const v = out.vacant.rows[0]; parts.push(`<p><span class="chip d">ON the vacant-structure register</span> as ${esc(v.Street_Number)} ${esc(v.Street_Name)} (RPID ${esc(v.RPID)}), added ${dt(v.created_date)||'?'}. Ask Planning &amp; Development whether a condemnation or demolition order is pending.</p>`); }
+  else parts.push(`<p><span class="chip o">not on the vacant-structure register</span></p>`);
+  // liens
+  if(!out.liens.ok) parts.push(`<div class="warn">Lien layer did not answer (${esc(out.liens.err)}).</div>`);
+  else if(lienRows.length){
+    parts.push(`<p><span class="chip d">${lienRows.length} City lien${lienRows.length>1?'s':''} · ${fmt$(lienTotal)}</span> The City spent this mowing, clearing, securing or demolishing here and put it on the parcel. It must be paid or negotiated at closing. Confirm the current balance with the City; interest may have accrued.</p><div class="rows">${lienRows.sort((x,y)=>(y.Date_of_Lien||0)-(x.Date_of_Lien||0)).map(r=>`<div><span class="num">${dt(r.Date_of_Lien)||'?'}</span><span>${esc(LIEN_TYPES[r.Type_of_Lien]||r.Type_of_Lien||'lien')}${r.Vacant==='YES'?' · marked vacant':''}${r.Comments?' · '+esc(clean(r.Comments)):''}</span><span class="num">${fmt$(r.Amount)}</span></div>`).join('')}</div>`);
+  } else parts.push(`<p><span class="chip o">no City lien on this parcel</span></p>`);
+  // cases
+  if(!out.cases.ok) parts.push(`<div class="warn">Code-case layer did not answer (${esc(out.cases.err)}).</div>`);
+  else if(out.cases.rows.length){ parts.push(`<p><span class="chip ${out.cases.rows.some(r=>!r.Closed)?'d':'r'}">${out.cases.rows.length} code-enforcement case${out.cases.rows.length>1?'s':''} in 2025</span> matched by address only, so confirm the case is this parcel.</p><div class="rows">${out.cases.rows.map(r=>`<div><span class="num">${esc(r.Filed||'?')}</span><span>${esc(r.Enforcement)} · ${esc(r.Address)}</span><span>${esc(r.Status||'')}${r.Closed?' · closed '+esc(r.Closed):' · <b>open</b>'}</span></div>`).join('')}</div>`); }
+  else if(num && street) parts.push(`<p><span class="chip o">no 2025 code case at this address</span></p>`);
+  else parts.push(`<p><span class="tag unk">code cases not checked</span> the roll has no house number to match on.</p>`);
+  // city owned
+  if(out.owned.ok && out.owned.rows.length){ const o = out.owned.rows[0]; parts.push(`<p><span class="chip r">City-owned property</span> ${esc(o.DEPARTMENT||'')} ${o.LEASED?'· leased':''} ${o.VACANT==='y'?'· vacant':''}. Not a private-market purchase; ask the City.</p>`); }
+  el.innerHTML = parts.join('');
+  return out;
+}
+
+/* shareable links: ?county=05051&q=267+Glade */
+const params = new URLSearchParams(location.search);
+if(params.get('county') && COUNTIES[params.get('county')]) $('county').value = params.get('county');
+if(params.get('q')){ $('q').value = params.get('q'); search(params.get('q')); }
+else { try { const last = localStorage.getItem('ph-q'); if(last){ $('q').value = last; } } catch(e){} }
+$('f').addEventListener('submit', () => { const u = new URL(location.href); u.searchParams.set('county', $('county').value); u.searchParams.set('q', $('q').value); history.replaceState(null, '', u); });
+</script>
+
+<script>
+/* ---------- visuals: aerials from the State's own imagery, no key needed ---------- */
+const IMG = 'https://gis.arkansas.gov/arcgis/rest/services/ImageServices';
+function aerialUrl(r, c, service, size){
+  if(!c) return null;
+  const ring = r.geom && r.geom.rings && r.geom.rings[0];
+  let w=c[1]-0.0004, e=c[1]+0.0004, s=c[0]-0.0003, n=c[0]+0.0003;
+  if(ring){ const xs=ring.map(p=>p[0]), ys=ring.map(p=>p[1]); w=Math.min(...xs); e=Math.max(...xs); s=Math.min(...ys); n=Math.max(...ys); }
+  const cx=(w+e)/2, cy=(s+n)/2, half=Math.max((e-w)*0.9,(n-s)*1.1,0.0004);
+  const bbox=[cx-half,cy-half,cx+half,cy+half].map(v=>v.toFixed(6)).join(',');
+  return `${IMG}/${service}/ImageServer/exportImage?bbox=${bbox}&bboxSR=4326&imageSR=3857&size=${size},${size}&format=jpg&f=image`;
+}
+function visuals(r, a, c){
+  const el = $('pics'); if(!el) return;
+  const a23 = aerialUrl(r, c, 'IMAGERY_9IN_2023', 640), a17 = aerialUrl(r, c, 'IMAGERY_1FT_2017', 640);
+  const sv = c ? `https://www.google.com/maps?q=&layer=c&cbll=${c[0]},${c[1]}` : null;
+  el.innerHTML = (a23?`<figure><img src="${a23}" alt="2023 aerial"><figcaption>2023 nine-inch aerial, parcel centred</figcaption></figure>`:'') +
+    (a17?`<figure><img src="${a17}" alt="2017 aerial"><figcaption>2017 one-foot aerial: compare for changes</figcaption></figure>`:'') +
+    (sv?`<figcaption style="grid-column:1/-1;font-size:12px"><a href="${sv}" target="_blank" rel="noopener">Open Street View at the parcel centre</a> · aerials are the State's, flown on the dates shown; the building may have changed since.</figcaption>`:'');
+}
+/* ---------- taxes: the State Lands inventory baked daily into data/state_lands.json ---------- */
+let SL = null;
+async function loadSL(){ if(SL) return SL; try { SL = await (await fetch('data/state_lands.json')).json(); } catch(e){ SL = {error: e.message, listings: []}; } return SL; }
+async function taxStatus(a, c){
+  const el = $('taxbox'); if(!el) return;
+  const d = await loadSL();
+  if(d.error){ el.innerHTML = `Could not read the State Lands inventory (${esc(d.error)}). <a href="https://www.cosl.org/Home/SearchByParcel" target="_blank" rel="noopener">Search COSL by parcel</a> yourself.`; return; }
+  const key = String(a.camakey||'').split('.')[0];
+  const hit = d.listings.find(x => x.fips===a.countyfips && (x.parcel_id===a.parcelid || x.rpid===key || x.rpid===a.parcelid));
+  const asOf = (d.built_at||'').slice(0,10);
+  if(hit){
+    el.className = 'taxbox cert';
+    el.innerHTML = `<b class="big">${fmt$(hit.starting_bid)} owed</b> · <b>certified to the State for unpaid taxes and FOR SALE</b>${hit.delinquent_year?` · unpaid since ${esc(hit.delinquent_year)}`:''}${hit.current_bid>0?` · current bid ${fmt$(hit.current_bid)} (${hit.bids} bids)`:''}.<br>Owner-direct is mostly off the table: the owner can redeem until it sells, otherwise it goes to whoever buys it on the State's site. <a href="${esc(hit.listing_url)}" target="_blank" rel="noopener">State Lands listing</a> · <a href="state-lands.html?county=${esc(hit.county)}&q=${esc(hit.rpid)}">in the inventory</a> · inventory as of ${asOf}<span class="tag fact">COSL</span>`;
+  } else {
+    el.innerHTML = `<b>Not in the State Lands inventory</b> as of ${asOf}, so not certified for sale for unpaid taxes (that takes roughly two years behind). Whether the <b>current</b> year is paid is only on the county Collector's login-only site: <a href="https://www.arkansastaxsearch.com/" target="_blank" rel="noopener">arkansastaxsearch.com</a>, or call the Collector with parcel <span class="num">${esc(a.parcelid)}</span>.<span class="tag obs">checked against the daily inventory</span>`;
+  }
+}
+
+/* ---------- Before you buy: confirmations, routes, offer prep. Nothing here sends anything. ---------- */
+function loadConf(pid){ try { return JSON.parse(localStorage.getItem('ph-confirm-'+pid)||'{}'); } catch(e){ return {}; } }
+function saveConf(pid, v){ try { localStorage.setItem('ph-confirm-'+pid, JSON.stringify(v)); } catch(e){} }
+function ageYears(ms){ return ms ? (Date.now()-ms)/31557600000 : null; }
+
+function renderAcq(r, a, c, cityOut, county){
+  const el = document.querySelector('#acq .acq'); if(!el) return;
+  const pid = a.parcelid || 'unknown';
+  const conf = loadConf(pid);
+  const isGarland = a.countyfips === '05051';
+  const rollAddr = clean(a.adrlabel).toUpperCase();
+  const rollNum = a.adrnum ? String(a.adrnum) : '';
+  const rollStreet = clean(a.pstrnam).toUpperCase();
+  const vac = cityOut && cityOut.vacant && cityOut.vacant.ok ? cityOut.vacant.rows : [];
+  const liens = cityOut && cityOut.liens && cityOut.liens.ok ? cityOut.liens.rows : [];
+  const roll = cityOut && cityOut.roll && cityOut.roll.ok ? cityOut.roll.rows : [];
+  const lienTotal = liens.reduce((s,x)=>s+(+x.Amount||0),0);
+  const mailing = roll.length ? clean(roll[0].MailingAdd) : '';
+
+  /* --- automatic cross-checks --- */
+  const auto = [];
+  // 1. Do the City register entries name THIS parcel's address?
+  const regNames = [...vac.map(v=>`${v.Street_Number||''} ${v.Street_Name||''}`), ...liens.map(l=>l.Address||'')].map(x=>clean(x).toUpperCase()).filter(Boolean);
+  if(regNames.length){
+    const agree = regNames.every(n => { const m = n.match(/^(\d+)\s+(\S+)/); if(!m) return false; return (!rollNum || m[1]===rollNum) && rollStreet.startsWith(m[2].replace(/[^A-Z]/g,'').slice(0,4)); });
+    auto.push(agree
+      ? {k:'identity', cls:'ok', t:'The City register entries name this parcel\'s own address.', why:`Register: ${regNames.join('; ')} · roll: ${rollAddr||'no situs number'}`}
+      : {k:'identity', cls:'warn', t:'A City entry sits on this parcel but names a different address - it may belong to the neighbouring lot.', why:`Register says ${regNames.join('; ')}; the county roll says ${rollAddr||'no situs address'}. City polygons are drawn by hand; confirm with Planning & Development before you rely on it.`});
+  } else if(isGarland) auto.push({k:'identity', cls:'ok', t:'No City register entry to reconcile; identity rests on the county parcel id alone.', why:`Parcel ${a.parcelid}`});
+  // 2. Owner agreement between State roll and City copy
+  if(roll.length){
+    const so = clean(a.ownername).toUpperCase(), co = clean(roll[0].OwnerName).toUpperCase();
+    const same = so && co && (so===co || so.startsWith(co.slice(0,12)) || co.startsWith(so.slice(0,12)));
+    auto.push(same ? {k:'owner', cls:'ok', t:'State roll and the City\'s copy agree on the owner.', why:`${title(a.ownername)} · City copy dated ${dt(roll[0].SourceDate)||'?'}`}
+                   : {k:'owner', cls:'warn', t:'The owner changed since the City copied the roll - use the State\'s (newer) name and re-check the mailing address.', why:`State: ${title(a.ownername)} · City copy: ${title(roll[0].OwnerName)} (${dt(roll[0].SourceDate)||'?'})`});
+  }
+  // 3. Deed age / stale record
+  const dy = ageYears(a.sourcedate);
+  if(dy!=null) auto.push(dy>15 ? {k:'deed', cls:'warn', t:`Last recorded deed is ${Math.round(dy)} years old - heirs, estates and unrecorded transfers are common on records this old.`, why:'Pull the deed at the Circuit Clerk and ask who actually has authority to sell.'}
+                                : {k:'deed', cls:'ok', t:`Last deed recorded ${dt(a.sourcedate)} (${Math.round(dy)} yr ago).`, why:`Book/page ${clean(a.sourceref)||'?'}`});
+  // 4. Values sanity
+  if(a.totalvalue && a.assessvalue){ const ratio = a.assessvalue/a.totalvalue; auto.push(ratio>0.21||ratio<0.05 ? {k:'values', cls:'warn', t:'Assessed-to-appraised ratio is unusual; the roll may be mid-update.', why:`${fmt$(a.assessvalue)} / ${fmt$(a.totalvalue)} = ${(ratio*100).toFixed(0)}%`} : {k:'values', cls:'ok', t:'Values look internally consistent.', why:`assessed ${(ratio*100).toFixed(0)}% of appraised, Arkansas standard is 20%`}); }
+  if(a.impvalue===0 && vac.length) auto.push({k:'demo', cls:'warn', t:'The roll carries $0 improvements but the City lists a vacant structure - the building may have been demolished, or the roll not yet caught up.', why:'Drive by. If it is gone, you are pricing a lot, not a house.'});
+  if(a.totalvalue && lienTotal>0.5*a.totalvalue) auto.push({k:'lienheavy', cls:'warn', t:`City liens (${fmt$(lienTotal)}) are more than half the appraised value (${fmt$(a.totalvalue)}).`, why:'The lien has to be paid or negotiated with the City; the owner may have no equity to deal with.'});
+
+  /* --- manual confirmations (the ones no feed can do) --- */
+  const taxsearch = `https://www.arkansastaxsearch.com/${(county||'').toLowerCase().replace(/[^a-z]/g,'')}.html`;
+  const manual = [
+    {k:'taxes', t:'Taxes: are they current, how many years delinquent, and the payoff amount', why:`<a href="${taxsearch}" target="_blank" rel="noopener">${esc(county)} County tax search</a> (login) or call the Collector. Delinquent ≠ for sale, and paying them does not make you the owner.`},
+    {k:'cosl', t:'State Lands: has the parcel been certified to the State, and is a sale scheduled', why:'<a href="https://www.cosl.org/" target="_blank" rel="noopener">cosl.org</a> parcel search. If it is certified, the owner-direct route changes: the owner can still redeem before the sale.'},
+    {k:'title', t:'Title: liens, judgements, mortgages, easements, and who has authority to sell', why:'Circuit Clerk deed records, then a title company for a commitment. Do not close without title insurance.'},
+    {k:'condition', t:'Condition: you or someone you trust has stood in front of it', why:'Aerials are old. Check the roof, foundation, utilities, access, and whether anyone is living there.'},
+    {k:'use', t:'Use: the zoning and any City order allow what you want to do', why: isGarland ? 'Planning & Development can tell you about pending condemnation, demolition orders and what the zone allows.' : 'The county judge\'s office or the city, if inside one, for permits and any orders.'},
+    {k:'money', t:'Money: purchase price + liens + back taxes + closing + rehab is cash you actually have, or a lender has said yes in writing', why:'Nothing below is a loan approval.'},
+  ];
+  const requiredForLetter = ['taxes','title','condition','money'];
+
+  /* --- routes to buy THIS parcel --- */
+  const routes = [];
+  routes.push({fit: mailing ? 'most direct' : 'direct, mailing address not held', h:'Buy it from the owner', body:
+    `The owner of record is <b>${esc(title(a.ownername))||'blank on the roll'}</b>${mailing?`, and the tax bill goes to <b>${esc(title(mailing))}</b>`:''}. A written offer, then a purchase agreement, then a title company closes it. Liens and back taxes are paid out of the proceeds or by agreement. The letter below is a draft for you to mail; this site never contacts anyone.`});
+  if(vac.length || liens.length) routes.push({fit:'City is already involved', h:'Talk to the City first', body:
+    `${vac.length?'It is on the vacant-structure register. ':''}${liens.length?`The City holds ${fmt$(lienTotal)} in liens. `:''}Ask Planning &amp; Development what is pending (condemnation, demolition, further liens) and whether they will settle the lien for a buyer who fixes the problem. Their answer changes what the property is worth to you.`});
+  routes.push({fit:'only if certified', dim:true, h:'Buy it at a State Lands tax sale', body:
+    `If the county has certified the parcel to the Commissioner of State Lands for unpaid taxes, it may come up at a public auction or a post-auction sale. You bid; you cannot arrange it privately. Confirm certification at cosl.org first; most parcels are not certified. Ask COSL or an attorney about the redemption and challenge periods before you spend anything.`});
+  if(cityOut && cityOut.owned && cityOut.owned.ok && cityOut.owned.rows.length) routes.push({fit:'public property', h:'It is City-owned', body:'A private offer does not apply. Surplus City property is sold by the City on its own process; ask the City Clerk.'});
+  routes.push({fit:'not checked here', dim:true, h:'Is it listed for sale?', body:'This tool has no listing feed. Search the address on a listing site; if it is listed, an agent is the path and the asking price replaces every estimate on this page.'});
+
+  /* --- render --- */
+  const checkRow = (x, manualItem) => {
+    if(manualItem){ const on = !!conf[x.k]; return `<div class="check ${on?'done':'todo'}"><span class="st">${on?'✓':'!'}</span><label><input type="checkbox" data-k="${x.k}" ${on?'checked':''}><span>${esc(x.t)}<span class="why">${x.why}</span></span></label></div>`; }
+    return `<div class="check ${x.cls}"><span class="st">${x.cls==='ok'?'✓':'!'}</span><span>${esc(x.t)}<span class="why">${esc(x.why)}</span></span></div>`;
+  };
+  el.innerHTML = `
+    <div><span class="eyebrow">Checked automatically</span>${auto.map(x=>checkRow(x)).join('')||'<div class="check"><span class="st">·</span><span>No cross-checks possible for this county beyond the parcel record itself.</span></div>'}</div>
+    <div><span class="eyebrow">You confirm - tick when done (remembered on this device)</span>${manual.map(x=>checkRow(x,true)).join('')}</div>
+    <div><span class="eyebrow">How you could buy this one</span><div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">${routes.map(x=>`<div class="route ${x.dim?'dim':''}"><span class="fit">${esc(x.fit)}</span><h4>${x.h}</h4><p>${x.body}</p></div>`).join('')}</div></div>
+    <div><span class="eyebrow">Offer prep - your numbers, nothing is sent</span>
+      <div class="offer" style="margin-top:6px">
+        <label>What you would offer ($)<input type="number" id="o-price" min="0" step="500" value="${conf.price??''}" placeholder="e.g. ${a.totalvalue?Math.round(a.totalvalue*0.6/500)*500:20000}"></label>
+        <label>Rehab / cleanup budget ($)<input type="number" id="o-rehab" min="0" step="500" value="${conf.rehab??''}" placeholder="0"></label>
+        <label>Back taxes you found ($)<input type="number" id="o-taxes" min="0" step="100" value="${conf.taxes_amt??''}" placeholder="from the tax search"></label>
+        <label>Your plan<select id="o-plan"><option ${conf.plan==='hold'?'selected':''} value="hold">Hold / rent</option><option ${conf.plan==='flip'?'selected':''} value="flip">Fix and resell</option><option ${conf.plan==='land'?'selected':''} value="land">Land use (storage, workshop, stand)</option><option ${conf.plan==='home'?'selected':''} value="home">Live in it</option></select></label>
+        <label class="full">Your name, as it should appear on the letter<input type="text" id="o-name" value="${esc(conf.name||'')}" placeholder="First Last"></label>
+        <label class="full">How the owner can reach you (phone or email)<input type="text" id="o-contact" value="${esc(conf.contact||'')}" placeholder="501-555-0100"></label>
+      </div>
+      <div id="o-sum"></div>
+      <div class="btnrow" style="margin-top:10px"><button class="btn" type="button" id="o-letter">Draft the owner letter</button><button class="btn ghost" type="button" onclick="window.print()">Print this record</button></div>
+      <div id="o-out" style="margin-top:10px"></div>
+    </div>`;
+
+  const sumEl = $('o-sum');
+  function readForm(){ return {price:+$('o-price').value||0, rehab:+$('o-rehab').value||0, taxes_amt:+$('o-taxes').value||0, plan:$('o-plan').value, name:$('o-name').value, contact:$('o-contact').value}; }
+  function summarise(){
+    const f = readForm(); Object.assign(conf, f); saveConf(pid, conf);
+    const cash = f.price + f.rehab + f.taxes_amt + lienTotal;
+    const lines = [
+      ['Your offer', fmt$(f.price)],
+      ['City liens on record (paid at closing or negotiated)', fmt$(lienTotal)],
+      ['Back taxes you found', fmt$(f.taxes_amt)],
+      ['Rehab / cleanup', fmt$(f.rehab)],
+      ['Closing costs, title insurance, survey', 'ask the title company'],
+      ['Cash in before you own it, excluding closing', fmt$(cash)],
+      ['County appraised value, for scale', fmt$(a.totalvalue)],
+    ];
+    let verdict = '';
+    if(f.price && a.totalvalue){
+      const pct = f.price/a.totalvalue;
+      verdict = pct>1.1 ? 'Your offer is above the county\'s appraisal. That can be right for a listed or improved property; for a distressed one it usually means the number came from hope.' :
+                pct<0.4 ? 'Your offer is well under the appraisal. Expect the owner to say no unless the liens, taxes or condition explain it - put those facts in the letter.' :
+                'Your offer sits in the range where distressed sales actually happen. The liens and taxes above are what make it fair or not.';
+      if(f.plan==='flip' && cash>0.7*a.totalvalue) verdict += ' For a resale, all-in cash above 70% of value leaves little room unless you know the resale number, and the appraisal is not that number.';
+    }
+    sumEl.innerHTML = lines.map(([k,v])=>`<div class="sumline"><span>${k}</span><b>${v}</b></div>`).join('') + (verdict?`<p style="font-size:12.5px;margin:8px 0 0">${verdict}</p>`:'');
+  }
+  ['o-price','o-rehab','o-taxes','o-plan','o-name','o-contact'].forEach(id=>$(id).addEventListener('input', summarise));
+  summarise();
+  el.querySelectorAll('input[type=checkbox][data-k]').forEach(cb => cb.addEventListener('change', () => { conf[cb.dataset.k] = cb.checked; saveConf(pid, conf); const row = cb.closest('.check'); row.className = 'check ' + (cb.checked?'done':'todo'); row.querySelector('.st').textContent = cb.checked?'✓':'!'; }));
+
+  $('o-letter').onclick = () => {
+    const f = readForm(); const out = $('o-out');
+    const missing = requiredForLetter.filter(k=>!conf[k]);
+    const warns = auto.filter(x=>x.cls==='warn');
+    if(missing.length || !f.name || !f.contact){
+      out.innerHTML = `<div class="gate">Not yet. ${missing.length?`Tick these first: ${missing.map(k=>manual.find(m=>m.k===k).t.split(':')[0]).join(', ')}. `:''}${!f.name||!f.contact?'Add your name and a way to reach you. ':''}A letter that goes out before the taxes and title are checked is how people buy problems.</div>`; return;
+    }
+    const warnNote = warns.length ? `\n\n(Before mailing, resolve the flagged checks: ${warns.map(w=>w.t).join(' ')})` : '';
+    const rawWho = title(a.ownername) || 'Property Owner';
+    const who = rawWho.includes(',') ? rawWho.split(',').slice(1).join(' ').trim() + ' ' + rawWho.split(',')[0].trim() : rawWho;
+    const addrLine = mailing ? title(mailing) : '[mailing address not held - get it from the Assessor before sending]';
+    const parcelAddr = addrOf(a);
+    const letter = `${f.name}
+${f.contact}
+${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}
+
+${who}
+${addrLine}
+
+Re: ${parcelAddr}, ${county} County parcel ${a.parcelid}
+
+Dear ${who},
+
+My name is ${f.name}, and I am writing about the property you own at ${parcelAddr}. I am not an agent and I am not representing anyone else; I would like to buy it myself.
+
+I know from the public record that${liens.length?` the City has recorded ${fmt$(lienTotal)} in liens against it, and`:''}${vac.length?' it is on the City\'s vacant-structure list, and':''} it may be more of a burden than a benefit to you right now. I would be willing to take it as it stands, handle the paperwork through a local title company, and pay the closing costs.
+
+I can offer ${fmt$(f.price)}, paid at closing. If that number does not work for you, I would still like to hear from you; I would rather have a short conversation than guess.
+
+You can reach me at ${f.contact}. If I do not hear back, I will not keep writing.
+
+Thank you for your time,
+
+${f.name}${warnNote}
+
+---
+Draft prepared with Property Hunter from public records on ${new Date().toISOString().slice(0,10)}. Not a contract. Nothing has been sent; you mail it.`;
+    out.innerHTML = `<div class="letter" id="letter-text">${esc(letter)}</div><div class="btnrow" style="margin-top:8px"><button class="btn ghost" type="button" id="copy-letter">Copy the letter</button><span style="font-size:12px;color:var(--muted);align-self:center">Read it as the owner would. A stranger's letter about their property lands differently than you think.</span></div>`;
+    $('copy-letter').onclick = () => navigator.clipboard.writeText(letter).then(()=>{ $('copy-letter').textContent='Copied'; setTimeout(()=>$('copy-letter').textContent='Copy the letter',1500); });
+  };
+}
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

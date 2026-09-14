@@ -52,12 +52,13 @@ textarea{width:100%;font:inherit;font-size:12px;color:var(--ink);background:var(
 <body>
 <header class="top">
   <h1><small>Saved on this device · checked live when you ask</small>Watchlist</h1>
-  <nav><a href="index.html">Parcel lookup</a><a href="state-lands.html">Tax-delinquent for sale</a><a href="campaign.html">Letter campaign</a></nav>
+  <nav data-nav></nav>
 </header>
 <main>
   <div class="bar">
     <button class="btn" id="check" type="button">Check all now</button>
-    <button class="btn ghost" id="copy" type="button">Copy parcel ids for the app</button>
+    <button class="btn ghost" id="toapp" type="button">Send to my app</button>
+    <button class="btn ghost" id="copy" type="button">Copy parcel ids</button>
     <button class="btn ghost" id="export" type="button">Copy as CSV</button>
     <span id="status"></span>
   </div>
@@ -103,14 +104,14 @@ const FIELDS = [['owner','Owner of record', v=>title(v)], ['appraised','County a
 function diff(a, b){ if(!a||!b||a.missing||b.missing) return []; return FIELDS.filter(([k])=>String(a[k]??'')!==String(b[k]??'')).map(([k,label,f])=>`${label}: ${f(a[k])} → ${f(b[k])}`); }
 
 function render(){
-  if(!LIST.length){ $('list').innerHTML = `<div class="empty">Nothing watched yet. Open a parcel in the <a href="index.html">lookup</a> or the <a href="state-lands.html">tax-sale inventory</a> and press <b>Watch</b>, or paste parcel ids below.</div>`; return; }
+  if(!LIST.length){ $('list').innerHTML = `<div class="empty">Nothing watched yet. Open a parcel in the <a href="lookup.html">lookup</a> or the <a href="state-lands.html">tax-sale inventory</a> and press <b>Watch</b>, or paste parcel ids below.</div>`; return; }
   $('list').innerHTML = LIST.map((w,i) => { const s = w.snap||{}; const ch = w.changes||[]; return `<div class="card">
     <div><h3>${esc(w.label||s.address||w.parcel_id)}</h3><div class="sub">${esc(title(s.city||''))} · parcel <span class="num">${esc(w.parcel_id)}</span> · county ${esc(w.fips)} · added ${esc((w.added||'').slice(0,10))}${s.at?` · checked ${esc(s.at.slice(0,16).replace('T',' '))}`:' · never checked'}</div></div>
     <button class="x" data-i="${i}">Remove</button>
     ${ch.length?`<div class="chg"><b>Changed since last check:</b> ${ch.map(esc).join(' · ')}</div>`:(s.at?`<div class="ok">No change since the previous check.</div>`:'')}
     ${s.missing?`<div class="chg"><b>Parcel not found on the State roll</b> — the id may have been retired (split or merged).</div>`:''}
     <div class="facts">${FIELDS.map(([k,l,f])=>`<div><span>${l}</span>${esc(f(s[k]))}</div>`).join('')}</div>
-    <div class="ok"><a href="index.html?county=${esc(w.fips)}&q=${encodeURIComponent(w.parcel_id)}">Open in the lookup</a></div>
+    <div class="ok"><a href="lookup.html?county=${esc(w.fips)}&q=${encodeURIComponent(w.parcel_id)}">Open in the lookup</a></div>
   </div>`; }).join('');
   document.querySelectorAll('.card .x').forEach(b => b.addEventListener('click', () => { LIST.splice(+b.dataset.i,1); store.set(LIST); render(); }));
 }
@@ -125,6 +126,14 @@ async function checkAll(){
   $('status').textContent = `checked ${LIST.length} · ${changed} changed`; $('check').disabled = false;
 }
 $('check').addEventListener('click', checkAll);
+$('toapp').addEventListener('click', async () => {
+  const ids = LIST.map(w=>`${w.fips}:${w.parcel_id}`);
+  try {
+    const r = await fetch('http://127.0.0.1:8234/api/watch/import', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ids})});
+    const j = await r.json();
+    $('status').textContent = `app: added ${j.added.length}, already watched ${j.already.length}${j.unknown.length?`, not in the app yet ${j.unknown.length}`:''}`;
+  } catch(e) { $('status').textContent = 'The app is not running on this Mac (or you are away from it). Open "OPEN PROPERTY HUNTER.command" on the Desktop, then try again - or use Copy parcel ids.'; }
+});
 $('copy').addEventListener('click', () => navigator.clipboard.writeText(LIST.map(w=>`${w.fips}:${w.parcel_id}`).join('\n')).then(()=>{ $('status').textContent = 'copied - paste into the app: python3 -m hunter.cli watch --import'; }));
 $('export').addEventListener('click', () => { const head=['fips','parcel','label','owner','appraised','liens','vacant','cosl','bid','checked','changes']; const lines=[head.join(',')].concat(LIST.map(w=>{const s=w.snap||{}; return [w.fips,w.parcel_id,w.label||'',s.owner||'',s.appraised??'',s.liens??'',s.vacant??'',s.cosl||'',s.bid??'',s.at||'',(w.changes||[]).join('; ')].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');})); navigator.clipboard.writeText(lines.join('\n')).then(()=>{ $('status').textContent='copied CSV'; }); });
 $('add').addEventListener('click', () => { const lines = $('bulk').value.split(/\n/).map(x=>x.trim()).filter(Boolean); let added=0; for(const l of lines){ let fips='05051', pid=l; const m=l.match(/^(\d{5}):(.+)$/); if(m){fips=m[1];pid=m[2].trim();} if(!LIST.some(w=>w.fips===fips&&w.parcel_id===pid)){ LIST.push({fips, parcel_id:pid, added:new Date().toISOString()}); added++; } } store.set(LIST); $('bulk').value=''; render(); $('status').textContent=`added ${added}`; });
@@ -134,5 +143,6 @@ if(p.get('add')){ const [fips,pid] = p.get('add').includes(':') ? p.get('add').s
 render();
 if(LIST.length && LIST.some(w=>!w.snap)) checkAll();
 </script>
+<script src="nav.js"></script>
 </body>
 </html>

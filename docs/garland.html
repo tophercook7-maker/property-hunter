@@ -165,7 +165,7 @@ td.own div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:2
 
 <div class="strip"><div class="strip-in">
   <p><b>What this is.</b> Every property Property Hunter has found from public records (Garland County, and Saline County as it comes in): the Arkansas GIS tax roll (owner, assessed values, parcel), the City of Hot Springs vacant-structure register, cleanup/demolition liens, 2025 code cases, zoning and FEMA flood maps.</p>
-  <p><b>What it is not.</b> There are no asking prices here; none of these are listed for sale. Delinquent taxes have <b>not been checked</b> (the county's tax site is login-only). The value shown is the county's <b>appraised</b> total (the assessor's opinion of full value, often behind the market); tax is charged on 20% of it. Scores are a ranking aid, not a valuation. Nothing here is an offer, and paying someone's taxes never makes you the owner. <b>Known limit:</b> City register entries were matched to parcels by a point lookup, and an audit on 2026-09-13 found about 80 of them sitting on the neighbouring lot. Before acting on any one, confirm the parcel in the <a href="index.html">live lookup</a>, which reads the parcel itself.</p>
+  <p><b>What it is not.</b> There are no asking prices here; none of these are listed for sale. Delinquent taxes have <b>not been checked</b> (the county's tax site is login-only). The value shown is the county's <b>appraised</b> total (the assessor's opinion of full value, often behind the market); tax is charged on 20% of it. Scores are a ranking aid, not a valuation. Nothing here is an offer, and paying someone's taxes never makes you the owner. <b>Known limit:</b> City register entries were matched to parcels by a point lookup, and an audit on 2026-09-13 found about 80 of them sitting on the neighbouring lot. Before acting on any one, confirm the parcel in the <a href="lookup.html">live lookup</a>, which reads the parcel itself.</p>
 </div></div>
 
 <div class="tabs" role="tablist">
@@ -404,7 +404,7 @@ function openDrawer(id){
       <div class="sec"><h3>Check it yourself</h3><div class="links">
         <a href="${gm}" target="_blank" rel="noopener">Google Maps</a>
         <a href="https://www.google.com/maps?q=&layer=c&cbll=${r.lat},${r.lon}" target="_blank" rel="noopener">Street View</a>
-        <a href="index.html?county=05051&q=${encodeURIComponent(r.pid||r.a||'')}">Live lookup</a>
+        <a href="lookup.html?county=05051&q=${encodeURIComponent(r.pid||r.a||'')}">Live lookup</a>
         <a href="https://www.arkansastaxsearch.com/garland.html" target="_blank" rel="noopener">Garland tax search (login)</a>
         <a href="https://www.cosl.org/" target="_blank" rel="noopener">State Lands (COSL)</a>
         <a href="https://gis.arkansas.gov/" target="_blank" rel="noopener">AR GIS parcel viewer</a>

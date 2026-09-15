@@ -290,3 +290,15 @@ def test_same_parcel_number_in_two_counties_is_two_properties():
     a, _, _ = store.ingest(make_record(parcel_id="001-03774-000", address="1 Saline Rd", county_fips="05125", lat=34.65, lon=-92.47))
     b, action, _ = store.ingest(make_record(parcel_id="001-03774-000", address="6723 Moore Ln", county_fips="05053", lat=34.32, lon=-92.37))
     assert a != b and action == "created"
+
+
+def test_stale_cross_county_alias_never_matches():
+    """A row re-keyed to another county keeps old address/owner aliases; a record from the
+    original county with the same address and parcel number must NOT be folded into it."""
+    from hunter import store, db, identity
+    from tests.conftest import make_record
+    a, _, _ = store.ingest(make_record(parcel_id="100-01801-000", address="1495 Mcclendon Rd", county_fips="05051", lat=34.6, lon=-93.1, owner_name="HENSON, DONNA"))
+    # simulate the repair: the row now belongs to Calhoun, but its old aliases remain
+    db.ex("UPDATE properties SET county_fips='05013', territory='calhoun_ar', canonical_key='parcel:05013:10001801000' WHERE id=?", (a,))
+    pid, how = identity.resolve({"parcel_id": "100-01801-000", "address": "1495 Mcclendon Rd", "county_fips": "05051", "lat": 34.6, "lon": -93.1, "owner_name": "HENSON, DONNA", "legal": "PT NE SE"})
+    assert pid is None, (pid, how)

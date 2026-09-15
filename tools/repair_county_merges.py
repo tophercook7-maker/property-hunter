@@ -54,7 +54,9 @@ def main() -> int:
                 rekeyed += 1
             db.ex("DELETE FROM changes WHERE property_id=? AND detected_at=?", (pid, m["detected_at"]))
             db.ex("DELETE FROM evidence WHERE property_id=? AND created_at<?", (pid, m["detected_at"]))
-            db.ex("DELETE FROM property_aliases WHERE property_id=? AND alias_type='parcel'", (pid,))
+            # every alias of a re-keyed row may point at the OTHER county's record (address,
+            # owner, legal, coord): drop them all; the next scan re-records the right ones
+            db.ex("DELETE FROM property_aliases WHERE property_id=?", (pid,))
         dropped_changes += n_changes
         dropped_evidence += n_ev
     print(f"{'applied' if apply else 'would apply'}: {len(merges)} merged rows re-keyed, "

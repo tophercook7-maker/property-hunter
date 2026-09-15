@@ -59,10 +59,15 @@ def resolve(fields: dict) -> tuple[int | None, str]:
         id, a different RPID, or a different house number. Adjacent lots share a
         wall, a street and a centroid a few metres apart - the house number is
         what tells 118 Magnolia from 134 Magnolia."""
-        row = db.q1("SELECT parcel_id, rpid, address FROM properties WHERE id=?",
+        row = db.q1("SELECT parcel_id, rpid, address, county_fips FROM properties WHERE id=?",
                     (candidate_id,))
         if not row:
             return False
+        # A row that lives in another county is a different property, whatever else
+        # matches: parcel numbers, addresses and legal descriptions are county-local,
+        # and stale aliases can point across counties after a repair.
+        if county and row["county_fips"] and row["county_fips"] != county:
+            return True
         other_parcel = normalize_parcel(row["parcel_id"])
         if parcel and other_parcel:
             # The parcel id is the property. Several RPIDs (accounts) and

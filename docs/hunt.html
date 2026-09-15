@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Hunt Arkansas</title>
 <meta property="og:title" content="Hunt Arkansas · Property Hunter">
-<meta property="og:description" content="A statewide map of Arkansas property research from public records: counties hunted, State tax-sale parcels, vacant and distressed properties, recent changes, and the unusual ones.">
+<meta property="og:description" content="A statewide map of Arkansas property research from public records: counties hunted, State tax-sale parcels, vacant-register parcels, new signals, and the unusual ones.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://tophercook7-maker.github.io/property-hunter/hunt.html">
 <link rel="canonical" href="https://tophercook7-maker.github.io/property-hunter/hunt.html">
-<meta name="description" content="A statewide map of Arkansas property research from public records: counties hunted, State tax-sale parcels, vacant and distressed properties, recent changes, and the unusual ones.">
+<meta name="description" content="A statewide map of Arkansas property research from public records: counties hunted, State tax-sale parcels, vacant-register parcels, new signals, and the unusual ones.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="ph.css">
@@ -40,22 +40,26 @@
 </style>
 </head>
 <body>
-<header class="ph-top"><h1><small>Statewide · counties hunted, State sales, changes</small>Hunt Arkansas</h1><nav data-nav aria-label="Sections"></nav></header>
+<header class="ph-top"><h1><small>Statewide · counties hunted, State sales, signals</small>Hunt Arkansas</h1><nav data-nav aria-label="Sections"></nav></header>
 <div class="wrap">
   <aside class="rail" aria-label="Filters and results">
     <div><h2 id="railh">Arkansas</h2><div class="n" id="railn">loading…</div></div>
     <div class="filters" id="filters" role="group" aria-label="Show only">
-      <button type="button" data-f="tax" aria-pressed="false">Tax distress</button>
-      <button type="button" data-f="vacant" aria-pressed="false">Vacant</button>
-      <button type="button" data-f="cheaphouse" aria-pressed="false">Cheap houses</button>
-      <button type="button" data-f="cheapland" aria-pressed="false">Cheap land</button>
-      <button type="button" data-f="state" aria-pressed="false">State sale</button>
-      <button type="button" data-f="changed" aria-pressed="false">Recently changed</button>
-      <button type="button" data-f="high" aria-pressed="false">High research priority</button>
+      <button type="button" data-f="state" aria-pressed="false">State tax sale</button>
+      <button type="button" data-f="collector" aria-pressed="false">Collector bill verified</button>
+      <button type="button" data-f="delinquent" aria-pressed="false">Verified delinquency</button>
+      <button type="button" data-f="lien" aria-pressed="false">City lien</button>
+      <button type="button" data-f="vacant" aria-pressed="false">Vacant register</button>
+      <button type="button" data-f="cheaphouse" aria-pressed="false">House appraised under $60k</button>
+      <button type="button" data-f="cheapland" aria-pressed="false">Land appraised under $25k</button>
+      <button type="button" data-f="changed" aria-pressed="false">New signal this week</button>
+      <button type="button" data-f="high" aria-pressed="false">Many signals (score 80+)</button>
       <button type="button" data-f="develop" aria-pressed="false">Potential development</button>
       <button type="button" data-f="new" aria-pressed="false">New this week</button>
       <button type="button" data-f="unusual" aria-pressed="false" style="border-color:var(--warn)">Show me the unusual ones</button>
     </div>
+    <div class="n" id="srcnote" style="font-size:11.5px;line-height:1.45"></div>
+    <div class="n" style="font-size:11px">Appraised value is the assessor's figure, not market value or an asking price. Sale status is unknown for every parcel: no listing source is connected.</div>
     <div class="unusual" id="unusualnote" hidden><b>Unusual, defined</b> Combinations the scanner rarely sees: a building worth under a tenth of its land; a State-sale parcel that still has a building; ten or more acres with a very low value; five or more distress signals on one parcel; a high-priority parcel with no risk flag at all. Real signals only, nothing invented.</div>
     <div class="list" id="list"></div>
   </aside>
@@ -72,12 +76,13 @@ const $ = id => document.getElementById(id); const esc = PH.esc;
 const reduced = PH.reducedMotion();
 const map = L.map('map', {zoomControl:true}).setView([34.9, -92.4], 7);
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, attribution:'Esri'}).addTo(map);
-let COUNTIES = null, HUNT = {}, SL = {listings:[]}, IDX = {counties:{}}, CHG = {rows:[]}, counties_layer, points = L.layerGroup().addTo(map), cache = {}, current = null, filters = new Set();
+let COUNTIES = null, HUNT = {}, SL = {listings:[]}, IDX = {counties:{}}, CHG = {rows:[]}, SIG = {rows:[]}, SIGNAL_IDS = new Set(), counties_layer, points = L.layerGroup().addTo(map), cache = {}, current = null, filters = new Set();
 const css = k => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
 const styleFor = f => { const fips = '05' + String(f.properties.countyfips).padStart(3,'0'); const h = HUNT.counties && HUNT.counties[fips]; const st = h ? h.status : 'waiting'; return {color: css('--ink'), weight: st==='waiting'?1:1.5, opacity: st==='waiting'?.35:.7, dashArray: st==='waiting'?'4 4':null, fillColor: st==='done'?css('--good'):st==='scanning'?css('--warn'):css('--muted'), fillOpacity: st==='done'?.4:st==='scanning'?.55:.06}; };
 async function load(url, fb){ try { const r = await fetch(url, {cache:'no-store'}); if(!r.ok) throw 0; return await r.json(); } catch(e){ return fb; } }
 async function init(){
-  [COUNTIES, HUNT, SL, IDX, CHG] = await Promise.all([load('data/counties.json', null), load('data/hunt_status.json', {counties:{}}), load('data/state_lands.json', {listings:[]}), load('data/scan_index.json', {counties:{}}), load('data/changes.json', {rows:[]})]);
+  [COUNTIES, HUNT, SL, IDX, CHG, SIG] = await Promise.all([load('data/counties.json', null), load('data/hunt_status.json', {counties:{}}), load('data/state_lands.json', {listings:[]}), load('data/scan_index.json', {counties:{}}), load('data/changes.json', {rows:[]}), load('data/signals.json', {rows:[],discovered:[]})]);
+  for(const x of (SIG.rows||[]).concat(SIG.discovered||[])) SIGNAL_IDS.add(x.id);
   if(!COUNTIES){ $('railn').textContent = 'County boundaries not available.'; return; }
   counties_layer = L.geoJSON(COUNTIES, {style: styleFor, onEachFeature: (f, l) => {
     const fips = '05' + String(f.properties.countyfips).padStart(3,'0'); const h = (HUNT.counties||{})[fips] || {status:'waiting', county:f.properties.county};
@@ -92,7 +97,7 @@ async function init(){
 }
 function drawStateList(){
   const cs = Object.entries(HUNT.counties||{}).map(([cf,c])=>({cf,...c})).filter(c=>c.status==='done').sort((a,b)=>(b.strong||0)-(a.strong||0));
-  $('railh').textContent = 'Arkansas'; $('unusualnote').hidden = true;
+  $('railh').textContent = 'Arkansas'; $('unusualnote').hidden = true; $('srcnote').innerHTML = '';
   $('list').innerHTML = cs.length ? cs.map(c=>`<div class="row" data-cf="${c.cf}" tabindex="0" role="button"><b>${esc(c.county)}</b><span class="rp">${c.strong||0}</span><span class="m">${(c.n||0).toLocaleString()} scored · ${c.strong||0} strong · hunted ${esc((c.finished_at||'').slice(0,10))}</span></div>`).join('') : '<div class="empty">No counties hunted yet.</div>';
   $('list').querySelectorAll('.row').forEach(r => { const go = () => { const f = COUNTIES.features.find(x=>'05'+String(x.properties.countyfips).padStart(3,'0')===r.dataset.cf); openCounty(r.dataset.cf, f.properties.county, null); }; r.addEventListener('click', go); r.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); } }); });
 }
@@ -107,12 +112,14 @@ async function openCounty(fips, name, layer){
 function backToState(){ current = null; points.clearLayers(); $('crumbs').innerHTML = `<button type="button" id="toState">Arkansas</button>`; $('toState').addEventListener('click', backToState); reduced ? map.setView([34.9,-92.4],7) : map.flyTo([34.9,-92.4], 7, {duration:.7}); drawStateList(); }
 const isUnusual = r => { const d = r.d||[]; return (r.iv>0 && r.lv>0 && r.iv < r.lv/10) || (String(r.ts||'').startsWith('CERTIFIED') && r.iv>0) || ((r.ac||0)>=10 && (r.tv||0)<15000) || (d.filter(k=>PH.LABEL[k]&&PH.LABEL[k][1]!=='unknown').length>=5) || ((r.s||0)>=85 && !d.some(k=>PH.RISK_KEYS.includes(k))); };
 const TESTS = {
-  tax: r => String(r.ts||'').startsWith('CERTIFIED') || (r.tax && /owed|delinquent/i.test(r.tax)) || r.lien>0,
+  state: r => PH.taxState(r).state === 'TAX_SALE_VERIFIED',
+  collector: r => ['CURRENT_BILL_OPEN','CURRENT_VERIFIED','DELINQUENT_VERIFIED'].includes(PH.taxState(r).state),
+  delinquent: r => PH.taxState(r).state === 'DELINQUENT_VERIFIED',
+  lien: r => (r.lien||0) > 0,
   vacant: r => r.vac || (r.d||[]).includes('vacant_per_lien_record'),
   cheaphouse: r => r.iv>0 && r.tv>0 && r.tv<60000,
   cheapland: r => (r.iv||0)===0 && r.tv>0 && r.tv<25000,
-  state: r => String(r.ts||'').startsWith('CERTIFIED'),
-  changed: r => (r.chg||[]).some(c=>!c.k || c.k==='change'),
+  changed: r => SIGNAL_IDS.has(r.i),
   high: r => (r.s||0)>=80,
   develop: r => (r.ac||0)>=2 && (r.iv||0)===0,
   new: r => r.seen && (Date.now()-new Date(r.seen).getTime()) < 7*86400000,
@@ -126,11 +133,13 @@ function drawCounty(){
   const sl = (SL.listings||[]).filter(x=>x.fips===current.fips && !x.excluded_area);
   v.sort((a,b)=>(b.s||0)-(a.s||0));
   $('railh').textContent = `${current.name} County`; $('unusualnote').hidden = !filters.has('unusual');
+  const src = ((HUNT.counties||{})[current.fips]||{}).sources || {};
+  $('srcnote').innerHTML = `<b>Sources here:</b> parcel roll ✓ · State Lands ${src.state_lands?'✓':'— none listed'} · City vacancy/lien/code ${src.city_registers?'✓':'— unavailable (only Hot Springs publishes registers)'} · Collector ${src.collector==='open'?'✓':src.collector==='unavailable'?'— unavailable (CountyPay down)':'— untested'}. An empty filter means no source, not no such properties.`;
   $('railn').textContent = `${v.length.toLocaleString()} of ${rows.length.toLocaleString()} scored${filters.size?` match ${[...filters].join(', ')}`:''} · ${sl.length} State sale parcels here`;
   points.clearLayers();
-  v.slice(0,1500).forEach(r => { if(!r.lat) return; L.circleMarker([r.lat,r.lon],{radius:4,color:css('--accent'),weight:1,fillOpacity:.75}).bindTooltip(`${r.a||'no address'} · priority ${Math.round(r.s||0)}`).on('click', ()=>openFile(r)).addTo(points); });
+  v.slice(0,1500).forEach(r => { if(!r.lat) return; L.circleMarker([r.lat,r.lon],{radius:4,color:css('--accent'),weight:1,fillOpacity:.75}).bindTooltip(`${r.a||'no address'} · ${PH.signals(r).verified.length} verified signals · score ${Math.round(r.s||0)}`).on('click', ()=>openFile(r)).addTo(points); });
   if(filters.size===0 || filters.has('state')) sl.forEach(x => { if(!x.lat) return; L.circleMarker([x.lat,x.lon],{radius:5,color:css('--bad'),weight:1.5,fillOpacity:.7}).bindTooltip(`State sale · ${PH.money(x.starting_bid)} owed`).on('click', ()=>location.href=`state-lands.html?county=${x.county}&q=${x.rpid}`).addTo(points); });
-  $('list').innerHTML = v.slice(0,40).map(r=>`<div class="row" data-k="${esc(r.pid||r.a)}" tabindex="0" role="button"><b>${esc(r.a||'No situs address')}</b><span class="rp">${Math.round(r.s||0)}</span><span class="m">${PH.money(r.tv)??'no value on roll'}${r.iv>0?' · building':' · lot'}${r.lien>0?' · lien '+PH.money(r.lien):''}${String(r.ts||'').startsWith('CERTIFIED')?' · State sale':''}${isUnusual(r)?' · unusual':''}</span></div>`).join('') || '<div class="empty">Nothing in this county matches those filters.</div>';
+  $('list').innerHTML = v.slice(0,40).map(r=>`<div class="row" data-k="${esc(r.pid||r.a)}" tabindex="0" role="button"><b>${esc(r.a||'No situs address')}</b><span class="rp">${Math.round(r.s||0)}</span><span class="m">${PH.money(r.tv)??'no value on roll'}${r.iv>0?' · building':' · lot'}${r.lien>0?' · lien '+PH.money(r.lien):''}${String(r.ts||'').startsWith('CERTIFIED')?' · State sale':''}${isUnusual(r)?' · unusual':''}</span><span class="m">${esc(PH.taxState(r).word.toLowerCase())} taxes · sale unknown</span></div>`).join('') || '<div class="empty">Nothing in this county matches those filters.</div>';
   $('list').querySelectorAll('.row').forEach(el => { const r = v.find(x=>(x.pid||x.a)===el.dataset.k); const go = () => { if(r.lat){ reduced ? map.setView([r.lat,r.lon],17) : map.flyTo([r.lat,r.lon],17,{duration:.6}); } setTimeout(()=>openFile(r), reduced?0:650); }; el.addEventListener('click', go); el.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); } }); });
 }
 function openFile(r){ location.href = `lookup.html?county=${r.cf||current.fips}&q=${encodeURIComponent(r.pid||r.a||'')}`; }

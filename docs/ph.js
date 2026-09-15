@@ -43,23 +43,13 @@
   };
   PH.RISK_KEYS = ['flood_zone', 'tiny_lot', 'no_address', 'septic_likely', 'overlay_district', 'unknown_owner', 'record_says_building_map_says_none', 'government_owner'];
 
-  // ---------- taxes: three honest states ----------
-  PH.taxLine = r => {
-    const ts = String(r.ts || '');
-    if (r.tax && /owed to the County Collector/i.test(r.tax)) return { text: r.tax.replace(/ \(.*$/, ''), kind: 'fact', tone: 'bad' };
-    if (r.tax && /delinquent at the county/i.test(r.tax)) return { text: r.tax.slice(0, 80), kind: 'fact', tone: 'bad' };
-    if (ts.startsWith('CERTIFIED')) return { text: 'Certified to the State for unpaid taxes, for sale', kind: 'fact', tone: 'bad' };
-    if (r.tax && /no open/i.test(r.tax)) return { text: 'No open bill at the Collector when last checked', kind: 'fact', tone: 'good' };
-    return { text: 'County bill NOT CHECKED yet · not in the State sale list', kind: 'unknown', tone: 'muted' };
-  };
-
-  // ---------- research priority: presentation over the existing score ----------
+  // ---------- score categories (presentation over the existing score; tests only) ----------
   // Categories are derived from the score lines and signals the scanner already produced.
   PH.priority = r => {
     const lines = r.lines || [], d = r.d || [];
     const sum = (re) => lines.filter(l => re.test(l.r || '')).reduce((s, l) => s + Math.max(0, l.p || 0), 0);
     const cats = [
-      ['Tax distress', sum(/tax|State|lien/i) + (d.includes('tax_delinquent') ? 10 : 0) + (r.lien > 0 ? 6 : 0), false],
+      ['Tax status', (PH.taxState(r).distress ? 16 : 0) + (r.lien > 0 ? 6 : 0), false],
       ['Vacancy signal', sum(/vacant|code/i) + (r.vac ? 8 : 0), false],
       ['Property value', sum(/valued|value|appraised|dirt/i), false],
       ['Land potential', Math.round((r.land || 0) / 5), false],
@@ -75,9 +65,12 @@
   PH.whySteps = r => {
     const d = r.d || [], steps = [];
     const st = String(r.ts || '');
-    steps.push(st.startsWith('CERTIFIED') ? { k: 'fact', t: 'State tax delinquency found', s: 'The Commissioner of State Lands lists this parcel for sale for unpaid taxes.' }
-      : r.tax && /owed|delinquent/i.test(r.tax) ? { k: 'fact', t: 'County tax bill open', s: r.tax }
-      : { k: 'unknown', t: 'Tax status not established', s: 'Not in the State sale list; the county bill is ' + (r.tax && /no open/i.test(r.tax) ? 'clear when last checked.' : 'not checked yet.') });
+    const tx = PH.taxState(r);
+    steps.push(tx.state === 'TAX_SALE_VERIFIED' ? { k: 'fact', t: 'State tax sale found', s: 'The Commissioner of State Lands lists this parcel for sale for unpaid taxes.' }
+      : tx.state === 'DELINQUENT_VERIFIED' ? { k: 'fact', t: 'Delinquent at the county (verified)', s: tx.text }
+      : tx.state === 'CURRENT_BILL_OPEN' ? { k: 'fact', t: 'Current-year county bill open (not delinquent)', s: tx.text }
+      : tx.state === 'CURRENT_VERIFIED' ? { k: 'fact', t: 'No open Collector bill when checked', s: tx.text }
+      : { k: 'unknown', t: 'Tax status not established', s: tx.text + tx.note });
     steps.push(r.pid ? { k: 'fact', t: 'Parcel matched', s: `County parcel ${r.pid} on the State roll.` } : { k: 'unknown', t: 'Parcel not matched', s: 'No parcel id could be tied to this record.' });
     steps.push(r.tv ? { k: 'fact', t: 'Value read from the roll', s: `County appraised ${PH.money(r.tv)}${r.iv > 0 ? `, building ${PH.money(r.iv)}` : ', no building value'}. An assessor's figure, not a sale price.` } : { k: 'unknown', t: 'No value on the roll', s: 'The roll carries no appraised value for this parcel.' });
     if (r.vac) steps.push({ k: 'fact', t: 'Vacancy signal found', s: "On the City of Hot Springs vacant-structure register." });
@@ -91,9 +84,120 @@
     steps.push(r.f ? { k: 'fact', t: 'Flood zone checked', s: `FEMA zone ${r.f}${r.f === 'AE' ? ' · special flood hazard area' : ''}.` } : { k: 'unknown', t: 'Flood not checked', s: 'FEMA was not asked for this parcel yet.' });
     const risks = d.filter(k => PH.RISK_KEYS.includes(k));
     steps.push(risks.length ? { k: 'risk', t: `${risks.length} risk flag${risks.length > 1 ? 's' : ''}`, s: risks.map(k => (PH.LABEL[k] || [k])[0]).join(' · ') } : { k: 'derived', t: 'No risk flags raised', s: 'From the records read so far. Title, condition and taxes remain to be checked.' });
-    steps.push({ k: 'derived', t: `Research priority ${Math.round(r.s || 0)}`, s: 'A ranking of what to look at first. Not a valuation, not a recommendation to buy.' });
+    const sg = PH.signals(r);
+    steps.push({ k: 'derived', t: `Signal stack: ${sg.all.length} public-record signal${sg.all.length === 1 ? '' : 's'} (${sg.verified.length} verified, ${sg.derived.length} derived)`, s: `Weighted score ${Math.round(r.s || 0)}. A count of what the records say, not a valuation, not a probability of sale or profit, not advice to buy.` });
+    steps.push({ k: PH.saleStatus(r).kind === 'fact' ? 'fact' : 'unknown', t: 'Sale status: ' + PH.saleStatus(r).state.replace(/_/g, ' '), s: PH.saleStatus(r).text });
     return steps;
   };
+
+  // ---------- TAX STATE: one honest state per parcel, with source and date ----------
+  // Facts only. A missing check is UNKNOWN; a source being down is SOURCE_UNAVAILABLE; a dollar
+  // amount never appears without the state word beside it. The State's sale list and the county
+  // Collector are two different sources and are never merged into one sentence.
+  PH.TAX_STATES = {
+    TAX_SALE_VERIFIED:   { word: 'TAX SALE',           tone: 'bad',     kind: 'fact' },
+    DELINQUENT_VERIFIED: { word: 'DELINQUENT',         tone: 'bad',     kind: 'fact' },
+    CURRENT_BILL_OPEN:   { word: 'CURRENT BILL OPEN',  tone: 'neutral', kind: 'fact' },
+    CURRENT_VERIFIED:    { word: 'CURRENT',            tone: 'good',    kind: 'fact' },
+    STALE:               { word: 'STALE',              tone: 'muted',   kind: 'derived' },
+    SOURCE_UNAVAILABLE:  { word: 'SOURCE UNAVAILABLE', tone: 'muted',   kind: 'unknown' },
+    UNKNOWN:             { word: 'UNKNOWN',            tone: 'muted',   kind: 'unknown' },
+  };
+  PH.taxState = (r, cp) => {
+    const t = (r && r.taxs) || null;
+    const ts = String((r && r.ts) || '');
+    let st = t ? t.st : (ts.startsWith('CERTIFIED') ? 'TAX_SALE_VERIFIED' : 'UNKNOWN');
+    let src = t && t.src, asOf = t && t.as_of, amt = t && t.amt, was = t && t.was, days = t && t.days;
+    if (st === 'UNKNOWN' && cp && cp.open === false) { st = 'SOURCE_UNAVAILABLE'; src = 'County Collector (CountyPay)'; asOf = (cp.down_since || '').slice(0, 10); }
+    const meta = PH.TAX_STATES[st] || PH.TAX_STATES.UNKNOWN;
+    const money = amt != null && !isNaN(amt) ? '$' + Number(amt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;
+    const dated = asOf ? ` [${asOf}]` : '';
+    let text;
+    switch (st) {
+      case 'TAX_SALE_VERIFIED': text = `TAX SALE — State certified${money ? ', ' + money + ' owed' : ''}${dated}`; break;
+      case 'DELINQUENT_VERIFIED': text = `DELINQUENT — ${src || 'county record'} verified${money ? ', ' + money : ''}${dated}`; break;
+      case 'CURRENT_BILL_OPEN': text = `CURRENT BILL OPEN — ${money || 'amount on record'} — not delinquent${dated}`; break;
+      case 'CURRENT_VERIFIED': text = `CURRENT — no open Collector bill${dated}`; break;
+      case 'STALE': text = `STALE — last Collector check ${asOf || 'undated'} said ${(PH.TAX_STATES[was] || {}).word || was || 'unknown'}${days ? ' · ' + days + ' days ago' : ''}`; break;
+      case 'SOURCE_UNAVAILABLE': text = `SOURCE UNAVAILABLE — Collector search down since ${asOf || 'an unknown date'}`; break;
+      default: text = 'UNKNOWN — never checked at the Collector';
+    }
+    const stateNote = (t && t.cosl_check) ? ` · not held by the State Lands as of ${t.cosl_check} (says nothing about the county bill)` : (st !== 'TAX_SALE_VERIFIED' ? ' · not on the State sale list' : '');
+    return { state: st, word: meta.word, text, note: stateNote, kind: meta.kind, tone: meta.tone, source: src || null, asOf: asOf || null, amount: amt ?? null,
+             distress: st === 'TAX_SALE_VERIFIED' || st === 'DELINQUENT_VERIFIED' };
+  };
+  // legacy shape used by older cards: text/kind/tone. CURRENT_BILL_OPEN is neutral, never 'bad'.
+  PH.taxLine = (r, cp) => { const t = PH.taxState(r, cp); return { text: t.text + (t.state === 'UNKNOWN' || t.state === 'SOURCE_UNAVAILABLE' ? t.note : ''), kind: t.kind, tone: t.tone === 'neutral' ? 'muted' : t.tone, state: t.state }; };
+
+  // ---------- SALE STATUS: never inferred from silence ----------
+  PH.saleStatus = r => {
+    const s = (r && r.sale) || {};
+    if (s.st === 'FOR_SALE' && s.src) return { state: 'FOR_SALE', text: `FOR SALE — ${s.src}${s.price ? ', asking ' + PH.money(s.price) : ''}`, source: s.src, kind: 'fact' };
+    if (s.st === 'NOT_FOR_SALE' && s.src) return { state: 'NOT_FOR_SALE', text: `NOT FOR SALE — ${s.src}`, source: s.src, kind: 'fact' };
+    if (String((r && r.ts) || '').startsWith('CERTIFIED')) return { state: 'FOR_SALE_BY_STATE', text: 'FOR SALE BY THE STATE — tax sale (Commissioner of State Lands); not a private listing', source: 'Commissioner of State Lands', kind: 'fact' };
+    return { state: 'UNKNOWN', text: 'UNKNOWN — no listing source connected. Property Hunter is not saying this is for sale or not for sale.', source: null, kind: 'unknown' };
+  };
+  PH.searchListingsUrl = r => { const q = [r && r.a, r && r.c, 'Arkansas'].filter(Boolean).join(' '); return 'https://www.google.com/search?q=' + encodeURIComponent(q + ' listing'); };
+
+  // ---------- SIGNALS: what the records actually say, counted honestly ----------
+  PH.signals = r => {
+    const d = (r && r.d) || [], out = [];
+    const add = (key, text, kind) => { if (!out.some(x => x.key === key)) out.push({ key, text, kind }); };
+    if (String((r && r.ts) || '').startsWith('CERTIFIED')) add('tax_delinquent', PH.LABEL.tax_delinquent[0], 'fact');
+    const tx = PH.taxState(r); if (tx.state === 'DELINQUENT_VERIFIED') add('tax_delinquent_county', 'Delinquent at the county (verified)', 'fact');
+    if (r && r.vac) add('vacant_structure', PH.LABEL.vacant_structure[0], 'fact');
+    if (r && r.lien > 0) add('cleanup_lien', `${PH.money(r.lien)} City cleanup / demolition lien on record`, 'fact');
+    if (r && r.cc) add('code_case_open', PH.LABEL.code_case_open[0], 'fact');
+    if (r && r.ab) add('absentee_owner', PH.LABEL.absentee_owner[0], 'fact');
+    for (const k of d) { if (k === 'tax_delinquent' && tx.state !== 'TAX_SALE_VERIFIED') continue; const L = PH.LABEL[k]; if (L && !PH.RISK_KEYS.includes(k)) add(k, L[0], L[1]); }
+    const verified = out.filter(x => x.kind === 'fact'), derived = out.filter(x => x.kind === 'derived');
+    const strongest = verified[0] || derived[0] || null;
+    return { all: out, verified, derived, risks: d.filter(k => PH.RISK_KEYS.includes(k)).map(k => (PH.LABEL[k] || [k])[0]), strongest };
+  };
+
+  // ---------- NEXT ACTION: one verb, one existing destination ----------
+  PH.nextAction = (r, cp) => {
+    const tx = PH.taxState(r, cp), sg = PH.signals(r);
+    const file = `lookup.html?county=${encodeURIComponent(r.cf || '05051')}&q=${encodeURIComponent(r.pid || r.a || '')}`;
+    if (tx.state === 'TAX_SALE_VERIFIED') return { label: 'Open sale file', href: `state-lands.html?county=${encodeURIComponent(String(r.cn || 'GARLAND').toUpperCase())}&q=${encodeURIComponent(r.pid || r.a || '')}` };
+    if (r.vac) return { label: 'Drive by', href: r.lat ? `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lon}` : file };
+    if (r.lien > 0) return { label: 'Investigate lien', href: file };
+    if (r.cc) return { label: 'Review case', href: file };
+    if (tx.state === 'DELINQUENT_VERIFIED') return { label: 'Inspect delinquent record', href: file };
+    if (tx.state === 'UNKNOWN' || tx.state === 'SOURCE_UNAVAILABLE' || tx.state === 'STALE') return { label: 'Check Collector / request county list', href: 'request.html' };
+    if (sg.verified.length === 0) return { label: 'Search public listings', href: PH.searchListingsUrl(r) };
+    return { label: 'Open file', href: file };
+  };
+
+  // ---------- WHY THIS PROPERTY? one reusable block ----------
+  PH.whyRow = (r, cp, opts) => {
+    const o = opts || {}, sg = PH.signals(r), tx = PH.taxState(r, cp), sale = PH.saleStatus(r), nx = PH.nextAction(r, cp);
+    const reason = sg.verified.length ? `${sg.verified.length} verified public-record signal${sg.verified.length > 1 ? 's' : ''}${sg.derived.length ? ` · ${sg.derived.length} derived` : ''}`
+      : sg.derived.length ? `Here because of public-record patterns only; no verified opportunity signal found (${sg.derived.length} derived)`
+      : 'Here because of public-record patterns only; no verified opportunity signal found';
+    const strongest = sg.strongest ? `<div class="wr-line"><span>Strongest</span><b>${PH.esc(sg.strongest.text)}</b> ${PH.pill(sg.strongest.kind === 'fact' ? 'fact' : 'derived', sg.strongest.kind === 'fact' ? 'verified' : 'derived')}</div>` : '';
+    return `<div class="whyrow ${o.compact ? 'compact' : ''}">
+      <div class="wr-line wr-head"><span>Why</span><b>${PH.esc(reason)}</b></div>${o.compact ? '' : strongest}
+      <div class="wr-line"><span>Sale</span><b class="${sale.kind}">${PH.esc(sale.text)}</b>${sale.state === 'UNKNOWN' ? ` <a href="${PH.esc(PH.searchListingsUrl(r))}" target="_blank" rel="noopener">Search public listings</a>` : ''}</div>
+      <div class="wr-line"><span>Taxes</span><b class="tx-${tx.tone}">${PH.esc(tx.text)}</b>${o.compact ? '' : `<small>${PH.esc(tx.note)}</small>`}</div>
+      <div class="wr-line"><span>Next</span><a class="wr-next" href="${PH.esc(nx.href)}"${/^https?:/.test(nx.href) ? ' target="_blank" rel="noopener"' : ''}>${PH.esc(nx.label)} →</a></div>
+    </div>`;
+  };
+
+  // ---------- SIGNAL STACK: the score, presented as what it is ----------
+  PH.stack = (r, countyMax) => {
+    const sg = PH.signals(r);
+    return { score: r && r.s != null ? Math.round(r.s) : null, n: sg.all.length, verified: sg.verified.length, derived: sg.derived.length,
+             countyMax: countyMax != null ? Math.round(countyMax) : null, signals: sg.all, risks: sg.risks, confidence: (r && r.conf) || null };
+  };
+  PH.stackHtml = (r, countyMax) => {
+    if (r == null || r.s == null || isNaN(+r.s)) return '<div class="empty">Not scored yet. The scanner has not read enough records about this parcel to rank it; that is not a low score.</div>';
+    const s = PH.stack(r, countyMax);
+    return `<div class="rp"><b>${s.n}</b><span>public-record signal${s.n === 1 ? '' : 's'} · ${s.verified} verified · ${s.derived} derived${s.countyMax != null ? ` · county maximum score ${s.countyMax}` : ''}</span></div>
+      <ul class="stack">${s.signals.map(x => `<li>${PH.pill(x.kind === 'fact' ? 'fact' : 'derived', x.kind === 'fact' ? 'verified' : 'derived')}<span>${PH.esc(x.text)}</span></li>`).join('') || '<li class="none">No public-record signals; here because of roll patterns only.</li>'}${s.risks.map(x => `<li>${PH.pill('risk', 'risk')}<span>${PH.esc(x)}</span></li>`).join('')}</ul>
+      <div class="rp-note">Signal stack score ${s.score}${s.confidence ? ' · ' + PH.esc(String(s.confidence).toLowerCase()) + ' confidence' : ''}: a count of public-record signals the scanner could read, weighted. It is not a probability of profit, of sale, or of value; a high number means many records, not a good deal.</div>`;
+  };
+  PH.priorityHtml = (r, countyMax) => PH.stackHtml(r, countyMax);
 
   // ---------- DOM ----------
   PH.pill = (kind, text) => `<span class="pill ${kind}">${PH.esc(text)}</span>`;
@@ -106,13 +210,6 @@
     <dt class="step">Next check</dt><dd class="step">${PH.esc(next)}</dd>
     ${notEstablish ? `<dt class="step">Does not establish</dt><dd class="step not">${PH.esc(notEstablish)}</dd>` : ''}
   </dl>`;
-  PH.priorityHtml = r => {
-    if (r == null || r.s == null || isNaN(+r.s)) return '<div class="empty">Not scored yet. The scanner has not read enough records about this parcel to rank it; that is not a low score.</div>';
-    const p = PH.priority(r);
-    return `<div class="rp"><b>${Math.round(p.score || 0)}</b><span>research priority${p.confidence ? ' · ' + PH.esc(p.confidence.toLowerCase()) + ' confidence' : ''}</span></div>
-      <div class="rp-bars">${p.cats.map(c => `<div class="rp-bar ${c.risk ? 'risk' : ''}" role="img" aria-label="${PH.esc(c.name)} ${c.risk ? 'risk' : 'signal'} ${c.pct} of 100"><span>${c.risk ? '⚠ ' : '▲ '}${PH.esc(c.name)}</span><span class="track"><span class="fill" style="width:${c.pct}%"></span></span><span class="v">${c.value}</span></div>`).join('')}</div>
-      <div class="rp-note">Research-priority score from public records the scanner could read. It is not an appraisal, an investment recommendation, a title opinion, or a guarantee of profit. ▲ signals raise it; ⚠ risks are shown separately and never hidden.</div>`;
-  };
   PH.whyOpen = (r, label) => {
     const steps = PH.whySteps(r);
     const wrap = document.createElement('div'); wrap.className = 'why-scrim'; wrap.setAttribute('role', 'dialog'); wrap.setAttribute('aria-label', 'Why this property surfaced');

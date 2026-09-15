@@ -45,6 +45,21 @@ def _year(value: str | None) -> int | None:
     return int(m.group(1)) if m else None
 
 
+def tax_certification_is_current(pid: int, td: dict | None = None) -> bool:
+    """A 'certified to the State' fact stays in the evidence table for ever (history is never
+    deleted); it is a CURRENT opportunity signal only while no later event says the parcel left
+    the inventory: a removal observed by the scanner, a redemption or a sale from the State's
+    monthly reports. Newer than the certification = wins."""
+    td = td or store.latest_evidence(pid, "tax_delinquent")
+    if not td:
+        return False
+    for ended in ("tax_delinquent_removed", "tax_redemption", "tax_sale_history"):
+        ev = store.latest_evidence(pid, ended)
+        if ev and int(ev.get("id") or 0) > int(td.get("id") or 0):
+            return False
+    return True
+
+
 def analyse(prop: dict) -> list[dict]:
     """Return the distress / opportunity signals supported by current evidence."""
     signals: list[dict] = []
@@ -155,7 +170,7 @@ def analyse(prop: dict) -> list[dict]:
         return store.latest_evidence(pid, field)
 
     td = latest("tax_delinquent")
-    if td:
+    if td and tax_certification_is_current(pid, td):
         amt = store.latest_evidence(pid, "tax_amount_owed")
         owed = f" - ${float(amt['value']):,.2f} owed" if amt and str(amt.get("value", "")).replace(".", "").isdigit() else ""
         add("tax_delinquent", f"Certified to the State for unpaid taxes{owed}",

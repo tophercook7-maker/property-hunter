@@ -886,7 +886,7 @@ function tabOverview(d){
             ? `<span class="tag red">$${Number(evVal(d,'cleanup_lien_total') ?? evVal(d,'cleanup_lien_amount')).toLocaleString()}</span> ${esc(evVal(d,'cleanup_lien')||'')}`
             : (evVal(d,'cleanup_lien_check') || 'not checked'), true)}
         ${kv('Code cases', evVal(d,'code_case_open') || evVal(d,'code_case') || evVal(d,'code_case_check') || 'not checked')}
-        ${kv('Tax status', p.tax_status || 'NOT CHECKED')}
+        ${kv('Tax status', ({CERTIFIED_TO_STATE_FOR_SALE:'TAX SALE — State certified', CERTIFIED_TO_STATE:'TAX SALE — held by the State', DELINQUENT:'DELINQUENT — Collector verified', CURRENT_BILL_OPEN:'CURRENT BILL OPEN — not delinquent'})[p.tax_status] || (p.tax_status ? esc(p.tax_status) : 'UNKNOWN — never checked at the Collector'))}
         ${kv('Listing status', p.listing_status || 'not known to be listed')}
         ${kv('Road', p.road_class || 'not checked')}
         ${kv('State', p.state)}
@@ -1716,11 +1716,14 @@ VIEWS.radar = async (v)=>{
     <div class="card"><b>Subscribers</b><div class="tiny muted"><code>python3 tools/sync_radar_subscribers.py</code> · list lives in data/radar_subscribers.json, never in the repo</div></div></div>`;
 };
 VIEWS.alerts = async (v)=>{
-  const a = await api('/api/alerts?limit=150');
+  const a = await api('/api/alerts?limit=300');
+  const showAll = S.alertsAll === true;
+  const live = a.alerts.filter(x => showAll || (x.kind !== 'repair_artifact' && x.kind !== 'property_changed'));
+  const hidden = a.alerts.length - live.length;
   v.innerHTML = `<div class="spread"><h1>Alerts</h1>
-    <button class="btn sm" onclick="markRead()">Mark all read</button></div>
-  <p class="lede">Everything that moved.</p>
-  <div class="card">${a.alerts.length?a.alerts.map(x=>`
+    <span><button class="btn sm ghost" onclick="S.alertsAll=!S.alertsAll;render()">${showAll?'Hide':'Show'} informational + superseded (${hidden})</button> <button class="btn sm" onclick="markRead()">Mark all read</button></span></div>
+  <p class="lede">Opportunity signals and State Lands events. Roll value and owner-name readings are information, not alerts; alerts raised by repaired matching artefacts are kept as history but no longer shown here.</p>
+  <div class="card">${live.length?live.map(x=>`
     <div class="line" style="${x.read_at?'opacity:.55':''}">
       <span class="tag ${x.severity==='high'?'red':x.severity==='medium'?'yellow':'blue'}">${esc(x.kind)}</span>
       <span><b>${esc(x.title)}</b>

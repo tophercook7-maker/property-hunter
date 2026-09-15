@@ -326,6 +326,18 @@ def snapshot(prop_id: int, source: str, payload: Any) -> bool:
 
 # ------------------------------------------------------------------- changes
 
+# Which field-level changes may raise an ALERT, and what kind of alert. Everything else is still
+# recorded in `changes` and on the timeline, but a roll value moving or an owner name changing is
+# information, not an opportunity, and must not ring a bell.
+ALERT_POLICY = {
+    "tax_status": "opportunity_signal",
+    "listing_status": "opportunity_signal",
+    "list_price": "opportunity_signal",
+    "zoning": "informational_change",
+    "flood_zone": "informational_change",
+}
+
+
 def store_changes(prop_id: int, source: str, changes: list[dict]) -> None:
     prop = db.q1("SELECT address, parcel_id, excluded FROM properties WHERE id=?", (prop_id,))
     label = (prop["address"] if prop and prop["address"] else
@@ -337,9 +349,12 @@ def store_changes(prop_id: int, source: str, changes: list[dict]) -> None:
               (prop_id, ch["field"], str(ch["old"]), str(ch["new"]), source,
                severity or "info", utcnow()))
         if title and not (prop and prop["excluded"]):
-            add_alert(prop_id, "property_changed", f"{label} - {title.lower()}",
-                      f"{ch['field']}: {ch['old']} -> {ch['new']} (source: {source})",
-                      severity or "info")
+            kind = ALERT_POLICY.get(ch["field"])
+            first_reading = ch["old"] in (None, "", "None", "not known")
+            if kind and not (kind == "informational_change" and first_reading):
+                add_alert(prop_id, kind, f"{label} - {title.lower()}",
+                          f"{ch['field']}: {ch['old']} -> {ch['new']} (source: {source})",
+                          severity or "info")
             add_timeline(prop_id, "change", title,
                          f"{ch['old']} -> {ch['new']}", source=source)
 

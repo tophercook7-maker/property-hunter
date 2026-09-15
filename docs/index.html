@@ -6,7 +6,7 @@
 <title>Property Hunter · Today's Hunt</title>
 <meta name="description" content="Arkansas property research from public records: tax-delinquent and distressed parcels found, explained and watched. What surfaced today, why, what is verified, what is still unknown, and what to do next.">
 <meta property="og:title" content="Property Hunter · Arkansas property research from public records">
-<meta property="og:description" content="Find public-record property opportunities before they disappear from your radar. Tax sales, vacant houses, City liens, owners who may be receptive. Verified, dated, honest about what is unknown.">
+<meta property="og:description" content="Find public-record property signals before they disappear from your radar. Tax sales, vacant houses, City liens, owners who may be receptive. Verified, dated, honest about what is unknown.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://tophercook7-maker.github.io/property-hunter/">
 <link rel="canonical" href="https://tophercook7-maker.github.io/property-hunter/">
@@ -85,7 +85,7 @@ footer{padding:16px 20px 24px;font-size:12px;color:var(--muted);text-align:cente
 
 <div class="cover" id="cover" hidden role="dialog" aria-labelledby="cover-h"><div class="sheet">
   <span class="eyebrow">Property Hunter</span>
-  <h2 id="cover-h">Find public-record property opportunities before they disappear from your radar.</h2>
+  <h2 id="cover-h">Find public-record property signals before they disappear from your radar.</h2>
   <p>Property Hunter watches Arkansas public records every morning: the county tax roll, the City of Hot Springs' vacant-house, lien and code lists, the State's tax-sale inventory, FEMA and the State's aerials. It connects them per parcel, ranks what deserves a look, and says plainly what is verified, what is inferred, and what nobody has checked.</p>
   <div class="story">
     <div><b>Find</b>Watches the records continuously.</div>
@@ -107,22 +107,22 @@ footer{padding:16px 20px 24px;font-size:12px;color:var(--muted);text-align:cente
   <div id="sysstatus"></div>
 
   <section class="blk" aria-labelledby="best-h">
-    <h2 id="best-h">Today's highest research-priority property</h2>
-    <p class="lead">Ranked by the scanner's research-priority score from public records. Not "best to buy": the property most worth an hour of your time first.</p>
+    <h2 id="best-h">Today's strongest signal stack</h2>
+    <p class="lead">The parcel with the most public-record signals stacked on it. Not "best to buy", not a valuation: the one most worth an hour of your time first.</p>
     <div class="best" id="best"><div class="visual"><div class="in"><span class="eyebrow">loading…</span><h3>&nbsp;</h3></div></div><div class="file"><div class="skel" style="height:120px"></div></div></div>
   </section>
 
   <div class="steps" id="steps"></div>
 
   <section class="blk" id="changed" aria-labelledby="chg-h">
-    <h2 id="chg-h">What changed this week</h2>
-    <p class="lead" id="chglead">Field-level changes the scanner recorded against properties it already knew, medium and high severity only.</p>
+    <h2 id="chg-h">New opportunity signals</h2>
+    <p class="lead" id="chglead">Actionable public-record events from the last seven days: a parcel newly certified to the State, sold or redeemed at the State's sale, a new City vacancy, lien or code record, a verified delinquency. Each one names its source and its next step. Roll value flickers, corrections and repairs are not opportunities and are kept separately below.</p>
     <div class="changes" id="chglist"></div>
   </section>
 
   <section class="blk" aria-labelledby="look-h">
     <h2 id="look-h">Look at these</h2>
-    <p class="lead" id="lead">Highest research priority across the counties hunted, outside Hot Springs Village and Diamondhead, not rated pass. One action each.</p>
+    <p class="lead" id="lead">Most public-record signals stacked, across the counties hunted, outside Hot Springs Village and Diamondhead, not rated pass. One action each.</p>
     <div class="cards" id="cards"></div>
     <p style="margin-top:10px"><a class="btn ghost" href="garland.html">See the whole list, filter it, sort it</a> <a class="btn ghost" href="hunt.html">Hunt Arkansas on the map</a></p>
   </section>
@@ -171,14 +171,15 @@ function signals(r, max){
   for(const k of d){ if(out.length >= max) break; const L = PH.LABEL[k]; if(!L || ['vacant_structure','cleanup_lien','code_case_open','absentee_owner','tax_delinquent'].includes(k)) continue; out.push([PH.RISK_KEYS.includes(k) ? 'risk' : L[1], L[0]]); }
   return out.slice(0,max).map(([k,t]) => PH.pill(k,t)).join('');
 }
+let CP = {};
 function card(r){
-  const q = encodeURIComponent(r.pid || r.a || ''); const tax = PH.taxLine(r); const own = PH.owner(r.o);
+  const q = encodeURIComponent(r.pid || r.a || ''); const own = PH.owner(r.o);
   return `<article class="pcard" data-pid="${esc(r.pid||'')}">
-    <div class="pic">${r.lat?`<img loading="lazy" src="${aerial(r,480,360)}" alt="2023 aerial of ${esc(r.a||'the parcel')}">`:''}<span class="corner">${esc(r.cn||'')}</span><span class="rpm">${Math.round(r.s||0)}<small>priority</small></span></div>
+    <div class="pic">${r.lat?`<img loading="lazy" src="${aerial(r,480,360)}" alt="2023 aerial of ${esc(r.a||'the parcel')}">`:''}<span class="corner">${esc(r.cn||'')}</span><span class="rpm">${Math.round(r.s||0)}<small>score</small></span></div>
     <div class="body"><h3>${esc(r.a||'No situs address')}</h3><div class="own">${own.missing?PH.pill('unknown','owner not found'):esc(own.text)} · ${esc(r.c||'')}</div>
       <div class="sig">${signals(r,4)}</div>
       <div class="money">${fmt$(r.tv)} appraised${r.iv>0?` · building ${fmt$(r.iv)}`:(r.iv===0?' · no building value':'')}</div>
-      <div class="tax">${PH.pill(tax.kind==='fact'?(tax.tone==='bad'?'state':'fact'):'unknown','taxes')} ${esc(tax.text)}</div>
+      ${PH.whyRow(r, CP, {compact:true})}
       <button class="why-btn" type="button" data-why="${esc(r.pid||r.a)}">Why this one?</button>
       <div class="acts"><a class="main" href="lookup.html?county=${esc(r.cf||'05051')}&q=${q}">Open file</a><a href="watch.html?add=${esc(r.cf||'05051')}:${q}&label=${encodeURIComponent(r.a||'')}">Watch</a>${r.m?`<a href="campaign.html?pid=${q}">Letter</a>`:`<span style="flex:1;font-size:11px;color:var(--muted);align-self:center;text-align:center">no mailing address published</span>`}</div>
     </div></article>`;
@@ -195,9 +196,9 @@ async function main(){
   try { const c = new AbortController(); setTimeout(()=>c.abort(), 1500); app = await (await fetch('http://127.0.0.1:8234/api/status', {signal:c.signal})).json(); } catch(e){ app = null; }
   const ap = $('app');
   if(app){ ap.className='app on'; ap.innerHTML = `<i></i>app running on this Mac · <a href="http://127.0.0.1:8234">open the command center</a>`; } else { ap.innerHTML = `<i></i>showing the last published data`; }
-  const [g, sl, idx, hunt, changes, st] = await Promise.all([
+  const [g, sl, idx, hunt, changes, st, sig] = await Promise.all([
     load('data/garland.json', {rows:[]}), load('data/state_lands.json', {listings:[],counties:{}}), load('data/scan_index.json', {counties:{}}),
-    load('data/hunt_status.json', {counties:{}}), load('data/changes.json', {rows:[],total:0,by_field:[]}), load('data/status.json', {})]);
+    load('data/hunt_status.json', {counties:{}}), load('data/changes.json', {rows:[],total:0,by_field:[]}), load('data/status.json', {}), load('data/signals.json', {rows:[],discovered:[],total:0,discovered_total:0,by_event:{},discovered_by_event:{}})]);
   const home = (g.rows||[]).filter(r=>r.s!=null && r.rec!=='PASS');
   const others = Object.entries(idx.counties||{}).filter(([cf])=>!['05051','05125'].includes(cf)).flatMap(([cf,c])=>(c.top||[]).map(r=>({...r, cn:c.county, cf})));
   const all = home.concat(others).sort((a,b)=>(b.s||0)-(a.s||0) || (b.lien||0)-(a.lien||0));
@@ -205,19 +206,19 @@ async function main(){
   const counties = Object.values(hunt.counties||{});
   const doneC = counties.filter(c=>c.status==='done'), scanning = counties.filter(c=>c.status==='scanning');
   const scanned = Object.values(idx.counties||{}).reduce((n,c)=>n+(c.n||0),0);
-  const cp = (st||{}).countypay || {};
+  const cp = (st||{}).countypay || {}; CP = cp;
   $('stats').innerHTML = [
     [doneC.length + (scanning.length?'+':''), 'counties hunted' + (scanning.length?` · ${scanning[0].county} now`:''), scanning.length?'live':''],
     [scanned.toLocaleString(), 'properties scored'],
-    [(changes.total||0).toLocaleString(), 'changes this week'],
+    [(sig.total||0).toLocaleString(), 'opportunity signals this week'],
     [(sl.listings||[]).filter(x=>!x.excluded_area).length.toLocaleString(), 'State tax-sale parcels outside the Village'],
     [cp.open === true ? 'open' : cp.open === false ? 'down' : 'untested', 'County Collector search', cp.open===false?'':'live'],
   ].map(([b,s,c])=>`<div class="stat ${c||''}"><b>${esc(b)}</b><span>${esc(s)}</span></div>`).join('');
   $('sysstatus').innerHTML = cp.open === false ? PH.statusBlock('Collector status', 'NOT CURRENTLY AVAILABLE', `Property Hunter could not verify current county bills because the Collector's online service (CountyPay, Arkansas.gov) has said "${cp.detail||'unavailable'}" since ${PH.when(cp.down_since)||'this morning'}${cp.statewide&&cp.statewide.erroring>=20?`; ${cp.statewide.erroring} of 75 counties are erroring`:''}. Cards say "not checked" rather than guess. Retried every 20 minutes; last try ${PH.when(cp.checked_at)}.`, 'bad') : '';
   if(best){
-    const b = $('best'); const own = PH.owner(best.o); const tax = PH.taxLine(best);
+    const b = $('best'); const own = PH.owner(best.o); const tax = PH.taxLine(best, cp);
     const vis = b.querySelector('.visual'); if(best.lat) vis.style.backgroundImage = `url("${aerial(best,900,640)}")`;
-    vis.innerHTML = `<div class="in"><span class="eyebrow">${esc(best.cn||'')} County · research priority ${Math.round(best.s)}${best.conf?' · '+esc(best.conf.toLowerCase())+' confidence':''}</span><h3>${esc(best.a||'No situs address')}</h3><div class="own">${own.missing?'Owner not found on the roll':esc(own.text)}${best.c?' · '+esc(title(best.c)):''}</div></div>`;
+    vis.innerHTML = `<div class="in"><span class="eyebrow">${esc(best.cn||'')} County · signal stack ${PH.stack(best).verified} verified · ${PH.stack(best).derived} derived · score ${Math.round(best.s)}</span><h3>${esc(best.a||'No situs address')}</h3><div class="own">${own.missing?'Owner not found on the roll':esc(own.text)}${best.c?' · '+esc(title(best.c)):''}</div></div>`;
     const verified = [];
     if(String(best.ts||'').startsWith('CERTIFIED')) verified.push('Certified to the State for unpaid taxes (Commissioner of State Lands)');
     if(best.vac) verified.push("On the City of Hot Springs vacant-structure register");
@@ -233,7 +234,8 @@ async function main(){
       <div><h4>Why it surfaced</h4><ul>${verified.map(v=>`<li>${PH.pill('fact','verified')}<span>${v}</span></li>`).join('')}${derived.map(v=>`<li>${PH.pill('derived','derived')}<span>${esc(v)}</span></li>`).join('')}</ul></div>
       ${risks.length?`<div><h4>What could kill it</h4><ul>${risks.map(v=>`<li>${PH.pill('risk','risk')}<span>${esc(v)}</span></li>`).join('')}</ul></div>`:''}
       <div><h4>Still unknown</h4><ul>${unknown.map(v=>`<li>${PH.pill('unknown','unknown')}<span>${esc(v)}</span></li>`).join('')}</ul></div>
-      <div><h4>Next step</h4><p style="margin:0;font-size:13.5px">Drive by and look at the roof and the yard before anything else. Then open the file and work the checklist; write the owner only after taxes and title are checked.</p></div>
+      <div><h4>Sale · taxes</h4><ul><li>${PH.pill(PH.saleStatus(best).kind==='fact'?'fact':'unknown', PH.saleStatus(best).kind==='fact'?'verified':'unknown')}<span>${esc(PH.saleStatus(best).text)}</span></li><li>${PH.pill(tax.kind==='fact'?'fact':'unknown', tax.kind==='fact'?'verified':'unknown')}<span>${esc(PH.taxState(best, cp).text)}</span></li></ul></div>
+      <div><h4>Next step</h4><p style="margin:0;font-size:13.5px">${esc(PH.nextAction(best, cp).label)}: drive by and look at the roof and the yard before anything else. Then open the file and work the checklist; write the owner only after taxes and title are checked.</p></div>
       <div class="acts"><a class="btn" href="lookup.html?county=${esc(best.cf||'05051')}&q=${encodeURIComponent(best.pid||best.a)}">Open file</a>${best.lat?`<a class="btn ghost" href="https://www.google.com/maps/dir/?api=1&destination=${best.lat},${best.lon}" target="_blank" rel="noopener">Drive by</a>`:''}<button class="btn ghost" type="button" id="best-why">Why this one?</button></div>`;
     $('best-why').addEventListener('click', ()=>PH.whyOpen(best, best.a));
   } else {
@@ -248,20 +250,26 @@ async function main(){
     step(2,'mail','Mail owners', `${unsent}`, `owners with a building, living elsewhere, not yet written to${sent?` · ${sent} sent`:''}. You review, print and send it yourself; the site never mails.`, [['Owner outreach','campaign.html'],['Who answered','campaign.html']]) +
     step(3,'watch','Check watchlist', `${watch.length}`, watch.length ? (stale ? `${stale} not re-checked this week. One button re-reads them all live.` : 'All re-checked this week.') : 'Nothing watched yet. Press Watch on anything you might buy.', [['Check all now','watch.html'],['State inventory','state-lands.html?county=GARLAND']]);
   document.querySelectorAll('.step input[data-k]').forEach(cb => cb.addEventListener('change', () => { done[cb.dataset.k] = cb.checked; try { localStorage.setItem('ph-today-'+today, JSON.stringify(done)); } catch(e){} const s = cb.closest('.step'); s.classList.toggle('done', cb.checked); s.querySelector('.n').textContent = cb.checked ? '✓' : ({look:1,mail:2,watch:3})[cb.dataset.k]; }));
-  // one line per property, meaningful fields first, money formatted
+  // ---- NEW OPPORTUNITY SIGNALS: events, never field diffs ----
+  const EVENT = {NEW_TAX_SALE:'New State tax sale', STATE_SOLD:'Sold at State sale', STATE_REDEEMED:'Redeemed', STATE_LEFT:'Left State inventory', NEW_VACANCY_RECORD:'New vacancy record', NEW_LIEN:'New City lien', NEW_CODE_CASE:'New code case', VERIFIED_DELINQUENCY:'Verified delinquency'};
+  const sigRow = x => `<div class="sig"><span class="ev">${esc(EVENT[x.event]||x.event)}</span><span><span class="a">${esc(x.a||'No situs address')}</span> · ${esc(x.cn||'')}<div>${esc(x.label)}. ${esc(x.why)}</div><div class="meta">${esc(x.date)} · source: ${esc(x.src)} · ${esc(x.status)}${x.tv?` · appraised ${PH.money(x.tv)}`:''}</div></span><a class="next" href="${esc(x.next.href)}"${/^https?:/.test(x.next.href)?' target="_blank" rel="noopener"':''}>${esc(x.next.label)} →</a></div>`;
+  const ev = sig.rows||[], disc = sig.discovered||[];
+  $('chglist').innerHTML = (ev.length ? ev.slice(0,12).map(sigRow).join('') : '<div class="empty">No new opportunity signals this week.</div>')
+    + (disc.length ? `<details class="chg" style="grid-template-columns:1fr"><summary style="cursor:pointer"><b>First seen by the scanner this week: ${disc.length.toLocaleString()} parcels with a public-record signal</b> · ${Object.entries(sig.discovered_by_event||{}).map(([k,n])=>`${n} ${(EVENT[k]||k).toLowerCase()}`).join(', ')}. The hunt itself is new, so these are new to you, not new in the world.</summary><div style="display:grid;gap:6px;margin-top:8px">${disc.slice(0,12).map(sigRow).join('')}${disc.length>12?`<a href="hunt.html">See them all on the Hunt map →</a>`:''}</div></details>` : '');
+  // ---- informational changes: kept, collapsed, never presented as opportunities ----
   const FIELD = {owner_name:'owner', total_value:'appraised', imp_value:'building value', land_value:'land value', tax_status:'tax status', list_price:'asking price', cleanup_lien:'City lien', vacant_structure:'vacant register', zoning:'zoning', flood_zone:'flood zone', address:'address', legal:'legal', acreage:'acreage'};
   const fmtv = (f, v) => { if(v==null||v==='') return 'not known'; if(/value|price|lien/.test(f) && !isNaN(v)) return PH.money(+v); return String(v).length>38 ? String(v).slice(0,36)+'…' : String(v); };
   const byProp = new Map();
   const conflicts = (changes.rows||[]).filter(c=>c.k==='conflict'), disagree = (changes.rows||[]).filter(c=>c.k==='sources');
   for(const c of (changes.rows||[]).filter(c=>!c.k || c.k==='change')){ const k = c.id; if(!byProp.has(k)) byProp.set(k, {a:c.a, cn:c.cn, at:c.at, items:[]}); byProp.get(k).items.push(c); }
-  const rank = c => (c.items.some(i=>/owner_name|tax_status|cleanup_lien|vacant_structure|list_price/.test(i.f)) ? 0 : 1);
-  const rows = [...byProp.values()].sort((a,b)=>rank(a)-rank(b) || (b.at>a.at?1:-1)).slice(0,10);
-  $('chglist').innerHTML = rows.length ? rows.map(c=>`<div class="chg"><span class="at">${esc(c.at.replace('T',' '))}</span><span><span class="a">${esc(c.a||'parcel')}</span> · ${esc(c.cn||'')}${c.items.slice(0,4).map(i=>`<div class="diff"><span>${esc(FIELD[i.f]||i.f.replace(/_/g,' '))}</span><span class="o">${esc(fmtv(i.f,i.o))}</span><span class="n">${esc(fmtv(i.f,i.n))}</span></div>`).join('')}${c.items.length>4?`<div style="font-size:11px;color:var(--muted)">+${c.items.length-4} more fields</div>`:''}</span></div>`).join('') : '<div class="empty">Quiet week.</div>';
-  if(conflicts.length){ const byC = new Map(); for(const c of conflicts){ if(!byC.has(c.id)) byC.set(c.id, {a:c.a, cn:c.cn, n:0}); byC.get(c.id).n++; }
-    $('chglist').insertAdjacentHTML('beforeend', `<div class="chg" style="border-left:3px solid var(--warn)"><span class="at">${PH.pill('risk','⚑ CONFLICTING')}</span><span><b>${byC.size} parcel${byC.size>1?'s':''} where the tax roll holds two records under one parcel number</b> (${[...byC.values()].slice(0,4).map(c=>esc(c.a||'parcel')+' · '+esc(c.cn||'')).join('; ')}${byC.size>4?'; …':''}). Recorded as a source conflict, not as a change of owner or value. Open the file to see both records.</span></div>`); }
+  const infoRows = [...byProp.values()].sort((a,b)=>(b.at>a.at?1:-1)).slice(0,10);
+  let info = infoRows.map(c=>`<div class="chg"><span class="at">${esc(c.at.replace('T',' '))}</span><span><span class="a">${esc(c.a||'parcel')}</span> · ${esc(c.cn||'')}${c.items.slice(0,4).map(i=>`<div class="diff"><span>${esc(FIELD[i.f]||i.f.replace(/_/g,' '))}</span><span class="o">${esc(fmtv(i.f,i.o))}</span><span class="n">${esc(fmtv(i.f,i.n))}</span></div>`).join('')}</span></div>`).join('');
+  if(conflicts.length){ const byC = new Map(); for(const c of conflicts){ if(!byC.has(c.id)) byC.set(c.id, {a:c.a, cn:c.cn}); }
+    info += `<div class="chg" style="border-left:3px solid var(--warn)"><span class="at">${PH.pill('risk','⚑ CONFLICTING')}</span><span><b>${byC.size} parcel${byC.size>1?'s':''} where the tax roll holds two records under one parcel number</b> (${[...byC.values()].slice(0,4).map(c=>esc(c.a||'parcel')+' · '+esc(c.cn||'')).join('; ')}${byC.size>4?'; …':''}). A source conflict, not a change of owner or value.</span></div>`; }
   if(disagree.length){ const byD = new Map(); for(const c of disagree){ if(!byD.has(c.id)) byD.set(c.id, {a:c.a, cn:c.cn, items:[]}); byD.get(c.id).items.push(c); }
-    $('chglist').insertAdjacentHTML('beforeend', `<div class="chg" style="border-left:3px solid var(--rule)"><span class="at">${PH.pill('derived','≈ SOURCES DISAGREE')}</span><span><b>${byD.size} parcel${byD.size>1?'s':''} where the City's roll copy and the State roll name different owners or values</b>. The City's copy is an older snapshot; the State roll is read every morning. Neither reading is a sale. Examples: ${[...byD.values()].slice(0,3).map(d=>`${esc(d.a||'parcel')} (${d.items.slice(0,1).map(i=>`${esc(FIELD[i.f]||i.f)}: City copy ${esc(fmtv(i.f,i.o))}, State roll ${esc(fmtv(i.f,i.n))}`).join('')})`).join('; ')}${byD.size>3?'; …':''}. The file shows both, each with its source and date.</span></div>`); }
-  $('chglead').textContent = changes.total ? `${byProp.size.toLocaleString()} properties changed in the last seven days (${changes.total.toLocaleString()} field changes, medium and high severity). A change is the scanner reading a different value than it held; it is not a sale unless the State's deed report says so.` : 'No medium or high changes recorded this week.';
+    info += `<div class="chg" style="border-left:3px solid var(--rule)"><span class="at">${PH.pill('derived','≈ SOURCES DISAGREE')}</span><span><b>${byD.size} parcel${byD.size>1?'s':''} where the City's roll copy and the State roll name different owners or values</b>. Neither reading is a sale; the file shows both with source and date.</span></div>`; }
+  $('chglist').insertAdjacentHTML('beforeend', `<details style="margin-top:10px"><summary style="cursor:pointer;color:var(--muted);font-size:13px">Roll changes and corrections this week (informational, not opportunities): ${byProp.size.toLocaleString()} parcels with a roll value or owner reading change, ${conflicts.length?conflicts.length+' conflicts, ':''}${disagree.length?disagree.length+' source disagreements':''}</summary><div style="display:grid;gap:6px;margin-top:8px">${info || '<div class="empty">None.</div>'}</div></details>`);
+  $('chglead').textContent = ev.length ? `${ev.length.toLocaleString()} actionable public-record event${ev.length>1?'s':''} in the last seven days on parcels the hunt already knew${disc.length?`, plus ${disc.length.toLocaleString()} parcels the scanner met for the first time`:''}. Each names its source; nothing here is a listing or a sale unless the State's own report says so.` : `No new opportunity signals this week on parcels the hunt already knew${disc.length?`; ${disc.length.toLocaleString()} parcels with a public-record signal were seen for the first time`:''}.`;
   $('cards').innerHTML = all.slice(0,9).map(card).join('');
   $('lead').textContent = `${all.length.toLocaleString()} properties in play across ${doneC.length + (scanning.length?1:0)} counties. These nine rank highest. Snapshot ${(g.built_at||'').slice(0,16).replace('T',' ')} UTC.`;
   document.querySelectorAll('[data-why]').forEach(b => b.addEventListener('click', () => { const r = all.find(x => (x.pid||x.a) === b.dataset.why); if(r) PH.whyOpen(r, r.a); }));
@@ -269,7 +277,7 @@ async function main(){
   $('counties').innerHTML = PH.countyGrid(counties.sort((a,b)=>({scanning:0,done:1,failed:2,waiting:3})[a.status]-({scanning:0,done:1,failed:2,waiting:3})[b.status] || a.county.localeCompare(b.county)));
   const cnt = Object.keys(sl.counties||{}).length, withBldg = (sl.listings||[]).filter(x=>x.improvements>0 && !x.excluded_area).length;
   $('doors').innerHTML = [
-    ['hunt.html','Hunt Arkansas','The statewide map: counties done, scanning and waiting; filters for tax distress, vacancy, cheap houses, cheap land, State sale, recent change.', `${doneC.length} counties · map`],
+    ['hunt.html','Hunt Arkansas','The statewide map: counties done, scanning and waiting; filters for State tax sale, verified Collector bills, City liens, vacancy, appraisal bands, new signals.', `${doneC.length} counties · map`],
     ['lookup.html','Look up','Any Arkansas parcel: owner, values, aerials, liens, taxes, and the full investigation file.', 'all 75 counties · live'],
     ['state-lands.html?county=GARLAND','Tax sale','What the State is selling for unpaid taxes, what lots like it sold for.', `${(sl.listings||[]).length.toLocaleString()} for sale · ${cnt} counties · ${withBldg} with a building`],
     ['campaign.html','Owner outreach','Owners who may be receptive, with why they appeared. You print and mail.', `${targets.length} candidates · ${sent} sent`],

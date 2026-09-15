@@ -22,7 +22,32 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 from collections import Counter
 
 from hunter import db
+from hunter.db import utcnow
 from hunter.identity import canonical_key
+
+
+def supersede_artifact_alerts(apply: bool) -> int:
+    """An alert raised by a field change that the repair later deleted (a cross-county merge
+    artefact) must not sit in the Alerts view as if it were current. The alert row is kept
+    (history), but re-kinded to `repair_artifact` and marked read, so it no longer counts or
+    shows by default. A 'property_changed' alert is matched to its change by property, field
+    and second-resolution time."""
+    rows = db.q("""SELECT a.id, a.property_id, a.body, a.created_at FROM alerts a
+                   WHERE a.kind='property_changed' AND a.read_at IS NULL""")
+    n = 0
+    for a in rows:
+        field = (a["body"] or "").split(":", 1)[0].strip()
+        if not field:
+            continue
+        still = db.q1("""SELECT 1 FROM changes WHERE property_id=? AND field=?
+                         AND abs(julianday(detected_at) - julianday(?)) * 86400 < 5 LIMIT 1""",
+                      (a["property_id"], field, a["created_at"]))
+        if still:
+            continue
+        n += 1
+        if apply:
+            db.ex("UPDATE alerts SET kind='repair_artifact', read_at=? WHERE id=?", (utcnow(), a["id"]))
+    return n
 
 
 def main() -> int:
@@ -61,6 +86,8 @@ def main() -> int:
         dropped_evidence += n_ev
     print(f"{'applied' if apply else 'would apply'}: {len(merges)} merged rows re-keyed, "
           f"{dropped_changes} artefact changes removed, {dropped_evidence} stale evidence rows removed")
+    n_alerts = supersede_artifact_alerts(apply)
+    print(f"{'superseded' if apply else 'would supersede'} {n_alerts} alerts whose change was removed as an artefact")
     print("counties that lost records (re-hunt these):",
           ", ".join(f"{k}:{v}" for k, v in sorted(lost.items())))
     return 0

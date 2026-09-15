@@ -85,7 +85,7 @@ def fill(top: int) -> dict:
 def main():
     init_db()
     args = sys.argv[1:]
-    hours = float(args[args.index("--hours") + 1]) if "--hours" in args else 8
+    hours = float(args[args.index("--hours") + 1]) if "--hours" in args else 24 * 365
     top = int(args[args.index("--top") + 1]) if "--top" in args else 80
     deadline = time.time() + hours * 3600
     while time.time() < deadline:
@@ -98,7 +98,9 @@ def main():
             log(None, f"CountyPay tax bills filled: {out}", source="countypay")
             subprocess.run([sys.executable, os.path.join(ROOT, "tools", "build_share.py")], check=False,
                            stdout=subprocess.DEVNULL)
-            return
+            # keep watching: the site promises a check every 20 minutes, and a fill is not the end
+            time.sleep(6 * 3600)
+            continue
         time.sleep(20 * 60)
     print("gave up waiting; the scheduled scan will keep trying daily", flush=True)
 

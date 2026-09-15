@@ -135,7 +135,7 @@ footer{background:var(--surface);border-top:1px solid var(--rule);padding:10px 2
     <p class="note" id="mapnote"></p>
     <label>County<select id="county"></select></label>
     <label>Search owner, address, parcel or subdivision<input type="text" id="q" placeholder="e.g. Diamondhead, Tarragona, 60606"></label>
-    <label>Sort<select id="sort"><option value="bid">Lowest amount owed first</option><option value="bid_desc">Highest amount owed first</option><option value="value">Highest appraised value first</option><option value="ratio">Best value per dollar owed</option><option value="acres">Most acreage first</option><option value="added">Newest listings first</option></select></label>
+    <label>Sort<select id="sort"><option value="bid">Lowest amount owed first</option><option value="bid_desc">Highest amount owed first</option><option value="value">Highest appraised value first</option><option value="ratio">Highest appraised value per dollar owed (appraisal, not market)</option><option value="acres">Most acreage first</option><option value="added">Newest listings first</option></select></label>
     <div class="checks" style="display:flex;flex-direction:column;gap:5px">
       <label><input type="checkbox" id="f-addr"> Has a street address</label>
       <label><input type="checkbox" id="f-bldg"> Has a building (improvement value)</label>
@@ -259,6 +259,7 @@ function card(x){
   return `<button class="card" data-k="${esc(k)}">
     <div class="pic">${pic?`<img loading="lazy" src="${esc(pic)}" alt="Aerial of ${esc(addr)}">`:''}<span class="tag">${esc(title(x.county))} · ${esc(x.parcel_id||'RPID '+x.rpid)}</span><span class="due">${fmt$(x.starting_bid)} owed</span></div>
     <div class="body"><h3>${esc(addr)}</h3><div class="own">${esc(title(x.owner))}${x.city?' · '+esc(title(x.city)):''}</div>
+    <div class="own" style="font-size:11.5px"><b>Sale:</b> for sale by the State (tax sale), not a private listing · <b>Taxes:</b> TAX SALE — State certified, ${fmt$(x.starting_bid)} owed</div>
     <dl class="kv"><dt>County appraised</dt><dd class="num">${fmt$(x.appraised)}</dd><dt>Building</dt><dd class="num">${x.improvements>0?fmt$(x.improvements):'none on the roll'}</dd><dt>Acreage</dt><dd class="num">${x.acreage?x.acreage.toFixed(2)+' ac':(x.sqm?(x.sqm/4046.86).toFixed(2)+' ac (mapped)':'—')}</dd></dl>
     <div>${x.current_bid>0?`<span class="chip r">bid ${fmt$(x.current_bid)} · ${x.bids} bids</span>`:'<span class="chip o">no bids yet</span>'}${x.improvements>0?'<span class="chip d">has a building</span>':''}${isHSV(x)?`<span class="chip">${esc(x.excluded_area||'HSV / Diamondhead')} lot</span>`:''}${x.delinquent_year?`<span class="chip">delinquent since ${esc(x.delinquent_year)}</span>`:''}</div></div></button>`;
 }

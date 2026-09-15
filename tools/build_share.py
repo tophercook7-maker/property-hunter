@@ -6,6 +6,7 @@ Writes hunter/static/share.html (served at /share) and a copy on the Desktop.
 The page carries real owner names from the public tax roll - it is Topher's
 call where it gets shared; this script never publishes anything.
 """
+import datetime
 import json, os, re, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -71,9 +72,169 @@ def conflict_change_ids() -> dict:
     return out
 
 
+def _latest_full(field):
+    out = {}
+    for r in q("SELECT id, property_id, value, raw_ref, source, effective_date, created_at FROM evidence WHERE field=? ORDER BY id", (field,)):
+        out[r["property_id"]] = dict(r)
+    return out
+
+
+COLLECTOR_SOURCES = ("county_tax_collector", "county_delinquent_list")
+STALE_DAYS = 45
+
+
+def tax_state(pid, p, *, cert, removed, redeemed, sold, bill, chk, delinq, amt_state, amt_county, today):
+    """The one tax state a row may carry. Facts only; a missing check stays UNKNOWN.
+
+      TAX_SALE_VERIFIED   State Lands lists it for sale (certification newer than any removal)
+      DELINQUENT_VERIFIED the Collector (or an imported county list) says delinquent
+      CURRENT_BILL_OPEN   the Collector shows this year's bill open — NOT delinquent
+      CURRENT_VERIFIED    the Collector answered and shows no open real-estate bill
+      STALE               a Collector answer older than STALE_DAYS (state kept in `was`)
+      UNKNOWN             never checked at the Collector; not on the State list
+    SOURCE_UNAVAILABLE is composed at display time from status.json (it is a fact about the
+    source, not about the parcel). A State Lands 'not held' check never becomes a Collector state."""
+    def when(ev):
+        return ((ev or {}).get("effective_date") or (ev or {}).get("created_at") or "")[:10]
+    def days_old(d):
+        try:
+            return (today - datetime.date.fromisoformat(d)).days
+        except Exception:
+            return None
+    c = cert.get(pid)
+    ended = [e for e in (removed.get(pid), redeemed.get(pid), sold.get(pid)) if e and c and e["id"] > c["id"]]
+    if c and not ended and str(p["tax_status"] or "").startswith("CERTIFIED"):
+        a = amt_state.get(pid)
+        return {"st": "TAX_SALE_VERIFIED", "src": "Commissioner of State Lands", "as_of": when(c),
+                "amt": _money(a["value"]) if a else None, "conf": "FACT"}
+    d = delinq.get(pid)
+    if d:
+        a = amt_county.get(pid)
+        st = {"st": "DELINQUENT_VERIFIED", "src": "County Collector" if d.get("source") == "county_tax_collector" else "County delinquent list",
+              "as_of": when(d), "amt": _money(a["value"]) if a else None, "conf": "FACT"}
+    else:
+        b = bill.get(pid)
+        k = chk.get(pid)
+        if b and (p["tax_status"] == "DELINQUENT" or "delinquent" in (b.get("value") or "").lower().split("(")[-1]):
+            st = {"st": "DELINQUENT_VERIFIED", "src": "County Collector", "as_of": when(b), "amt": _money_in(b.get("value")), "conf": "FACT"}
+        elif b:
+            st = {"st": "CURRENT_BILL_OPEN", "src": "County Collector", "as_of": when(b), "amt": _money_in(b.get("value")), "conf": "FACT"}
+        elif k and k.get("source") in COLLECTOR_SOURCES:
+            st = {"st": "CURRENT_VERIFIED", "src": "County Collector", "as_of": when(k), "amt": None, "conf": "OBSERVATION"}
+        else:
+            st = {"st": "UNKNOWN", "src": None, "as_of": None, "amt": None, "conf": None}
+            if k and k.get("source") == "cosl_listings":
+                st["cosl_check"] = when(k)      # the State says it does not hold it; says nothing about the county bill
+            return st
+    age = days_old(st["as_of"]) if st["as_of"] else None
+    if age is not None and age > STALE_DAYS:
+        return {"st": "STALE", "was": st["st"], "src": st["src"], "as_of": st["as_of"], "amt": st.get("amt"), "conf": st.get("conf"), "days": age}
+    return st
+
+
+def _money_in(text):
+    m = re.search(r"\$([\d,]+(?:\.\d+)?)", text or "")
+    return _money(m.group(1)) if m else None
+
+
+def tax_text(pid, taxbill, taxchk, taxcosl):
+    """Legacy one-line text, now source-correct: the State never speaks for the Collector."""
+    if pid in taxbill:
+        return taxbill[pid]["value"]
+    if pid in taxcosl:
+        return taxcosl[pid]["value"][:80]
+    k = taxchk.get(pid)
+    if k and k.get("source") in COLLECTOR_SOURCES:
+        return "no open bill at the Collector"
+    if k and k.get("source") == "cosl_listings":
+        return "not held by the State (State Lands check)"
+    return None
+
+
+def build_signals(rows_by_id: dict, county_name: dict) -> dict:
+    """OPPORTUNITY SIGNALS for the last seven days: actionable public-record EVENTS, each with
+    source, evidence status, why it matters and one next action. Never a field diff. Rules:
+      - a State certification counts whether it is 'new this week' or 'first seen by the scanner
+        this week' (the user has not seen it either way); the label says which
+      - leaving the State inventory counts only when the reason is known from the State's monthly
+        report (sold / redeemed); a bare disappearance is reported as 'left the inventory'
+      - a City register record counts when its FIRST evidence row is inside the window and the
+        property was already known before the window (otherwise it is discovery of a Garland row,
+        still listed but labelled as such)
+      - a Collector-verified or county-list delinquency counts when first recorded in the window
+      - repair artefacts (rows whose property has a county change in the window, or conflict-kind
+        changes) never count
+      - there is no listing source, so no listing event can exist here."""
+    since = (datetime.datetime.utcnow() - datetime.timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%S")
+    artefact = {r["property_id"] for r in q("SELECT DISTINCT property_id FROM changes WHERE field IN ('county_fips','territory') AND detected_at > ?", (since,))}
+    out = []
+    def href(r, kind):
+        if kind == "state-lands":
+            return f"state-lands.html?county={(r['cn'] or 'GARLAND').upper()}&q={r['pid'] or r['a'] or ''}"
+        if kind == "directions" and r.get("lat"):
+            return f"https://www.google.com/maps/dir/?api=1&destination={r['lat']},{r['lon']}"
+        return f"lookup.html?county={r['cf']}&q={r['pid'] or r['a'] or ''}"
+    def row(pid, event, label, date, src, status, why, nxt, extra=None, discovery=False):
+        r = rows_by_id.get(pid)
+        if not r or pid in artefact:
+            return
+        out.append({"id": pid, "a": r["a"], "cn": r["cn"], "cf": r["cf"], "pid": r["pid"], "tv": r["tv"], "iv": r["iv"],
+                    "event": event, "label": label, "date": (date or "")[:10], "src": src, "status": status,
+                    "why": why, "next": {"label": nxt["label"], "href": href(r, nxt["href"])},
+                    "discovery": bool(discovery), **(extra or {})})
+    # 1. State tax sale: certification recorded in the window (change row, seed or not)
+    for c in q("""SELECT c.property_id, c.old_value, c.detected_at, p.first_seen FROM changes c JOIN properties p ON p.id=c.property_id
+                  WHERE c.field='tax_status' AND c.new_value LIKE 'CERTIFIED%' AND c.detected_at > ? AND p.excluded=0""", (since,)):
+        first = (c["first_seen"] or "") > since
+        row(c["property_id"], "NEW_TAX_SALE",
+            "First seen on the State tax-sale list" if first else "Newly certified to the State for unpaid taxes",
+            c["detected_at"], "Commissioner of State Lands", "VERIFIED",
+            "The State is selling this parcel for unpaid taxes; the amount owed is public and the owner can still redeem until it sells.",
+            {"label": "Open sale file", "href": "state-lands"}, discovery=first)
+    # 2. Left the State inventory: sold / redeemed from the monthly report, else 'left'
+    for e in q("""SELECT e.property_id, e.field, e.value, e.created_at FROM evidence e JOIN properties p ON p.id=e.property_id
+                  WHERE e.field IN ('tax_sale_history','tax_redemption','tax_delinquent_removed') AND e.created_at > ? AND p.excluded=0
+                  ORDER BY e.id""", (since,)):
+        kind = {"tax_sale_history": ("STATE_SOLD", "Sold at the State tax sale", "The State's monthly sales report lists this parcel as sold; the deed goes to the buyer after the litigation period."),
+                "tax_redemption": ("STATE_REDEEMED", "Redeemed by the owner", "The State's monthly report says the owner paid up; it is off the sale list."),
+                "tax_delinquent_removed": ("STATE_LEFT", "Left the State tax-sale inventory", "It is no longer listed; the monthly report will say whether it sold or was redeemed.")}[e["field"]]
+        row(e["property_id"], kind[0], kind[1], e["created_at"], "Commissioner of State Lands",
+            "VERIFIED" if e["field"] != "tax_delinquent_removed" else "OBSERVED", kind[2],
+            {"label": "Re-check the file", "href": "lookup"})
+    # 3. City registers: first evidence row inside the window
+    for field, ev_name, label, why, nxt in (
+            ("vacant_structure", "NEW_VACANCY_RECORD", "New vacant-structure register record", "The City itself now records this building as vacant.", {"label": "Drive by", "href": "directions"}),
+            ("cleanup_lien_amount", "NEW_LIEN", "New City cleanup / demolition lien", "The City spent money here and holds a lien; it is paid at closing or negotiated.", {"label": "Investigate lien", "href": "lookup"}),
+            ("code_case_open", "NEW_CODE_CASE", "New code-enforcement case", "The City opened a housing or code case at this address.", {"label": "Review case", "href": "lookup"}),
+            ("tax_delinquent_county", "VERIFIED_DELINQUENCY", "Delinquent at the county (verified)", "The county's own record says the taxes are behind.", {"label": "Inspect delinquent record", "href": "lookup"})):
+        for e in q(f"""SELECT e.property_id, MIN(e.created_at) first_at, p.first_seen FROM evidence e JOIN properties p ON p.id=e.property_id
+                       WHERE e.field=? AND p.excluded=0 GROUP BY e.property_id HAVING first_at > ?""", (field, since)):
+            first = (e["first_seen"] or "") > since
+            row(e["property_id"], ev_name, label + (" (first seen by the scanner)" if first else ""), e["first_at"],
+                "City of Hot Springs" if field != "tax_delinquent_county" else "County Collector", "VERIFIED", why, nxt, discovery=first)
+    out.sort(key=lambda x: x["date"], reverse=True)
+    events = [x for x in out if not x["discovery"]]
+    discovered = [x for x in out if x["discovery"]]
+    def counts(xs):
+        c = {}
+        for x in xs:
+            c[x["event"]] = c.get(x["event"], 0) + 1
+        return c
+    return {"built_at": datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z", "window_days": 7,
+            # `total` = events on parcels the hunt already knew (a change in the world this week);
+            # `discovered` = signals on parcels the scanner met for the first time this week (new to the
+            # user too, but not "new this week" in the world). Never merged into one number.
+            "total": len(events), "by_event": counts(events),
+            "discovered_total": len(discovered), "discovered_by_event": counts(discovered),
+            "listing_source": None, "rows": events[:200], "discovered": discovered[:200]}
+
+
 def export_rows():
     mail, vac, code = _latest("owner_mailing_address"), _latest("vacant_structure"), _latest("code_case_open")
-    taxbill, taxchk, taxcosl = _latest("tax_bill"), _latest("tax_status_check"), _latest("tax_delinquent")
+    taxbill, taxchk, taxcosl = _latest_full("tax_bill"), _latest_full("tax_status_check"), _latest_full("tax_delinquent")
+    removed, redeemed, sold = _latest_full("tax_delinquent_removed"), _latest_full("tax_redemption"), _latest_full("tax_sale_history")
+    delinq, amt_state, amt_county = _latest_full("tax_delinquent_county"), _latest_full("tax_amount_owed"), _latest_full("tax_amount_owed_county")
+    today = datetime.date.today()
     liens = {}
     for r in q("SELECT property_id, value, raw_ref FROM evidence WHERE field='cleanup_lien_amount'"):
         liens.setdefault(r["property_id"], {})[r["raw_ref"] or r["value"]] = r["value"]
@@ -142,9 +303,10 @@ def export_rows():
             "ts": p["tax_status"], "yb": p["year_built"],
             "conf": conf.get(pid), "lines": lines.get(pid, []), "chg": chg.get(pid, [])[:6],
             "seen": (p["first_seen"] or "")[:10], "upd": (p["last_seen"] or "")[:10],
-            "tax": (taxbill[pid]["value"] if pid in taxbill else
-                    taxcosl[pid]["value"][:80] if pid in taxcosl else
-                    "no open bill at the Collector" if pid in taxchk else None),
+            "tax": tax_text(pid, taxbill, taxchk, taxcosl),
+            "taxs": tax_state(pid, p, cert=taxcosl, removed=removed, redeemed=redeemed, sold=sold, bill=taxbill, chk=taxchk,
+                              delinq=delinq, amt_state=amt_state, amt_county=amt_county, today=today),
+            "sale": {"st": "UNKNOWN", "src": None},   # no listing source is connected; silence must never read as "not for sale"
             "lien": round(sum(_money(v) for v in liens.get(pid, {}).values()), 2) if pid in liens else 0,
             "inv": inv.get(pid)})
     rows.sort(key=lambda r: -(r["s"] or 0))
@@ -208,6 +370,7 @@ def build():
             json.dump({"built_at": built, "labels": labels, "county": rs[0].get("cn"), "fips": cf, "rows": rs},
                       open(os.path.join(sdir, f"{cf}.json"), "w"), separators=(",", ":"))
             index["counties"][cf] = {"county": rs[0].get("cn"), "n": len(rs), "strong": sum(1 for r in rs if (r.get("s") or 0) >= 65),
+                                     "smax": max((r.get("s") or 0) for r in rs),
                                      "with_building": sum(1 for r in rs if (r.get("iv") or 0) > 0),
                                      "top": [r for r in rs if r.get("rec") != "PASS"][:25]}
         json.dump(index, open(os.path.join(ROOT, "docs", "data", "scan_index.json"), "w"), separators=(",", ":"))
@@ -225,11 +388,21 @@ def build():
         chrows = [r for r in chrows if r["k"] != "seed"]
         real = [r for r in chrows if r["k"] == "change"]
         byfield = Counter(r["f"] for r in real)
+        json.dump(build_signals({r["i"]: r for r in slim}, county_name),
+                  open(os.path.join(ROOT, "docs", "data", "signals.json"), "w"), separators=(",", ":"))
         json.dump({"built_at": built, "week": True, "total": len(real), "conflicts": sum(1 for r in chrows if r["k"] == "conflict"),
                    "sources": sum(1 for r in chrows if r["k"] == "sources"), "by_field": byfield.most_common(12),
                    "rows": real[:120] + [r for r in chrows if r["k"] != "change"][:80]},
                   open(os.path.join(ROOT, "docs", "data", "changes.json"), "w"), separators=(",", ":"))
         terr = {t["county_fips"]: t for t in __import__("hunter.config", fromlist=["TERRITORIES"]).TERRITORIES}
+        try:
+            sl_counties = {x.get("fips") for x in json.load(open(os.path.join(ROOT, "docs", "data", "state_lands.json"))).get("listings", [])}
+        except Exception:
+            sl_counties = set()
+        try:
+            cp_open = json.load(open(os.path.join(ROOT, "docs", "data", "status.json"))).get("countypay", {}).get("open")
+        except Exception:
+            cp_open = None
         scans = {}
         for r in q("SELECT territory, status, finished_at, started_at, stats_json FROM scans WHERE mode='distress' ORDER BY id"):
             scans[r["territory"]] = r
@@ -241,7 +414,12 @@ def build():
                                       "status": ("done" if sr and sr["status"] == "complete" else "scanning" if sr and sr["status"] == "running" else "failed" if sr else "waiting"),
                                       "finished_at": (sr["finished_at"] or "")[:16] if sr else None,
                                       "n": index["counties"].get(fips, {}).get("n", 0), "strong": index["counties"].get(fips, {}).get("strong", 0),
-                                      "examined": st.get("records_examined"), "excluded": st.get("excluded")}
+                                      "examined": st.get("records_examined"), "excluded": st.get("excluded"),
+                                      # what public-record sources actually exist for this county: an empty filter
+                                      # must never read as "there are no such properties"
+                                      "sources": {"roll": True, "state_lands": fips in sl_counties,
+                                                  "city_registers": fips == "05051",
+                                                  "collector": "unavailable" if cp_open is False else ("open" if cp_open else "untested")}}
         json.dump(hunt, open(os.path.join(ROOT, "docs", "data", "hunt_status.json"), "w"), separators=(",", ":"))
     return {"properties": len(rows), "investigated": n_inv, "kb": len(full) // 1024, "file": out, "desktop": DESKTOP}
 

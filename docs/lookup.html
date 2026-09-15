@@ -313,8 +313,9 @@ async function select(i){
   $('detail').innerHTML = `<div class="detail">
     <div><h2>${esc(addr)}</h2><div class="sub">${esc(title(a.adrcity)||'')}${a.adrzip5?' '+a.adrzip5:''} · ${esc(county)} County · parcel <span class="num">${esc(a.parcelid)}</span></div></div>
     <div id="village"></div>
+    <div class="strip" id="strip" aria-label="Summary"><div><span>Sale</span><b>UNKNOWN — no listing source connected</b></div><div><span>Taxes</span><b id="strip-tax">checking the State list and Collector status…</b></div><div><span>Signals</span><b id="strip-sig">looking up the scan…</b></div><div><span>Next</span><b id="strip-next">…</b></div></div>
     <div class="sec" id="whysec"><h3>Why this property? <span class="from">only from records read</span></h3><div id="why"><span class="pending">assembling…</span></div></div>
-    <div class="sec" id="prio"><h3>Research priority <span class="from">from the hunt's scoring, if this parcel was scanned</span></h3><div id="priobox"><span class="pending">looking it up…</span></div></div>
+    <div class="sec" id="prio"><h3>Signal stack <span class="from">what the records say, counted; from the hunt's scoring if this parcel was scanned</span></h3><div id="priobox"><span class="pending">looking it up…</span></div></div>
     <div class="money">
       <div class="hi"><b class="num">${fmt$(a.totalvalue)}</b><span>County appraised</span></div>
       <div><b class="num">${fmt$(a.assessvalue)}</b><span>Assessed for tax</span></div>
@@ -449,11 +450,12 @@ async function villageCheck(c, a){
   const poa = /Village/.test(hit.name) ? 'Hot Springs Village POA dues run about $52 a month per lot for as long as you own it, plus a buy-in and transfer fee' : 'Diamondhead POA dues attach to the lot';
   el.innerHTML = `<div class="village"><b>Inside ${esc(hit.name)}.</b> This hunt never buys here, and the scan never lists it: ${poa}. The State's tax-sale lots here sell for the debt to bulk buyers, and a signed-over deed makes the dues yours. Everything below is still true; it is just not a deal.</div>`;
 }
-/* ---------- WHY THIS PROPERTY + research priority: from the hunt's scan row when this parcel was scanned ---------- */
+/* ---------- WHY THIS PROPERTY + signal stack: from the hunt's scan row when this parcel was scanned ---------- */
 const SCANS = {};
+const SCAN_MAX = {};
 async function scanRow(fips, parcel){
   if(!fips || !parcel) return null;
-  if(!SCANS[fips]){ try { const r = await fetch(`data/scan/${fips}.json`); SCANS[fips] = r.ok ? await r.json() : {rows:[]}; } catch(e){ SCANS[fips] = {rows:[]}; } }
+  if(!SCANS[fips]){ try { const r = await fetch(`data/scan/${fips}.json`); SCANS[fips] = r.ok ? await r.json() : {rows:[]}; } catch(e){ SCANS[fips] = {rows:[]}; } SCAN_MAX[fips] = Math.max(0, ...(SCANS[fips].rows||[]).map(x=>x.s||0)); }
   const norm = v => String(v||'').replace(/[^0-9A-Za-z]/g,'').toUpperCase();
   return (SCANS[fips].rows||[]).find(x => norm(x.pid) === norm(parcel)) || null;
 }
@@ -482,7 +484,11 @@ async function whyBlock(a, c){
     <b style="display:block;margin-top:8px">Possible interpretation</b><p style="margin:4px 0 0">${row && (row.s||0)>=65 ? 'This combination of records may justify a closer look. That is a research judgement, not a valuation.' : row ? 'The records read so far do not make this a priority; it may still be worth a look for your own reasons.' : 'This parcel was not part of a hunt preset, so no priority has been computed. The records above stand on their own.'}</p>
     <b style="display:block;margin-top:8px">Unknown</b><ul style="margin:6px 0 0;padding-left:18px">${unknown.map(v=>`<li>${esc(v)} ${PH.pill('unknown','unknown')}</li>`).join('')}</ul>
     <b style="display:block;margin-top:8px">Next step</b><p style="margin:4px 0 0">Drive by and verify condition before contacting the owner. Then work the checklist at the bottom of this file.</p></div>`;
-  pb.innerHTML = row ? PH.priorityHtml(row) + `<div style="margin-top:8px"><button class="btn ghost" type="button" id="whybtn">Why this one? · step through the evidence</button></div>` : `<div class="empty">Not scored: this parcel was not in the hunt's distress preset for ${esc(COUNTIES[a.countyfips]||'this county')}, or the county has not been hunted yet. Everything else in this file is read live from the records.</div>`;
+  const cmax = row ? (SCAN_MAX[a.countyfips] || null) : null;
+  pb.innerHTML = row ? PH.stackHtml(row, cmax) + `<div style="margin-top:8px"><button class="btn ghost" type="button" id="whybtn">Why this one? · step through the evidence</button> <a class="btn ghost" href="${esc(PH.searchListingsUrl(row))}" target="_blank" rel="noopener">Search public listings</a></div>` : `<div class="empty">Not scored: this parcel was not in the hunt's distress preset for ${esc(COUNTIES[a.countyfips]||'this county')}, or the county has not been hunted yet. Everything else in this file is read live from the records. Sale status is unknown: no listing source is connected.</div>`;
+  const ss = $('strip-sig'), sn = $('strip-next');
+  if(row){ const sg = PH.signals(row); const nx = PH.nextAction(row); ss.textContent = `${sg.verified.length} verified / ${sg.derived.length} derived${sg.strongest?' · '+sg.strongest.text:''}`; sn.innerHTML = `<a href="${esc(nx.href)}"${/^https?:/.test(nx.href)?' target="_blank" rel="noopener"':''}>${esc(nx.label)} →</a>`; }
+  else { ss.textContent = 'not scanned; live records only'; sn.innerHTML = `Work the "Before you buy" checklist below · <a href="request.html">check Collector / request county list</a>`; }
   if(row) $('whybtn').addEventListener('click', ()=>PH.whyOpen(row, row.a));
 }
 /* ---------- visuals: aerials from the State's own imagery, no key needed ---------- */
@@ -514,14 +520,20 @@ async function taxStatus(a, c){
   const key = String(a.camakey||'').split('.')[0];
   const hit = d.listings.find(x => x.fips===a.countyfips && (x.parcel_id===a.parcelid || x.rpid===key || x.rpid===a.parcelid));
   const asOf = (d.built_at||'').slice(0,10);
+  let cp = null; try { cp = ((await (await fetch('data/status.json',{cache:'no-store'})).json())||{}).countypay; } catch(e){}
+  const row = await scanRow(a.countyfips, a.parcelid);
+  const tx = PH.taxState(row || {ts: hit ? 'CERTIFIED_TO_STATE_FOR_SALE' : null}, cp);
+  const collectorLine = (tx.state === 'TAX_SALE_VERIFIED')
+    ? `County Collector: the bill for a State-certified parcel is settled through State Lands, not the county payment site.`
+    : `<b>County Collector:</b> ${esc(tx.text)}.${tx.state==='SOURCE_UNAVAILABLE' ? ' The county Collector\'s online search (CountyPay) is down; this year\'s bill is not checked, and the poller retries every 20 minutes.' : tx.state==='UNKNOWN' ? ' Nobody has asked the Collector about this parcel yet; that is not a finding either way.' : ''}`;
   if(hit){
     el.className = 'taxbox cert';
-    el.innerHTML = `<b class="big">${fmt$(hit.starting_bid)} owed</b> · <b>certified to the State for unpaid taxes and FOR SALE</b>${hit.delinquent_year?` · unpaid since ${esc(hit.delinquent_year)}`:''}${hit.current_bid>0?` · current bid ${fmt$(hit.current_bid)} (${hit.bids} bids)`:''}.<br>Owner-direct is mostly off the table: the owner can redeem until it sells, otherwise it goes to whoever buys it on the State's site. <a href="${esc(hit.listing_url)}" target="_blank" rel="noopener">State Lands listing</a> · <a href="state-lands.html?county=${esc(hit.county)}&q=${esc(hit.rpid)}">in the inventory</a> · inventory as of ${asOf}<span class="tag fact">COSL</span>`;
+    el.innerHTML = `<b class="big">${fmt$(hit.starting_bid)} owed</b> · <b>TAX SALE — certified to the State for unpaid taxes and for sale by the State</b>${hit.delinquent_year?` · unpaid since ${esc(hit.delinquent_year)}`:''}${hit.current_bid>0?` · current bid ${fmt$(hit.current_bid)}`:''} · State inventory as of ${asOf}.<br>${collectorLine}<span class="t">Source: Commissioner of State Lands. A State sale, not a private listing.</span>`;
   } else {
-    let cp = null; try { cp = ((await (await fetch('data/status.json',{cache:'no-store'})).json())||{}).countypay; } catch(e){}
-    const cpLine = cp && cp.open === false ? `The county Collector's online search (CountyPay) is <b>NOT CURRENTLY AVAILABLE</b> (down since ${PH.when(cp.down_since)}), so this year's bill is <b>not checked</b>; the app retries every 20 minutes.` : `Whether this year's county bill is paid comes from the Collector's site (CountyPay) when it answers; the app checks the top properties daily.`;
-    el.innerHTML = `<b>Not in the State Lands inventory</b> as of ${asOf}: not certified for sale for unpaid taxes (that takes roughly two years behind). ${cpLine} The one-year-behind list is a records request: <a href="request.html">the kit</a>.<span class="tag obs">daily inventory · status file</span>`;
+    el.className = 'taxbox';
+    el.innerHTML = `${collectorLine}<br><b>State Lands:</b> not in the State tax-sale inventory as of ${asOf}${row && row.taxs && row.taxs.cosl_check ? ` (per-parcel check ${esc(row.taxs.cosl_check)})` : ''}. That only says the State is not selling it; it does not say the taxes are paid or current. The one-year-behind list is a records request: <a href="request.html">the kit</a>.<span class="t">Two sources, two answers: the State's sale list and the county Collector. Neither speaks for the other.</span>`;
   }
+  const st = $('strip-tax'); if(st){ st.textContent = tx.text; st.className = 'tx-' + tx.tone; }
 }
 
 /* ---------- Before you buy: confirmations, routes, offer prep. Nothing here sends anything. ---------- */
@@ -594,7 +606,7 @@ function renderAcq(r, a, c, cityOut, county){
   routes.push({fit:'only if certified', dim:true, h:'Buy it at a State Lands tax sale', body:
     `If the county has certified the parcel to the Commissioner of State Lands for unpaid taxes, it may come up at a public auction or a post-auction sale. You bid; you cannot arrange it privately. Confirm certification at cosl.org first; most parcels are not certified. Ask COSL or an attorney about the redemption and challenge periods before you spend anything.`});
   if(cityOut && cityOut.owned && cityOut.owned.ok && cityOut.owned.rows.length) routes.push({fit:'public property', h:'It is City-owned', body:'A private offer does not apply. Surplus City property is sold by the City on its own process; ask the City Clerk.'});
-  routes.push({fit:'not checked here', dim:true, h:'Is it listed for sale?', body:'This tool has no listing feed. Search the address on a listing site; if it is listed, an agent is the path and the asking price replaces every estimate on this page.'});
+  routes.push({fit:'not checked here', dim:true, h:'Search public listings for this address (no listing source is connected; sale status is unknown)', body:'This tool has no listing feed. Search the address on a listing site; if it is listed, an agent is the path and the asking price replaces every estimate on this page.'});
 
   /* --- render --- */
   const checkRow = (x, manualItem) => {

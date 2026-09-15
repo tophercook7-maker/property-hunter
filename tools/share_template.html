@@ -1,6 +1,7 @@
 <title>Property Hunter Scan</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="ph.css">
+<script src="ph.js"></script>
 <style>
 :root{
   --ground:#E8ECEF; --surface:#FFFFFF; --surface2:#F3F5F7; --ink:#172029; --muted:#5F6E7B; --rule:#D3DAE0;
@@ -188,7 +189,7 @@ td.own div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:2
         <label>Search address, owner or parcel<input type="text" id="q" placeholder="e.g. Glade, Monolith, 400-29150"></label>
         <label>County<select id="county"></select></label>
         <label>City<select id="city"></select></label>
-        <label>Our call<select id="rec"><option value="">Any</option><option>INVESTIGATE</option><option>WATCH</option><option>PASS</option><option>UNSCORED</option></select></label>
+        <label>Call<select id="rec"><option value="">Any</option><option>INVESTIGATE</option><option>UNSCORED</option></select></label>
         <div><span class="eyebrow">Only show</span>
         <div class="checks" id="flags"></div></div>
         <button class="clear" id="clear">Clear filters</button>
@@ -205,7 +206,7 @@ td.own div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:2
             <th data-k="lien" class="r">City lien</th>
             <th data-k="z">Zoning</th>
             <th>Flags</th>
-            <th data-k="rec">Call</th>
+            <th data-k="rec">Call · signals</th>
           </tr></thead>
           <tbody id="rows"></tbody>
         </table>
@@ -220,6 +221,7 @@ td.own div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:2
 
 <script type="application/json" id="data">__DATA__</script>
 <script>
+function sigCount(r){ const g = (window.PH && PH.signals) ? PH.signals(r) : {verified:[],derived:[]}; return `${g.verified.length} verified · ${g.derived.length} derived signals`; }
 const DATA = JSON.parse(document.getElementById('data').textContent);
 let LABELS = __LABELS__;
 const FLAGS = [
@@ -241,7 +243,7 @@ const inv = DATA.filter(r=>r.inv);
 const totalLien = DATA.reduce((a,r)=>a+r.lien,0);
 document.getElementById('stats').innerHTML = [
   [DATA.length.toLocaleString(),'properties found'],
-  [DATA.filter(r=>r.rec==='INVESTIGATE').length,'worth a look'],
+  [DATA.filter(r=>r.rec==='INVESTIGATE').length,'INVESTIGATE per the scorer'],
   [DATA.filter(r=>r.vac).length,'on vacant register'],
   [fmt$(totalLien),'in City liens'],
 ].map(([b,s])=>`<div class="stat"><b>${b}</b><span>${s}</span></div>`).join('');
@@ -321,7 +323,7 @@ function renderRows(){
     <td class="r num">${r.lien>0?fmt$(r.lien):'<span style="color:var(--muted)">—</span>'}</td>
     <td class="num">${esc(r.z||'—')}</td>
     <td><div class="chips">${chips(r,3)}</div></td>
-    <td><span class="rec rec-${r.rec}">${r.rec}</span></td></tr>`).join('');
+    <td>${r.rec==='INVESTIGATE'?'<span class="rec rec-INVESTIGATE">INVESTIGATE</span> ':''}<span class="tiny">${sigCount(r)}</span></td></tr>`).join('');
   document.getElementById('shown').textContent = Math.min(limit,view.length).toLocaleString();
   document.getElementById('total').textContent = DATA.length.toLocaleString();
   const more=document.getElementById('more'); more.hidden = view.length<=limit;
@@ -399,7 +401,7 @@ function openDrawer(id){
         <dt>Footprint</dt><dd class="num">${r.sq?Math.round(r.sq).toLocaleString()+' sq ft (mapped)':'—'}</dd>
         <dt>Zoning</dt><dd>${esc(r.zf||'not in a City zoning layer (likely unincorporated)')}</dd>
         <dt>Flood zone</dt><dd>${esc(r.f||'not checked yet')}</dd>
-        <dt>Our call</dt><dd><span class="rec rec-${r.rec}">${r.rec}</span></dd>
+        <dt>Call · signals</dt><dd>${r.rec==='INVESTIGATE'?'<span class="rec rec-INVESTIGATE">INVESTIGATE</span> — ':''}${sigCount(r)}. Sale status unknown (no listing source). Taxes: ${PH.taxState(r).text}</dd>
       </dl></div>
       <div class="sec"><h3>Scores <span class="eyebrow" style="font-family:var(--body);letter-spacing:.06em">0–100, ranking aid only</span></h3><div class="scores">
         ${[['Overall','s'],['Risk','r'],['Rental','rent'],['Land play','land'],['Storage','stor'],['Business','biz'],['Workshop','wk']].map(([n,k])=>`<div class="${k==='r'?'risk':''}"><span>${n}</span><span class="bar"><i style="width:${r[k]||0}%"></i></span><span class="num" style="text-align:right">${r[k]??'—'}</span></div>`).join('')}

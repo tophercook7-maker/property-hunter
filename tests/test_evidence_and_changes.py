@@ -30,13 +30,16 @@ def test_conflicting_sources_are_recorded_not_overwritten():
     assert {"TUCKER ACQUISITIONS LLC", "SOMEBODY ELSE"} <= values
 
 
-def test_owner_change_is_detected_and_raises_an_alert():
+def test_owner_change_is_detected_and_recorded_without_an_alert():
     store.ingest(make_record())
     pid, action, changes = store.ingest(make_record(owner_name="NEW OWNER LLC"))
     assert action == "updated"
     assert any(c["field"] == "owner_name" for c in changes)
+    # P0-5: an owner-name reading change is information, not an opportunity: it is recorded
+    # (changes + timeline) but never rings the alert bell
     alerts = db.q("SELECT * FROM alerts WHERE property_id=?", (pid,))
-    assert any("owner changed" in a["title"].lower() for a in alerts)
+    assert not any("owner changed" in a["title"].lower() for a in alerts)
+    assert any("owner" in (t["title"] or "").lower() for t in db.q("SELECT title FROM timeline WHERE property_id=?", (pid,)))
     ch = db.q1("SELECT * FROM changes WHERE property_id=? AND field='owner_name'", (pid,))
     assert ch["old_value"] == "TUCKER ACQUISITIONS LLC"
     assert ch["new_value"] == "NEW OWNER LLC"

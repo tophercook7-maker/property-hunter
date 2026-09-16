@@ -34,7 +34,9 @@ CATEGORIES = ("IDENTITY", "OWNERSHIP", "TAXES", "SALE_STATUS", "LIENS", "VACANCY
 EVENT_CLASSES = ("SIGNAL RECEIVED", "INVESTIGATION OPENED", "SOURCE CHECK", "MANUAL VERIFICATION", "EVIDENCE ADDED",
                  "QUESTION ANSWERED", "QUESTION REMAINS UNKNOWN", "ACTION COMPLETED", "STATUS CHANGE", "NOTE ADDED",
                  # P3B outreach preparation (draft only; there is no SENT class because nothing can be sent)
-                 "OUTREACH PREPARATION STARTED", "OUTREACH GATE EVALUATED", "DRAFT GENERATED", "DRAFT EDITED", "DRAFT REVIEWED", "DRAFT DISCARDED")
+                 "OUTREACH PREPARATION STARTED", "OUTREACH GATE EVALUATED", "DRAFT GENERATED", "DRAFT EDITED", "DRAFT REVIEWED", "DRAFT DISCARDED",
+                 # P3C: a person's own record of what they did with a draft. HUMAN-REPORTED; never a system assertion of delivery.
+                 "HUMAN OUTREACH ACTION")
 MANUAL_SOURCE = "manual_verification"
 MANUAL_SOURCES = store.MANUAL_SOURCES          # P3A: one vocabulary, defined in store
 NOTE_SOURCES = store.NOTE_SOURCES
@@ -574,7 +576,8 @@ def index() -> dict:
                             (SELECT COUNT(*) FROM investigation_questions q WHERE q.case_id=c.id AND q.state='UNKNOWN') unknown,
                             (SELECT COUNT(*) FROM investigation_signals s WHERE s.case_id=c.id) signals
                      FROM investigation_cases c JOIN properties p ON p.id=c.property_id"""):
-        d = {"id": r["id"], "status": r["status"], "updated_at": r["updated_at"], "unknown": r["unknown"], "signals": r["signals"]}
+        d = {"id": r["id"], "status": r["status"], "updated_at": r["updated_at"], "unknown": r["unknown"], "signals": r["signals"],
+             "outreach": [{"purpose": o["purpose"], "status": o["status"]} for o in db.q("SELECT purpose, status FROM outreach_preps WHERE case_id=? AND active=1", (r["id"],))]}
         by_prop[str(r["property_id"])] = d
         by_parcel[f"{r['county_fips']}:{r['parcel_id']}"] = r["id"]
     return {"built_at": utcnow(), "count": len(by_prop), "by_property": by_prop, "by_parcel": by_parcel}
@@ -613,4 +616,9 @@ def _redact_public(c: dict) -> dict:
         if f["key"] == "mailing_address":
             f["answer"] = held
     c["events"] = [dict(e, detail=held) if (e.get("cls") in ("MANUAL VERIFICATION", "QUESTION ANSWERED") and "mailing" in (e.get("title") or "").lower()) else e for e in c.get("events", [])]
+    # P3C: human notes and human-reported outreach details never leave the local app
+    hn = "[human note held in the local app]"
+    c["events"] = [dict(e, detail=hn + " — recorded by a human; not a system assertion that anyone received or answered") if e.get("cls") == "HUMAN OUTREACH ACTION"
+                   else dict(e, title=hn, detail="") if e.get("cls") == "NOTE ADDED" else e for e in c["events"]]
+    c["notes"] = [dict(n, body=hn) for n in c.get("notes", [])]
     return c

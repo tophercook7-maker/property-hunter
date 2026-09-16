@@ -495,6 +495,22 @@ CREATE TABLE IF NOT EXISTS outreach_drafts (
   actor TEXT NOT NULL, created_at TEXT NOT NULL
 );
 
+-- P3C: what a HUMAN says they did with a prepared draft. Records only; the app never sends.
+CREATE TABLE IF NOT EXISTS outreach_actions (
+  id INTEGER PRIMARY KEY,
+  case_id INTEGER NOT NULL REFERENCES investigation_cases(id) ON DELETE CASCADE,
+  property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  prep_id INTEGER NOT NULL REFERENCES outreach_preps(id) ON DELETE CASCADE,
+  draft_version INTEGER,                  -- the version the person says they acted on, if known
+  action_type TEXT NOT NULL,              -- OUTREACH_PRINTED_BY_HUMAN|OUTREACH_MAILED_BY_HUMAN|OUTREACH_HAND_DELIVERED_BY_HUMAN|OUTREACH_CONTACTED_BY_HUMAN|OUTREACH_OTHER_HUMAN_ACTION
+  action_date TEXT NOT NULL,              -- the date the person gives
+  actor TEXT NOT NULL,
+  note TEXT,
+  provenance TEXT NOT NULL DEFAULT 'HUMAN_REPORTED',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_outreach_actions_prep ON outreach_actions(prep_id, action_date);
+
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT

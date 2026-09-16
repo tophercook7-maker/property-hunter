@@ -607,7 +607,6 @@ function renderAcq(r, a, c, cityOut, county){
     {k:'use', t:'Use: the zoning and any City order allow what you want to do', why: isGarland ? 'Planning & Development can tell you about pending condemnation, demolition orders and what the zone allows.' : 'The county judge\'s office or the city, if inside one, for permits and any orders.'},
     {k:'money', t:'Money: purchase price + liens + back taxes + closing + rehab is cash you actually have, or a lender has said yes in writing', why:'Nothing below is a loan approval.'},
   ];
-  const requiredForLetter = ['taxes','title','condition','money'];
 
   /* --- routes to buy THIS parcel --- */
   const routes = [];
@@ -635,11 +634,11 @@ function renderAcq(r, a, c, cityOut, county){
         <label>Rehab / cleanup budget ($)<input type="number" id="o-rehab" min="0" step="500" value="${conf.rehab??''}" placeholder="0"></label>
         <label>Back taxes you found ($)<input type="number" id="o-taxes" min="0" step="100" value="${conf.taxes_amt??''}" placeholder="from the tax search"></label>
         <label>Your plan<select id="o-plan"><option ${conf.plan==='hold'?'selected':''} value="hold">Hold / rent</option><option ${conf.plan==='flip'?'selected':''} value="flip">Fix and resell</option><option ${conf.plan==='land'?'selected':''} value="land">Land use (storage, workshop, stand)</option><option ${conf.plan==='home'?'selected':''} value="home">Live in it</option></select></label>
-        <label class="full">Your name, as it should appear on the letter<input type="text" id="o-name" value="${esc(conf.name||'')}" placeholder="First Last"></label>
+        <label class="full">Your name (kept on this device; the outreach draft asks again)<input type="text" id="o-name" value="${esc(conf.name||'')}" placeholder="First Last"></label>
         <label class="full">How the owner can reach you (phone or email)<input type="text" id="o-contact" value="${esc(conf.contact||'')}" placeholder="501-555-0100"></label>
       </div>
       <div id="o-sum"></div>
-      <div class="btnrow" style="margin-top:10px"><button class="btn" type="button" id="o-letter">Draft the owner letter</button><button class="btn ghost" type="button" onclick="window.print()">Print this record</button></div>
+      <div class="btnrow" style="margin-top:10px">${r ? PH.investigateBtn(r, null).replace('INVESTIGATE PROPERTY','INVESTIGATE PROPERTY · outreach is prepared in the case').replace('OPEN INVESTIGATION','OPEN INVESTIGATION · prepare outreach there') : '<span class="msg">Owner outreach is prepared inside an investigation case, behind an evidence gate; this parcel is not in the hunt yet, so open it in the local app first.</span>'}<button class="btn ghost" type="button" onclick="window.print()">Print this record</button></div>
       <div id="o-out" style="margin-top:10px"></div>
     </div>`;
 
@@ -657,60 +656,14 @@ function renderAcq(r, a, c, cityOut, county){
       ['Cash in before you own it, excluding closing', fmt$(cash)],
       ['County appraised value, for scale', fmt$(a.totalvalue)],
     ];
-    let verdict = '';
-    if(f.price && a.totalvalue){
-      const pct = f.price/a.totalvalue;
-      verdict = pct>1.1 ? 'Your offer is above the county\'s appraisal. That can be right for a listed or improved property; for a distressed one it usually means the number came from hope.' :
-                pct<0.4 ? 'Your offer is well under the appraisal. Expect the owner to say no unless the liens, taxes or condition explain it - put those facts in the letter.' :
-                'Your offer sits in the range where distressed sales actually happen. The liens and taxes above are what make it fair or not.';
-      if(f.plan==='flip' && cash>0.7*a.totalvalue) verdict += ' For a resale, all-in cash above 70% of value leaves little room unless you know the resale number, and the appraisal is not that number.';
-    }
+    const verdict = '';   // P3C: no inferred judgement about the owner or the sale; the numbers stand alone
     sumEl.innerHTML = lines.map(([k,v])=>`<div class="sumline"><span>${k}</span><b>${v}</b></div>`).join('') + (verdict?`<p style="font-size:12.5px;margin:8px 0 0">${verdict}</p>`:'');
   }
   ['o-price','o-rehab','o-taxes','o-plan','o-name','o-contact'].forEach(id=>$(id).addEventListener('input', summarise));
   summarise();
   el.querySelectorAll('input[type=checkbox][data-k]').forEach(cb => cb.addEventListener('change', () => { conf[cb.dataset.k] = cb.checked; saveConf(pid, conf); const row = cb.closest('.check'); row.className = 'check ' + (cb.checked?'done':'todo'); row.querySelector('.st').textContent = cb.checked?'✓':'!'; }));
 
-  $('o-letter').onclick = () => {
-    const f = readForm(); const out = $('o-out');
-    const missing = requiredForLetter.filter(k=>!conf[k]);
-    const warns = auto.filter(x=>x.cls==='warn');
-    if(missing.length || !f.name || !f.contact){
-      out.innerHTML = `<div class="gate">Not yet. ${missing.length?`Tick these first: ${missing.map(k=>manual.find(m=>m.k===k).t.split(':')[0]).join(', ')}. `:''}${!f.name||!f.contact?'Add your name and a way to reach you. ':''}A letter that goes out before the taxes and title are checked is how people buy problems.</div>`; return;
-    }
-    const warnNote = warns.length ? `\n\n(Before mailing, resolve the flagged checks: ${warns.map(w=>w.t).join(' ')})` : '';
-    const rawWho = title(a.ownername) || 'Property Owner';
-    const who = rawWho.includes(',') ? rawWho.split(',').slice(1).join(' ').trim() + ' ' + rawWho.split(',')[0].trim() : rawWho;
-    const addrLine = mailing ? title(mailing) : '[mailing address not held - get it from the Assessor before sending]';
-    const parcelAddr = addrOf(a);
-    const letter = `${f.name}
-${f.contact}
-${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}
-
-${who}
-${addrLine}
-
-Re: ${parcelAddr}, ${county} County parcel ${a.parcelid}
-
-Dear ${who},
-
-My name is ${f.name}, and I am writing about the property you own at ${parcelAddr}. I am not an agent and I am not representing anyone else; I would like to buy it myself.
-
-I know from the public record that${liens.length?` the City has recorded ${fmt$(lienTotal)} in liens against it, and`:''}${vac.length?' it is on the City\'s vacant-structure list, and':''} it may be more of a burden than a benefit to you right now. I would be willing to take it as it stands, handle the paperwork through a local title company, and pay the closing costs.
-
-I can offer ${fmt$(f.price)}, paid at closing. If that number does not work for you, I would still like to hear from you; I would rather have a short conversation than guess.
-
-You can reach me at ${f.contact}. If I do not hear back, I will not keep writing.
-
-Thank you for your time,
-
-${f.name}${warnNote}
-
----
-Draft prepared with Property Hunter from public records on ${new Date().toISOString().slice(0,10)}. Not a contract. Nothing has been sent; you mail it.`;
-    out.innerHTML = `<div class="letter" id="letter-text">${esc(letter)}</div><div class="btnrow" style="margin-top:8px"><button class="btn ghost" type="button" id="copy-letter">Copy the letter</button><span style="font-size:12px;color:var(--muted);align-self:center">Read it as the owner would. A stranger's letter about their property lands differently than you think.</span></div>`;
-    $('copy-letter').onclick = () => navigator.clipboard.writeText(letter).then(()=>{ $('copy-letter').textContent='Copied'; setTimeout(()=>$('copy-letter').textContent='Copy the letter',1500); });
-  };
+  // P3C: the flag-driven letter builder was retired. Outreach drafts come only from an investigation whose evidence gate is open (outreach.html).
 }
 </script>
 <script src="nav.js"></script>

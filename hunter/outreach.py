@@ -145,6 +145,8 @@ def get_prep(prep_id: int) -> dict | None:
         d["drafts"].append(x)
     d["current"] = next((x for x in d["drafts"] if x["version"] == d["current_version"]), None)
     d["send_path"] = None          # by construction: nothing in this system can send this draft
+    d["actions"] = actions_for_prep(prep_id)
+    d["action_types"] = ACTION_TYPES
     return d
 
 
@@ -325,7 +327,66 @@ def public_summary(case_id: int) -> list[dict]:
     out = []
     for p in for_case(case_id):
         g = p.get("gate") or {}
+        by_type = {}
+        for a in p.get("actions", []):
+            by_type[a["action_type"]] = by_type.get(a["action_type"], 0) + 1
         out.append({"id": p["id"], "purpose": p["purpose"], "status": p["status"], "updated_at": p["updated_at"], "draft_version": p["current_version"],
+                    "human_actions": {"counts_by_type": by_type, "provenance": HUMAN_PROVENANCE, "note": "counts only; dates, notes and actors stay in the local app"},
                     "gate": {"ready": g.get("ready"), "blocking": g.get("blocking"), "requirements": [{"label": r["label"], "level": r["level"], "state": r["state"], "origin": r.get("origin")} for r in g.get("requirements", [])]},
                     "note": "draft text and addresses are held only in the local app; nothing is sent by the system"})
     return out
+
+# ------------------------------------------------------------------ P3C: HUMAN ACTION HISTORY
+# A person records what THEY did with a draft. Each record means only "a human says they did this";
+# it never means the recipient received, read or answered anything, and it never causes anything.
+ACTION_TYPES = {
+    "OUTREACH_PRINTED_BY_HUMAN": "Printed by me",
+    "OUTREACH_MAILED_BY_HUMAN": "Mailed by me",
+    "OUTREACH_HAND_DELIVERED_BY_HUMAN": "Hand delivered by me",
+    "OUTREACH_CONTACTED_BY_HUMAN": "Contacted by me",
+    "OUTREACH_OTHER_HUMAN_ACTION": "Other action by me",
+}
+HUMAN_PROVENANCE = "HUMAN_REPORTED"
+
+
+def record_action(prep_id: int, payload: dict, actor="user") -> dict:
+    p = get_prep(prep_id)
+    if not p:
+        raise KeyError("no such preparation")
+    t = str(payload.get("action_type") or "").upper()
+    if t not in ACTION_TYPES:
+        raise ValueError(f"action_type must be one of {list(ACTION_TYPES)}")
+    date = (payload.get("action_date") or utcnow()[:10]).strip()
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        raise ValueError("action_date must be YYYY-MM-DD")
+    v = payload.get("draft_version")
+    version = int(v) if v not in (None, "", "none") else None
+    if version is not None and not any(d["version"] == version for d in p["drafts"]):
+        raise ValueError("no such draft version on this preparation")
+    if t != "OUTREACH_OTHER_HUMAN_ACTION" and t != "OUTREACH_CONTACTED_BY_HUMAN" and not p["drafts"]:
+        raise ValueError("nothing has been drafted on this preparation yet")
+    note = (payload.get("note") or "").strip() or None
+    # deterministic duplicate handling: the same person, type, date and version is one record
+    dup = db.q1("SELECT id FROM outreach_actions WHERE prep_id=? AND action_type=? AND action_date=? AND IFNULL(draft_version,-1)=IFNULL(?,-1) AND actor=?",
+                (prep_id, t, date, version, actor))
+    if dup:
+        return dict(action(dup["id"]), duplicate=True)
+    cur = db.ex("INSERT INTO outreach_actions(case_id, property_id, prep_id, draft_version, action_type, action_date, actor, note, provenance, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (p["case_id"], p["property_id"], prep_id, version, t, date, actor, note, HUMAN_PROVENANCE, utcnow()))
+    _event(p["case_id"], "HUMAN OUTREACH ACTION", f"{ACTION_TYPES[t]} ({t}) on {date}" + (f", draft v{version}" if version else ""),
+           (note or "") + " — recorded by a human; not a system assertion that anyone received or answered", f"outreach_action:{cur.lastrowid}", actor)
+    return dict(action(cur.lastrowid), duplicate=False)
+
+
+def action(action_id: int) -> dict | None:
+    r = db.q1("SELECT * FROM outreach_actions WHERE id=?", (action_id,))
+    if not r:
+        return None
+    d = dict(r)
+    d["label"] = ACTION_TYPES.get(d["action_type"], d["action_type"])
+    d["meaning"] = "A human recorded that they did this. It does not mean the recipient received, read or answered anything."
+    return d
+
+
+def actions_for_prep(prep_id: int) -> list[dict]:
+    return [action(r["id"]) for r in db.q("SELECT id FROM outreach_actions WHERE prep_id=? ORDER BY action_date, id", (prep_id,))]

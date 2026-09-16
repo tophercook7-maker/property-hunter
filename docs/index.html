@@ -181,7 +181,7 @@ function card(r){
       <div class="money">${fmt$(r.tv)} appraised${r.iv>0?` · building ${fmt$(r.iv)}`:(r.iv===0?' · no building value':'')}</div>
       ${PH.whyRow(r, CP, {compact:true})}
       <button class="why-btn" type="button" data-why="${esc(r.pid||r.a)}">Why this one?</button>
-      <div class="acts"><a class="main" href="lookup.html?county=${esc(r.cf||'05051')}&q=${q}">Open file</a><a href="watch.html?add=${esc(r.cf||'05051')}:${q}&label=${encodeURIComponent(r.a||'')}">Watch</a>${r.m?`<a href="campaign.html?pid=${q}">Letter</a>`:`<span style="flex:1;font-size:11px;color:var(--muted);align-self:center;text-align:center">no mailing address published</span>`}</div>
+      <div class="acts"><a class="main" href="lookup.html?county=${esc(r.cf||'05051')}&q=${q}">Open file</a><a href="watch.html?add=${esc(r.cf||'05051')}:${q}&label=${encodeURIComponent(r.a||'')}">Watch</a>${PH.investigateBtn(r, null) || ''}</div>
     </div></article>`;
 }
 function step(n, key, h, big, p, actions){
@@ -241,13 +241,15 @@ async function main(){
   } else {
     $('best').innerHTML = `<div class="empty" style="grid-column:1/-1">No scored properties published yet. The scan runs every morning; check back after the first one finishes.</div>`;
   }
-  const watch = store('ph-watch') || []; const camp = store('ph-campaign') || {};
-  const targets = (g.rows||[]).filter(r=>r.m && !(r.ts||'').startsWith('CERTIFIED') && r.rec!=='PASS' && r.tv>0 && r.ab && r.iv>0);
-  const unsent = targets.filter(r=>!(camp[r.pid]||{}).status).length, sent = Object.values(camp).filter(t=>t.status).length;
+  const watch = store('ph-watch') || [];
+  await PH.loadCaseIndex();
+  const caseRows = Object.values((PH.CASES||{}).by_property||{});
+  const preps = caseRows.flatMap(c => c.outreach||[]);
+  const drafted = preps.filter(o => ['DRAFTED','EDITED','REVIEWED'].includes(o.status)).length;
   const stale = watch.filter(w=>!w.snap || (Date.now()-new Date(w.snap.at).getTime()) > 6*86400000).length;
   $('steps').innerHTML =
     step(1,'look','Drive by', all.slice(0,3).map(r=>esc(r.a||'no address')).join('<br>'), 'Stand in front of the top three. Aerials are from 2023; the roof may not be.', [['Directions to #1', best&&best.lat?`https://www.google.com/maps/dir/?api=1&destination=${best.lat},${best.lon}`:'#'],['The list','#look-h']]) +
-    step(2,'mail','Mail owners', `${unsent}`, `owners with a building, living elsewhere, not yet written to${sent?` · ${sent} sent`:''}. You review, print and send it yourself; the site never mails.`, [['Owner outreach','campaign.html'],['Who answered','campaign.html']]) +
+    step(2,'mail','Prepare outreach', `${preps.length}`, `outreach preparation${preps.length===1?'':'s'} open inside investigations${drafted?` · ${drafted} with a draft`:''}. A draft exists only when the evidence gate is open; you review, print or mail it yourself and record what you did. The site never mails.`, [['Outreach','campaign.html'],['Investigations','investigation.html']]) +
     step(3,'watch','Check watchlist', `${watch.length}`, watch.length ? (stale ? `${stale} not re-checked this week. One button re-reads them all live.` : 'All re-checked this week.') : 'Nothing watched yet. Press Watch on anything you might buy.', [['Check all now','watch.html'],['State inventory','state-lands.html?county=GARLAND']]);
   document.querySelectorAll('.step input[data-k]').forEach(cb => cb.addEventListener('change', () => { done[cb.dataset.k] = cb.checked; try { localStorage.setItem('ph-today-'+today, JSON.stringify(done)); } catch(e){} const s = cb.closest('.step'); s.classList.toggle('done', cb.checked); s.querySelector('.n').textContent = cb.checked ? '✓' : ({look:1,mail:2,watch:3})[cb.dataset.k]; }));
   // ---- NEW OPPORTUNITY SIGNALS: events, never field diffs ----
@@ -283,7 +285,7 @@ async function main(){
     ['hunt.html','Hunt Arkansas','The statewide map: counties done, scanning and waiting; filters for State tax sale, verified Collector bills, City liens, vacancy, appraisal bands, new signals.', `${doneC.length} counties · map`],
     ['lookup.html','Look up','Any Arkansas parcel: owner, values, aerials, liens, taxes, and the full investigation file.', 'all 75 counties · live'],
     ['state-lands.html?county=GARLAND','Tax sale','What the State is selling for unpaid taxes, what lots like it sold for.', `${(sl.listings||[]).length.toLocaleString()} for sale · ${cnt} counties · ${withBldg} with a building`],
-    ['campaign.html','Owner outreach','Owners who may be receptive, with why they appeared. You print and mail.', `${targets.length} candidates · ${sent} sent`],
+    ['campaign.html','Owner outreach','Prepared inside an investigation, behind an evidence gate. You review, print or mail, and record what you did; the site never sends.', `${preps.length} in preparation · ${drafted} drafted`],
     ['watch.html','Watch','Your pipeline: re-checked live, changes shown before and after.', `${watch.length} watched`],
     ['pro.html','Radar','Never miss the property that changed this week.', 'from $29 / month'],
   ].map(d=>`<a class="door" href="${d[0]}"><b>${d[1]}</b><span>${d[2]}</span><em>${d[3]}</em></a>`).join('');

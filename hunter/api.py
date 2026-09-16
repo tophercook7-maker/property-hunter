@@ -1307,6 +1307,25 @@ def api_outreach_status(prep_id: int, payload: dict = Body(...)) -> dict:
         raise HTTPException(400, str(exc))
 
 
+@app.post("/api/outreach/{prep_id}/action")
+def api_outreach_action(prep_id: int, payload: dict = Body(...)) -> dict:
+    """P3C: a person records what THEY did (printed / mailed / hand delivered / contacted / other).
+    Recording never causes anything; the record is HUMAN-REPORTED and never means delivery or reply."""
+    from . import outreach
+    _prep_or_404(prep_id)
+    try:
+        return outreach.record_action(prep_id, payload, actor=str(payload.get("actor") or "user")[:40])
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.get("/api/outreach/{prep_id}/actions")
+def api_outreach_actions(prep_id: int) -> dict:
+    from . import outreach
+    _prep_or_404(prep_id)
+    return {"actions": outreach.actions_for_prep(prep_id), "action_types": outreach.ACTION_TYPES, "provenance": outreach.HUMAN_PROVENANCE}
+
+
 @app.post("/api/watch/import")
 def api_watch_import(payload: dict = Body(default={})) -> dict:
     """Watch a list of parcels pasted from the public site ("FIPS:PARCEL" or bare Garland ids).

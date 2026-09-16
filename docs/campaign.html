@@ -2,251 +2,74 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Owner Outreach · Garland County</title>
-<meta name="description" content="Find Arkansas property owners who may actually be receptive: behind on taxes, holding a vacant house, or facing a City lien. Letters you review, print and send yourself.">
-<meta property="og:title" content="Owner outreach · Property Hunter">
-<meta property="og:description" content="Find Arkansas property owners who may actually be receptive: behind on taxes, holding a vacant house, or facing a City lien. Letters you review, print and send yourself.">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://tophercook7-maker.github.io/property-hunter/campaign.html">
-<link rel="canonical" href="https://tophercook7-maker.github.io/property-hunter/campaign.html">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Owner outreach · Property Hunter</title>
+<meta name="description" content="Owner outreach in Property Hunter is prepared inside an investigation case, behind an evidence gate. Nothing is sent by the site; a person reviews, prints or mails, and records what they did.">
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="ph.css">
 <style>
-:root{
-  --ground:#E8ECEF; --surface:#FFFFFF; --surface2:#F3F5F7; --ink:#172029; --muted:#5F6E7B; --rule:#D3DAE0;
-  --accent:#0E7C73; --accent-ink:#FFFFFF; --accent-soft:#D6EEEB;
-  --deal:#2E7D4F; --deal-soft:#DCEFE3; --watch:#B0771A; --watch-soft:#F6EAD2; --pass:#B3433B; --pass-soft:#F5DDDB;
-  --display:"Barlow Condensed","Arial Narrow",Impact,sans-serif; --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif; --mono:"IBM Plex Mono",Menlo,Consolas,monospace;
-}
-@media (prefers-color-scheme: dark){:root{
-  --ground:#101519; --surface:#171E24; --surface2:#1E262D; --ink:#E4E9ED; --muted:#93A0AB; --rule:#2A343D;
-  --accent:#3BB8AC; --accent-ink:#0B1214; --accent-soft:#163A37;
-  --deal:#5CC48A; --deal-soft:#1B3A2A; --watch:#E0A64A; --watch-soft:#3D2E14; --pass:#E2746B; --pass-soft:#42221F;
-}}
-*{box-sizing:border-box}
-body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.45;margin:0}
-a{color:var(--accent)}
-button{font:inherit;color:inherit;cursor:pointer}
-button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
-h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:.01em;margin:0;text-wrap:balance}
-.eyebrow{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
-.top{background:var(--surface);border-bottom:1px solid var(--rule);padding:12px 20px;display:flex;align-items:flex-end;gap:22px;flex-wrap:wrap}
-.top h1{font-size:30px;line-height:1;text-transform:uppercase;letter-spacing:.02em}
-.top h1 small{display:block;font-family:var(--body);font-weight:500;font-size:11px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
-.top nav{margin-left:auto;display:flex;gap:14px;font-size:13px}
-.top nav a{text-decoration:none;font-weight:500}
-.rules{margin:14px 20px 0;background:var(--surface);border:1px solid var(--rule);border-left:4px solid var(--pass);padding:10px 14px;font-size:13px}
-.rules b{font-weight:600}
-.wrap{display:grid;grid-template-columns:300px 1fr;gap:16px;padding:16px 20px 60px;align-items:start}
-@media (max-width:900px){.wrap{grid-template-columns:1fr}}
-.rail{background:var(--surface);border:1px solid var(--rule);padding:14px;display:flex;flex-direction:column;gap:12px;position:sticky;top:12px}
-@media (max-width:900px){.rail{position:static}}
-.rail label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
-.rail input,.rail select,.rail textarea{font:inherit;font-size:13px;color:var(--ink);background:var(--surface2);border:1px solid var(--rule);padding:7px 9px;width:100%}
-.checks{display:flex;flex-direction:column;gap:5px}
-.checks label{flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-size:13px}
-.checks input{accent-color:var(--accent);width:auto}
-.checks .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted)}
-.btn{background:var(--accent);color:var(--accent-ink);border:0;padding:9px 14px;font-family:var(--display);font-size:17px;letter-spacing:.04em;text-transform:uppercase;font-weight:600}
-.btn.ghost{background:none;color:var(--ink);border:1px solid var(--rule);font-family:var(--body);font-size:12.5px;text-transform:none;letter-spacing:0;font-weight:500;padding:7px 10px}
-.btnrow{display:flex;gap:8px;flex-wrap:wrap}
-.tablebox{background:var(--surface);border:1px solid var(--rule);overflow-x:auto}
-.tbar{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--rule);font-size:12.5px;color:var(--muted);flex-wrap:wrap}
-.tbar b{color:var(--ink);font-family:var(--mono);font-weight:500}
-table{border-collapse:collapse;width:100%;min-width:980px}
-th,td{padding:7px 9px;text-align:left;vertical-align:top;border-bottom:1px solid var(--rule);font-size:12.5px}
-th{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap;position:sticky;top:0;background:var(--surface)}
-th.r,td.r{text-align:right}
-td .sub{display:block;color:var(--muted);font-size:11px}
-.chip{display:inline-block;font-size:10.5px;font-weight:500;padding:1px 6px;border:1px solid var(--rule);background:var(--surface2);margin:1px 3px 1px 0}
-.chip.d{border-color:var(--pass);color:var(--pass);background:var(--pass-soft)}
-.chip.o{border-color:var(--deal);color:var(--deal);background:var(--deal-soft)}
-.chip.r{border-color:var(--watch);color:var(--watch);background:var(--watch-soft)}
-.why{font-family:var(--display);font-size:15px;font-weight:600}
-select.st{font:inherit;font-size:12px;background:var(--surface2);border:1px solid var(--rule);color:var(--ink);padding:3px 5px}
-td input.note{font:inherit;font-size:12px;background:var(--surface2);border:1px solid var(--rule);color:var(--ink);padding:3px 5px;width:150px}
-.st-sent{color:var(--watch)} .st-replied{color:var(--deal)} .st-no{color:var(--pass)} .st-signed{color:var(--deal);font-weight:600}
-.more{display:block;width:100%;background:var(--surface2);border:0;border-top:1px solid var(--rule);padding:10px;font-size:13px}
-/* print packet */
-.packet{display:none}
-@media print{
-  body{background:#fff;color:#000} .top,.rules,.rail,.tablebox,.btnrow{display:none!important} .wrap{display:block;padding:0}
-  .packet{display:block} .letter{page-break-after:always;font-family:Georgia,"Times New Roman",serif;font-size:12.5pt;line-height:1.5;max-width:6.5in;margin:0 auto;padding:0.6in 0}
-  .letter .addr{white-space:pre-line} .letter .box{border:1px solid #000;padding:10px 12px;margin:14px 0;font-size:11.5pt}
-  .letter table{border-collapse:collapse;width:100%;font-size:11pt} .letter td{padding:3px 6px;border-bottom:1px solid #999}
-  .letter .card{border:1px dashed #000;padding:10px;margin-top:18px;font-size:11pt} .letter .small{font-size:9.5pt;color:#333}
-}
+main{max-width:1000px;margin:0 auto;padding:16px 16px 60px;display:grid;gap:18px}
+h2{font-size:26px;text-transform:uppercase;letter-spacing:.02em;margin:0}
+h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;font-family:var(--body);font-weight:600}
+.lead{margin:2px 0 0;font-size:14px;color:var(--muted);max-width:75ch}
+.box{background:var(--surface);border:1px solid var(--rule);padding:10px 12px;font-size:13px}
+.moved{background:var(--accent-soft);border-left:3px solid var(--accent);padding:12px 14px;font-size:14px}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;font-size:12.5px}
+.steps div{background:var(--surface2);padding:8px 10px;border-left:3px solid var(--rule)}.steps b{display:block;font-size:10px;letter-spacing:.08em;color:var(--muted)}
+.case-list{display:grid;gap:8px}.case-row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:10px 12px;background:var(--surface);border:1px solid var(--rule);font-size:13px}
+.legacy{font-size:12.5px}.legacy table{width:100%;border-collapse:collapse}.legacy td,.legacy th{text-align:left;padding:5px 8px;border-bottom:1px solid var(--rule)}.legacy th{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.msg{font-size:12.5px;color:var(--muted)}
 </style>
 </head>
 <body>
-<header class="top">
-  <h1><small>Garland County · from the scan · Property Hunter does not send mail</small>Owner outreach</h1>
-  <nav data-nav></nav>
-</header>
-<div class="rules" style="border-left-color:var(--accent)"><b style="font-family:var(--display);font-size:22px;text-transform:uppercase;display:block;margin-bottom:4px">Find owners who may actually be receptive.</b>Every candidate below appeared for a reason the public record supports, and the reason is printed next to the name. <b>Property Hunter does not send mail. You review, print, and send it yourself.</b></div>
-<div class="rules"><b>Ground rules baked into every letter.</b> It says who you are and that you intend to resell. Every dollar figure is from the public record and labelled. It states the owner's other options (pay it, sell it themselves, do nothing). It never implies you are the City, the County or the State, never invents a deadline, and never says their taxes make it yours. Hot Springs Village and Diamondhead lots are not in this list at all: signing one over gives <em>you</em> the POA dues. Parcels already certified to the State are out too: a signed deed there does not stop the tax sale.</div>
-
-<div class="wrap">
-  <aside class="rail">
-    <span class="eyebrow">Who to write to</span>
-    <div class="checks" id="flags"></div>
-    <label>County appraised between<div style="display:flex;gap:6px"><input type="number" id="vmin" placeholder="min" step="1000"><input type="number" id="vmax" placeholder="max" step="1000"></div></label>
-    <label>Sort<select id="sort"><option value="lev">Most reason to let it go first</option><option value="lien">Biggest City lien first</option><option value="value">Highest value first</option><option value="score">Highest score first</option></select></label>
-    <span class="eyebrow" style="margin-top:6px">Your letter</span>
-    <label>Your name<input type="text" id="me" placeholder="First Last"></label>
-    <label>Phone / email<input type="text" id="contact" placeholder="501-555-0100"></label>
-    <label>Return address<textarea id="from" rows="2" placeholder="Street&#10;Hot Springs, AR 71901"></textarea></label>
-    <label>What you offer (pick one)<select id="offer"><option value="costs">I pay the closing costs and take it as-is (no cash)</option><option value="cash">A small cash amount (below) plus closing costs</option></select></label>
-    <label>Cash amount, if any ($)<input type="number" id="cash" step="100" placeholder="500"></label>
-    <p class="eyebrow" style="font-weight:400;text-transform:none;letter-spacing:0;line-height:1.45;margin:0 0 6px">Property Hunter does not send mail. You review, print, and send it yourself.</p><div class="btnrow"><button class="btn" id="print" type="button">Print packet for shown</button><button class="btn ghost" id="csv" type="button">Copy list as CSV</button><button class="btn ghost" id="track" type="button">Copy tracking sheet</button></div>
-    <p class="eyebrow" style="font-weight:400;text-transform:none;letter-spacing:0;line-height:1.45">Printing gives one letter plus reply card per owner, addressed to where the tax bill goes. Status and notes are saved on this device only.</p>
-  </aside>
-  <div class="tablebox">
-    <div class="tbar"><span>Showing <b id="shown"></b> of <b id="total"></b> eligible</span><span id="sum"></span></div>
-    <table><thead><tr><th>Why they appeared</th><th>Property</th><th>Owner · tax bill goes to</th><th class="r">Appraised</th><th class="r">City lien</th><th>Signals</th><th>Status</th><th>Note</th></tr></thead><tbody id="rows"></tbody></table>
-    <button class="more" id="more" hidden></button>
-  </div>
-</div>
-<div class="packet" id="packet"></div>
-
+<header class="ph-top"><h1><small>Prepared inside an investigation · evidence-gated · nothing is sent by the site</small>Owner outreach</h1><nav data-nav aria-label="Sections"></nav></header>
+<main>
+  <section>
+    <h2>Owner outreach</h2>
+    <div class="moved"><b>Letter preparation has moved into investigation cases.</b> The old Letters page built a letter from scan flags alone: a flag on a register, a lien on a map, an absentee mailing address. A flag is not evidence enough to write to someone. A draft is now prepared only from an investigation whose evidence gate is open, it says only what the evidence supports, and the site never sends anything. You review it, you print or mail it yourself, and you record what you did.</div>
+    <div class="steps">
+      <div><b>1</b>Signal on a parcel</div><div><b>2</b>Investigation case</div><div><b>3</b>Evidence and its origin</div><div><b>4</b>Evidence gate</div><div><b>5</b>Outreach preparation and draft</div><div><b>6</b>Your review and edits</div><div><b>7</b>You print, mail, deliver or contact</div><div><b>8</b>You record what you did</div>
+    </div>
+    <p class="lead" id="pidnote"></p>
+  </section>
+  <section>
+    <h3>Investigations with outreach in preparation</h3>
+    <div class="case-list" id="cases"><div class="msg">Loading…</div></div>
+    <p class="msg">Drafts, mailing addresses and your contact details are held only in the local app on this Mac; this site shows purpose and status. Open an investigation from <a href="discover.html">Discover</a> or a property file with INVESTIGATE PROPERTY.</p>
+  </section>
+  <section class="legacy" id="legacy" hidden>
+    <h3>What you recorded on this device under the old Letters page (read-only)</h3>
+    <p class="msg">Kept as you left it. These were your own notes and statuses in this browser; the old page cannot create new letters any more. To carry one forward, open the parcel's investigation.</p>
+    <table><thead><tr><th>Parcel</th><th>Status you set</th><th>Date</th><th>Your note</th><th></th></tr></thead><tbody id="legacy-rows"></tbody></table>
+  </section>
+</main>
+<script src="ph.js"></script>
 <script>
-const $ = id => document.getElementById(id);
-const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const fmt$ = v => (v == null || isNaN(v)) ? '—' : '$' + Math.round(v).toLocaleString('en-US');
-const title = s => String(s||'').toLowerCase().replace(/\s+/g,' ').trim().replace(/\b\w/g, c => c.toUpperCase());
-const personName = raw => { const t = title(raw); if(!t.includes(',')) return t; const [last, ...rest] = t.split(','); return (rest.join(' ').trim() + ' ' + last.trim()).trim(); };
-const STATUS = ['', 'sent', 'replied', 'no', 'signed'];
-const STATUS_LABEL = {'':'not sent', sent:'letter sent', replied:'they replied', no:'declined', signed:'signed over'};
-let ROWS = [], LABELS = {}, view = [], limit = 100;
-const store = { get(){ try { return JSON.parse(localStorage.getItem('ph-campaign')||'{}'); } catch(e){ return {}; } }, set(v){ try { localStorage.setItem('ph-campaign', JSON.stringify(v)); } catch(e){} } };
-let TRACK = store.get();
-const cfg = { get(){ try { return JSON.parse(localStorage.getItem('ph-campaign-cfg')||'{}'); } catch(e){ return {}; } }, set(v){ try { localStorage.setItem('ph-campaign-cfg', JSON.stringify(v)); } catch(e){} } };
-
-const FLAGS = [
-  ['ab', 'Absentee owner (tax bill leaves the county)', r=>r.ab],
-  ['vac', 'On the City vacant-structure register', r=>r.vac],
-  ['lien', 'City lien on record', r=>r.lien>0],
-  ['est', 'Estate, heirs or trust owner', r=>r.d.some(k=>['estate_owner','trust_owner'].includes(k))],
-  ['ent', 'Company owner', r=>r.d.includes('entity_owner')],
-  ['land', 'Land only', r=>r.d.includes('vacant_land')],
-  ['house', 'Has a building', r=>r.iv>0],
-  ['unsent', 'Not yet written to', r=>!(TRACK[r.pid]||{}).status],
-];
-function eligible(r){ return r.m && !(r.ts||'').startsWith('CERTIFIED') && r.rec !== 'PASS' && r.tv > 0; }
-function leverage(r){
-  // how much of the property's value is already spoken for by things the owner has to deal with
-  const debt = (r.lien||0);
-  let s = debt / Math.max(r.tv, 1) * 100;
-  if(r.vac) s += 25; if(r.ab) s += 15; if(r.d.some(k=>['estate_owner','trust_owner'].includes(k))) s += 15;
-  if(r.cc) s += 10; if(r.d.includes('stale_assessment')) s += 5; if(r.d.includes('building_worth_less_than_dirt')) s += 10;
-  return Math.round(s);
-}
-function reasons(r){
-  const out = [];
-  if(r.vac) out.push('City lists it as vacant');
-  if(r.lien>0) out.push(`${fmt$(r.lien)} City lien accruing`);
-  if(r.ab) out.push('lives out of the county');
-  if(r.d.some(k=>['estate_owner','trust_owner'].includes(k))) out.push('estate / trust');
-  if(r.cc) out.push('open code case');
-  if(r.d.includes('building_worth_less_than_dirt')) out.push('building worth less than the dirt');
-  if(r.d.includes('vacant_land')) out.push('bare lot');
-  return out;
-}
-
-fetch('data/garland.json').then(r=>r.json()).then(d => {
-  ROWS = d.rows.filter(eligible); LABELS = d.labels || {};
-  $('flags').innerHTML = FLAGS.map(([k,t,fn])=>`<label><input type="checkbox" data-f="${k}" ${['ab','house'].includes(k)?'checked':''}> ${t}<span class="cnt">${ROWS.filter(fn).length}</span></label>`).join('');
-  const c = cfg.get(); ['me','contact','from','offer','cash'].forEach(id=>{ if(c[id]!=null) $(id).value = c[id]; });
-  ['me','contact','from','offer','cash'].forEach(id=>$(id).addEventListener('input',()=>{ const v=cfg.get(); v[id]=$(id).value; cfg.set(v); }));
-  $('flags').addEventListener('change', apply); ['vmin','vmax','sort'].forEach(id=>$(id).addEventListener('input',apply));
-  $('more').addEventListener('click',()=>{limit+=100;render();});
-  $('print').addEventListener('click', printPacket); $('csv').addEventListener('click', copyCsv); $('track').addEventListener('click', copyTrack);
-  apply();
-}).catch(e => { $('rows').innerHTML = `<tr><td colspan="8">Could not load data/garland.json (${esc(e.message)}). Run tools/build_share.py.</td></tr>`; });
-
-function apply(){
-  const on = [...document.querySelectorAll('#flags input:checked')].map(i=>FLAGS.find(f=>f[0]===i.dataset.f)[2]);
-  const vmin = +$('vmin').value || 0, vmax = +$('vmax').value || Infinity;
-  const only = new URLSearchParams(location.search).get('pid');
-  view = ROWS.filter(r => (only ? r.pid === only : (on.every(fn=>fn(r)) && r.tv >= vmin && r.tv <= vmax)));
-  if(only && !view.length){ $('sum').textContent = 'That parcel is not eligible for a letter (no mailing address on file, certified to the State, or rated PASS).'; }
-  const key = {lev:r=>-leverage(r), lien:r=>-(r.lien||0), value:r=>-(r.tv||0), score:r=>-(r.s||0)}[$('sort').value];
-  view.sort((a,b)=>key(a)-key(b)); limit = 100; render();
-}
-function render(){
-  $('rows').innerHTML = view.slice(0,limit).map(r => { const t = TRACK[r.pid]||{}; return `<tr data-pid="${esc(r.pid)}">
-    <td><span class="why">${leverage(r)}</span><span class="sub">${esc(reasons(r).join(' · '))||'—'}</span></td>
-    <td><b>${esc(r.a||'(no address)')}</b><span class="sub">${esc(r.c)} · <span class="num">${esc(r.pid)}</span></span></td>
-    <td>${esc(title(r.o))}<span class="sub">${esc(title(r.m))}</span></td>
-    <td class="r num">${fmt$(r.tv)}<span class="sub">taxes: ${r.tax?esc(r.tax.replace(/ owed to the County Collector.*$/,' owed').slice(0,40)):((r.ts||'').startsWith('CERTIFIED')?'State sale':'not checked')}</span></td><td class="r num">${r.lien>0?fmt$(r.lien):'—'}</td>
-    <td>${r.vac?'<span class="chip d">vacant reg.</span>':''}${r.ab?'<span class="chip d">absentee</span>':''}${r.cc?'<span class="chip d">code case</span>':''}${r.iv>0?'<span class="chip o">building</span>':'<span class="chip">lot</span>'}</td>
-    <td><select class="st st-${t.status||''}" data-pid="${esc(r.pid)}">${STATUS.map(s=>`<option value="${s}" ${t.status===s?'selected':''}>${STATUS_LABEL[s]}</option>`).join('')}</select>${t.sent?`<span class="sub">sent ${t.sent}</span>`:''}</td>
-    <td><input class="note" data-pid="${esc(r.pid)}" value="${esc(t.note||'')}" placeholder="what they said"></td></tr>`; }).join('');
-  $('shown').textContent = Math.min(limit, view.length).toLocaleString(); $('total').textContent = ROWS.length.toLocaleString();
-  const sent = view.filter(r=>(TRACK[r.pid]||{}).status).length;
-  $('sum').textContent = `${view.length.toLocaleString()} match · ${sent} already written to · ${fmt$(view.reduce((s,r)=>s+(r.lien||0),0))} in City liens across them`;
-  const more = $('more'); more.hidden = view.length<=limit; more.textContent = `Show 100 more (${view.length-limit} left)`;
-  document.querySelectorAll('select.st').forEach(sel => sel.addEventListener('change', () => { const t = TRACK[sel.dataset.pid]||{}; t.status = sel.value; if(sel.value==='sent' && !t.sent) t.sent = new Date().toISOString().slice(0,10); TRACK[sel.dataset.pid] = t; store.set(TRACK); sel.className = 'st st-'+sel.value; }));
-  document.querySelectorAll('input.note').forEach(inp => inp.addEventListener('change', () => { const t = TRACK[inp.dataset.pid]||{}; t.note = inp.value; TRACK[inp.dataset.pid] = t; store.set(TRACK); }));
-}
-
-function letterFor(r){
-  const me = $('me').value || '[your name]', contact = $('contact').value || '[your phone or email]', from = $('from').value || '';
-  const cash = +$('cash').value || 0, offerCash = $('offer').value === 'cash' && cash > 0;
-  const who = personName(r.o); const addr = r.a || `the lot on ${title((r.zf||'').split(' - ')[0]) || 'your parcel'}`;
-  const facts = [
-    ['County appraised value (assessor\'s figure, not a sale price)', fmt$(r.tv)],
-    ['City of Hot Springs liens on record', r.lien>0 ? fmt$(r.lien) : 'none on record'],
-    ['On the City\'s vacant-structure list', r.vac ? 'yes' : 'no'],
-    ['Open 2025 code-enforcement case', r.cc ? 'yes' : 'no'],
-    ['Property taxes', 'not checked by me; the Garland County Collector has the current figure'],
-  ];
-  const carry = [];
-  if(r.lien>0) carry.push('the City lien keeps growing each time they mow or clean, and it must be paid before the property can be sold or refinanced');
-  if(r.vac) carry.push('a property on the City\'s vacant list can be ordered secured or torn down at the owner\'s expense');
-  carry.push('property tax comes due every year whether or not anyone is using it');
-  const offer = offerCash ? `I would pay you ${fmt$(cash)} and cover all closing costs.` : `I would take it as it stands and cover all closing costs, so nothing comes out of your pocket.`;
-  return `<div class="letter">
-    <div class="addr">${esc(me)}\n${esc(from)}\n${esc(contact)}</div>
-    <p>${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</p>
-    <div class="addr">${esc(who)}\n${esc(title(r.m))}</div>
-    <p><b>About: ${esc(addr)}, Hot Springs, Garland County parcel ${esc(r.pid)}</b></p>
-    <p>Dear ${esc(who)},</p>
-    <p>My name is ${esc(me)}. I am a private buyer in the Hot Springs area, not an agent and not connected with the City, the County or the State. I am writing about the property above because the public record suggests it may be costing you more than it gives you, and I would like to take it off your hands. To be plain about my side of it: I would fix what needs fixing and resell it or hold it.</p>
-    <p>Our review of public records shows the following today. Nothing here comes from anything that is not public, and none of it is a judgement about you.</p>
-    <table>${facts.map(([k,v])=>`<tr><td>${esc(k)}</td><td style="text-align:right;white-space:nowrap">${esc(v)}</td></tr>`).join('')}</table>
-    <p>What that means in practice: ${esc(carry.join('; '))}.</p>
-    <div class="box"><b>My offer.</b> ${esc(offer)} We would sign at a local title company, which handles the deed and records it, and you would be done with the property that day. You would owe me nothing.</div>
-    <p><b>Your other options, honestly:</b> keep it and bring the liens and taxes current; list it with an agent and sell it for whatever the market pays, which may be more than my offer; or do nothing, in which case the liens keep growing and the County can eventually certify it to the State for unpaid taxes. I would rather you choose with the facts in front of you.</p>
-    <p>If you want to talk, call or write me at ${esc(contact)}, or send back the card below. If I do not hear from you, I will write once more and then leave you alone.</p>
-    <p>Sincerely,<br><br><br>${esc(me)}</p>
-    <div class="card"><b>Reply card</b> — parcel ${esc(r.pid)}<br><br>
-      ☐ Yes, let's talk. Best way to reach me: ______________________________<br><br>
-      ☐ I might sell, but I want $____________.<br><br>
-      ☐ No, and please do not write again.<br><br>
-      Name: _____________________________ Date: ______________<br>
-      <span class="small">Mail to: ${esc(me)}, ${esc(from.replace(/\n/g,', '))}</span></div>
-    <p class="small">Figures are from the Garland County tax roll (via the Arkansas GIS Office) and the City of Hot Springs public GIS as of ${new Date().toISOString().slice(0,10)}. This letter is an inquiry, not a contract, and I am not a lawyer; nothing in it is legal advice. Paying someone else's taxes does not transfer ownership in Arkansas, and I am not asking you to sign anything by mail.</p>
-  </div>`;
-}
-function printPacket(){
-  const rows = view.slice(0, limit);
-  if(!$('me').value || !$('contact').value){ alert('Put your name and a way to reach you in the rail first; the letter is useless without them.'); return; }
-  $('packet').innerHTML = rows.map(letterFor).join('');
-  window.print();
-}
-function copyCsv(){
-  const head = ['Parcel','Address','Owner','Mailing address','Appraised','City lien','Vacant register','Absentee','Reasons','Status','Note'];
-  const lines = [head.join(',')].concat(view.map(r => { const t = TRACK[r.pid]||{}; return [r.pid, r.a, r.o, r.m, r.tv, r.lien||0, r.vac?'yes':'', r.ab?'yes':'', reasons(r).join('; '), STATUS_LABEL[t.status||''], t.note||''].map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(','); }));
-  navigator.clipboard.writeText(lines.join('\n')).then(()=>{ $('csv').textContent='Copied'; setTimeout(()=>$('csv').textContent='Copy list as CSV',1500); });
-}
-function copyTrack(){
-  const lines = ['Parcel,Address,Owner,Status,Sent,Note'].concat(ROWS.filter(r=>TRACK[r.pid]&&TRACK[r.pid].status).map(r=>{const t=TRACK[r.pid]; return [r.pid,r.a,r.o,STATUS_LABEL[t.status],t.sent||'',t.note||''].map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',');}));
-  navigator.clipboard.writeText(lines.join('\n')).then(()=>{ $('track').textContent='Copied'; setTimeout(()=>$('track').textContent='Copy tracking sheet',1500); });
-}
+const $ = id => document.getElementById(id); const esc = PH.esc;
+const STATUS_LABEL = {sent:'you marked: letter sent', replied:'you marked: they replied', no:'you marked: declined', signed:'you marked: signed over'};
+(async () => {
+  const idx = await PH.loadCaseIndex();
+  const p = new URLSearchParams(location.search);
+  const pid = p.get('pid');
+  if(pid){
+    // the old "Letter" link carried a parcel number: point at that parcel's investigation instead of writing anything
+    const hit = Object.entries(idx.by_parcel||{}).find(([k]) => k.endsWith(':' + pid));
+    if(hit) $('pidnote').innerHTML = `Parcel <span class="mono">${esc(pid)}</span> already has an investigation: <a class="btn ghost inv is-on" href="investigation.html?id=${hit[1]}">OPEN INVESTIGATION</a>`;
+    else $('pidnote').innerHTML = `Parcel <span class="mono">${esc(pid)}</span> has no investigation yet. Open its property file and press INVESTIGATE PROPERTY; the outreach gate lives there. <a class="btn ghost" href="lookup.html?county=05051&q=${encodeURIComponent(pid)}">Open the property file</a>`;
+  }
+  const rows = Object.entries(idx.by_property||{}).map(([prop, c]) => c).filter(c => (c.outreach||[]).length);
+  $('cases').innerHTML = rows.length ? rows.map(c => `<div class="case-row"><span><b>Investigation #${c.id}</b> · ${esc(PH.CASE_STATUS[c.status]||c.status)} · ${(c.outreach||[]).map(o=>`${esc(o.purpose)}: ${esc(o.status)}`).join(' · ')}</span><a class="btn ghost" href="outreach.html?case=${c.id}">Open outreach</a></div>`).join('')
+    : `<div class="empty">No investigation has an outreach preparation yet${idx.unavailable ? ' (the local app is not running and no snapshot is published)' : ''}.</div>`;
+  try {
+    const track = JSON.parse(localStorage.getItem('ph-campaign') || '{}');
+    const entries = Object.entries(track).filter(([k, t]) => t && (t.status || t.note));
+    if(entries.length){
+      $('legacy').hidden = false;
+      $('legacy-rows').innerHTML = entries.map(([k, t]) => { const hit = Object.entries(idx.by_parcel||{}).find(([key]) => key.endsWith(':' + k)); return `<tr><td class="mono">${esc(k)}</td><td>${esc(STATUS_LABEL[t.status] || (t.status ? 'you marked: ' + t.status : '—'))}</td><td>${esc((t.sent||'').slice(0,10))}</td><td>${esc(t.note||'')}</td><td>${hit ? `<a href="investigation.html?id=${hit[1]}">Open investigation</a>` : `<a href="lookup.html?county=05051&q=${encodeURIComponent(k)}">Property file</a>`}</td></tr>`; }).join('');
+    }
+  } catch(e){}
+})();
 </script>
 <script src="nav.js"></script>
 </body>

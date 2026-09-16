@@ -6,7 +6,7 @@
     ["hunt.html", "Hunt", "⌖"],
     ["lookup.html", "Look up", "⌕"],
     ["state-lands.html", "Tax sale", "⚑"],
-    ["campaign.html", "Letters", "✉"],
+    ["campaign.html", "Outreach", "✉"],
     ["watch.html", "Watch", "◉"],
     ["taxes.html", "Taxes", "$"],
     ["investigation.html", "Cases", "▣"],

@@ -268,3 +268,8 @@ h1,h2,h3,h4{font-family:var(--display);font-weight:600;letter-spacing:.01em;marg
 .form .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}.msg{font-size:12.5px;color:var(--muted)}.msg.err{color:var(--bad)}
 .note-item{padding:6px 10px;border-left:3px solid var(--rule);background:var(--surface2);font-size:13px}.note-item b{font-size:10px;letter-spacing:.08em;color:var(--muted)}
 .case-list{display:grid;gap:8px}.case-row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:10px 12px;background:var(--surface);border:1px solid var(--rule);font-size:13px}
+
+/* ---- P3A: provenance labels ---- */
+.org{font-family:var(--mono);font-size:10px;letter-spacing:.06em;font-weight:600;padding:1px 5px;border:1px solid currentColor;border-radius:2px}
+.org-AUTOMATED_SOURCE{color:var(--good)}.org-MANUAL_VERIFICATION{color:var(--accent)}.org-NOTE{color:var(--muted)}.org-DERIVED{color:var(--warn)}.org-AI_OPINION{color:var(--bad)}
+.ev .ver.D{color:var(--warn)}.ev .ver.AI{color:var(--bad)}.ev.superseded{opacity:.7}.ev .flag{color:var(--warn);font-size:10px;letter-spacing:.06em}

@@ -132,6 +132,7 @@ def test_timeline_classification_and_provenance():
     _ev(a, "tax_status_check", "no open real-estate tax bill", evidence_type="OBSERVATION", confidence="MEDIUM",
         source="county_tax_collector", source_name="County Tax Collector", effective_date="2026-09-14")
     _ev(a, "tax_delinquent_county", "delinquent on the 2025 list", source="county_delinquent_list", source_name="Garland County Collector list", effective_date="2026-01-15")
+    _ev(a, "manual:title", "pulled the deed index in person", source="manual_verification", source_name="Circuit Clerk — MANUAL VERIFICATION by user", evidence_type="OBSERVATION", confidence="MEDIUM", effective_date="2026-09-14")
     db.ex("INSERT INTO changes(property_id, field, old_value, new_value, source, severity, detected_at) VALUES(?,?,?,?,?,?,datetime('now'))",
           (a, "owner_name", "OLD OWNER", "NEW OWNER", "ar_gis_parcels", "info"))
     db.ex("INSERT INTO changes(property_id, field, old_value, new_value, source, severity, detected_at) VALUES(?,?,?,?,?,?,datetime('now'))",
@@ -144,7 +145,9 @@ def test_timeline_classification_and_provenance():
     assert world and world[0]["date"] == "2024-11-20" and world[0]["url"].startswith("https://services1.arcgis.com/")
     assert any(e["cls"] == "FIRST_DISCOVERY" and e["ref"] == f"property:{a}" for e in tl)
     assert any(e["cls"] == "SOURCE_CHECK" and e["title"].startswith("Collector") for e in tl)
-    assert any(e["cls"] == "MANUAL" for e in tl)
+    assert any(e["cls"] == "MANUAL" and e["origin"] == "MANUAL_VERIFICATION" for e in tl)
+    assert all(e.get("origin") in ("AUTOMATED_SOURCE", "MANUAL_VERIFICATION", "NOTE", "DERIVED", "AI_OPINION") for e in tl if e["ref"].startswith("evidence:"))
+    assert any(e["origin"] == "AUTOMATED_SOURCE" and "imported county record" in e["title"] for e in tl)
     info = [e for e in tl if e["cls"] == "INFORMATIONAL"]
     assert len(info) == 1 and "owner" in info[0]["title"], "a first reading with no old value is not a change"
     assert [e["date"] for e in tl] == sorted(e["date"] for e in tl)

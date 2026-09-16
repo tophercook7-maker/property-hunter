@@ -154,19 +154,19 @@ def test_completing_a_manual_task_stores_evidence(client, seeded):
                                "manual": 1})
     client.post(f"/api/task/{tid}", json={"status": "done",
                                           "evidence": "Taxes current through 2025."})
-    ev = [e for e in store.evidence_for(pid) if e["field"].startswith("manual:")]
-    assert ev and ev[0]["confidence"] == "HIGH"
-    assert ev[0]["source"] == "topher_manual_verification"
+    ev = [e for e in store.evidence_view(pid) if e["field"].startswith("manual:")]
+    assert ev and ev[0]["origin"] == "MANUAL_VERIFICATION" and ev[0]["source"] == "manual_verification"
+    assert ev[0]["evidence_type"] == "OBSERVATION" and ev[0]["confidence"] == "MEDIUM", "a person's answer is never an automated FACT/HIGH (P3A)"
+    assert "MANUAL VERIFICATION" in ev[0]["source_name"] and "task:" in ev[0]["raw_ref"]
 
 
 def test_field_note_is_never_promoted_to_fact(client, seeded):
     pid = seeded[0]
     client.post(f"/api/property/{pid}/note",
                 json={"body": "Neighbour says nobody has lived there in years."})
-    ev = [e for e in store.evidence_for(pid) if e["field"] == "field_observation"]
-    assert ev
-    assert ev[0]["evidence_type"] == "OBSERVATION"
-    assert ev[0]["confidence"] == "LOW"
+    assert not [e for e in store.evidence_for(pid) if e["field"] == "field_observation"], "a note is never an evidence row (P3A)"
+    notes = store.notes_for(pid)
+    assert notes and notes[-1]["confidence"] == "UNVERIFIED" and "Neighbour" in notes[-1]["body"]
 
 
 def test_csv_export(client, seeded):
@@ -282,9 +282,7 @@ def test_voice_note_with_typed_transcript_is_unverified_hearsay(client, seeded):
     d = client.get(f"/api/property/{pid}").json()
     note = [n for n in d["notes"] if n["kind"] == "voice_note"][0]
     assert note["confidence"] == "UNVERIFIED" and note["audio_path"].startswith("/files/")
-    ev = [e for e in d["evidence"] if e["field"] == "field_observation"]
-    assert ev and ev[0]["confidence"] == "LOW" and ev[0]["evidence_type"] == "OBSERVATION"
-    assert "hearsay" in ev[0]["raw_ref"]
+    assert not [e for e in d["evidence"] if e["field"] == "field_observation"], "a voice note transcript stays a NOTE (P3A)"
 
 
 def test_document_upload_is_categorised(client, seeded):

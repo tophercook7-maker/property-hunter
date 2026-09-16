@@ -233,12 +233,49 @@ def ingest(record: Record, *, data_class: str = "real",
 
 # ------------------------------------------------------------------ evidence
 
+# ---------------------------------------------------------------- P3A: canonical provenance
+# ORIGIN says WHO produced a reading. It is distinct from evidence_type (the verification vocabulary:
+# FACT / OBSERVATION / CALCULATION / ESTIMATE / AI_OPINION / UNKNOWN / CONFLICTING) and from confidence.
+ORIGINS = ("AUTOMATED_SOURCE", "MANUAL_VERIFICATION", "NOTE", "DERIVED", "AI_OPINION")
+ORIGIN_LABEL = {"AUTOMATED_SOURCE": "AUTOMATED SOURCE", "MANUAL_VERIFICATION": "MANUAL VERIFICATION", "NOTE": "NOTE",
+                "DERIVED": "DERIVED", "AI_OPINION": "AI OPINION", None: "ORIGIN NOT RECORDED"}
+MANUAL_SOURCES = ("manual_verification", "topher_manual_verification", "topher_photo")
+NOTE_SOURCES = ("topher_field_note", "topher_voice_note", "research_notes")
+DERIVED_SOURCES = ("property_hunter.distress",)
+AI_SOURCES = ("local_vision_model",)
+# When two rows answer the same field, the one with the higher rank is the reading to rely on;
+# equal rank -> the newer one. A lower-ranked newer row never supersedes a higher-ranked older one.
+PRECEDENCE = {"AUTOMATED_SOURCE": 4, "MANUAL_VERIFICATION": 3, "DERIVED": 2, "AI_OPINION": 1, "NOTE": 0, None: 0}
+
+
+def origin_of(item: dict) -> str:
+    """Classify a reading's provenance from what it says about itself. Deterministic; never guesses
+    beyond the source name and field: a source we do not recognise is treated as an automated
+    adapter only when it was registered as one, otherwise the field/type decide."""
+    o = item.get("origin")
+    if o in ORIGINS:
+        return o
+    src = item.get("source") or ""
+    field = item.get("field") or ""
+    et = item.get("evidence_type") or ""
+    if src in MANUAL_SOURCES or field.startswith("manual:") or field.startswith("photo:"):
+        return "MANUAL_VERIFICATION"
+    if src in NOTE_SOURCES or field in ("field_observation", "investigation_seed"):
+        return "NOTE"
+    if src in AI_SOURCES or et == "AI_OPINION" or field.startswith("vision:"):
+        return "AI_OPINION"
+    if src in DERIVED_SOURCES or field.startswith("signal:") or et in ("CALCULATION", "ESTIMATE"):
+        return "DERIVED"
+    return "AUTOMATED_SOURCE"
+
+
 def store_evidence(prop_id: int, items: Iterable[dict]) -> None:
     for item in items:
         field = item.get("field")
         if not field:
             continue
         value = item.get("value")
+        origin = origin_of(item)
         prior = db.q1(
             "SELECT * FROM evidence WHERE property_id=? AND field=? "
             "ORDER BY id DESC LIMIT 1", (prop_id, field))
@@ -246,15 +283,19 @@ def store_evidence(prop_id: int, items: Iterable[dict]) -> None:
             db.ex("UPDATE evidence SET retrieved_at=? WHERE id=?",
                   (item.get("retrieved_at") or utcnow(), prior["id"]))
             continue
-        db.ex(
+        cur = db.ex(
             "INSERT INTO evidence(property_id,field,value,evidence_type,confidence,source,"
-            "source_name,source_url,retrieved_at,effective_date,raw_ref,created_at) "
-            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+            "source_name,source_url,retrieved_at,effective_date,raw_ref,created_at,origin) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (prop_id, field, None if value is None else str(value),
              item.get("evidence_type", "UNKNOWN"), item.get("confidence", "LOW"),
              item.get("source", "unknown"), item.get("source_name"),
              item.get("source_url"), item.get("retrieved_at") or utcnow(),
-             item.get("effective_date"), item.get("raw_ref"), utcnow()))
+             item.get("effective_date"), item.get("raw_ref"), utcnow(), origin))
+        # Precedence: the new reading supersedes the prior one for this field only when its origin
+        # ranks at least as high. The prior row is kept and points at what replaced it.
+        if prior and PRECEDENCE.get(origin, 0) >= PRECEDENCE.get(prior["origin"] or origin_of(dict(prior)), 0):
+            db.ex("UPDATE evidence SET superseded_by=? WHERE id=? AND superseded_by IS NULL", (cur.lastrowid, prior["id"]))
         # A different source disagreeing is a conflict, not an overwrite.
         if (prior and prior["source"] != item.get("source")
                 and str(prior["value"]) != str(value)
@@ -280,6 +321,36 @@ def latest_evidence(prop_id: int, field: str) -> dict | None:
 def evidence_for(prop_id: int) -> list[dict]:
     return db.rows_to_dicts(
         db.q("SELECT * FROM evidence WHERE property_id=? ORDER BY field, id DESC", (prop_id,)))
+
+
+def with_origin(e: dict) -> dict:
+    """The canonical evidence representation every consumer (UI, exporter, AI) reads:
+    origin, source, date, verification (evidence_type), confidence, reference, precedence, conflict."""
+    o = e.get("origin") or origin_of(e)
+    return dict(e, origin=o, origin_label=ORIGIN_LABEL[o], verification=e.get("evidence_type"),
+                ref=f"evidence:{e['id']}" if e.get("id") else None,
+                date=(e.get("effective_date") or e.get("retrieved_at") or e.get("created_at") or "")[:10] or None,
+                precedence=PRECEDENCE.get(o, 0), superseded=e.get("superseded_by") is not None)
+
+
+def evidence_view(prop_id: int) -> list[dict]:
+    """evidence_for + provenance + open conflicts on the same field. Nothing is dropped."""
+    conf = {r["field"] for r in db.q("SELECT field FROM conflicts WHERE property_id=? AND status='NEEDS VERIFICATION'", (prop_id,))}
+    return [dict(with_origin(e), conflict=e["field"] in conf) for e in evidence_for(prop_id)]
+
+
+def latest_answer(prop_id: int, field: str) -> dict | None:
+    """The newest reading of a field that can ANSWER a question: an automated source or a person's
+    verification. Notes, derived values and model opinions never answer."""
+    for e in db.q("SELECT * FROM evidence WHERE property_id=? AND field=? ORDER BY id DESC LIMIT 20", (prop_id, field)):
+        d = dict(e)
+        if (d.get("origin") or origin_of(d)) in ("AUTOMATED_SOURCE", "MANUAL_VERIFICATION"):
+            return with_origin(d)
+    return None
+
+
+def notes_for(prop_id: int) -> list[dict]:
+    return db.rows_to_dicts(db.q("SELECT id, investigation_id, kind, body, author, confidence, created_at FROM notes WHERE property_id=? ORDER BY id", (prop_id,)))
 
 
 def known_value(prop_id: int, field: str, default=None):

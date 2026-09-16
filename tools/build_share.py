@@ -281,18 +281,21 @@ def build_timelines(rows_by_id: dict) -> dict:
         if not r:
             return
         out.setdefault(r["cf"], {}).setdefault(str(pid), []).append(ev)
-    for e in q("""SELECT e.id, e.property_id, e.field, e.value, e.source, e.source_name, e.source_url, e.effective_date, e.created_at, e.evidence_type, e.confidence
+    for e in q("""SELECT e.id, e.property_id, e.field, e.value, e.source, e.source_name, e.source_url, e.effective_date, e.created_at, e.evidence_type, e.confidence, e.origin
                   FROM evidence e JOIN properties p ON p.id=e.property_id
                   WHERE (e.field IN ({}) OR e.field LIKE 'manual:%') AND p.excluded=0 ORDER BY e.id""".format(",".join("?" * len(TIMELINE_FIELDS))), tuple(TIMELINE_FIELDS)):
         cls, title, src = TIMELINE_FIELDS.get(e["field"], ("MANUAL", "Manual verification recorded by a person", None))
         src = src or e["source_name"] or e["source"]
+        origin = e["origin"] or __import__("hunter.store", fromlist=["origin_of"]).origin_of(dict(e))
         if e["source"] == "county_delinquent_list":
-            cls, title = "MANUAL", "Delinquent on the county's list (imported by a person)"
+            title = "Delinquent on the county's list (imported county record)"
+        if origin == "MANUAL_VERIFICATION":
+            cls = "MANUAL"
         if e["field"] == "tax_status_check":
             title = "State Lands: not held by the State" if e["source"] == "cosl_listings" else "Collector: no open real-estate bill"
         eff = (e["effective_date"] or "")[:10]
         seen = (e["created_at"] or "")[:16]
-        base = {"src": src, "ref": f"evidence:{e['id']}", "url": e["source_url"] or None, "etype": e["evidence_type"], "conf": e["confidence"]}
+        base = {"src": src, "ref": f"evidence:{e['id']}", "url": e["source_url"] or None, "etype": e["evidence_type"], "conf": e["confidence"], "origin": origin}
         if cls == "WORLD_EVENT" and eff:
             add(e["property_id"], {"date": eff, "cls": "WORLD_EVENT", "title": title, "detail": (e["value"] or "")[:140], **base})
             add(e["property_id"], {"date": seen, "cls": "FIRST_DISCOVERY", "title": f"Property Hunter first read this record", "detail": title, **base})

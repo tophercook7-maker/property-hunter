@@ -205,18 +205,35 @@ def evidence_block(prop: dict, evidence: list[dict], limit: int = 70) -> str:
         f"  tax status: {prop.get('tax_status') or 'NOT CHECKED - unknown'}",
         f"  listing status: {prop.get('listing_status') or 'not known to be listed'}",
         "",
-        "EVIDENCE WE ACTUALLY HOLD (source | confidence | type):",
+        "EVIDENCE WE ACTUALLY HOLD (origin | source | confidence | verification | reference):",
+        "  origin: AUTOMATED SOURCE = read from a public-record adapter; MANUAL VERIFICATION = a person checked and recorded it;",
+        "  DERIVED = calculated by this app from other readings; AI OPINION = a model looking at pixels; NOTE = commentary, not evidence.",
     ]
+    from . import store as _store
     seen = set()
+    notes = []
     for e in evidence[:limit]:
+        e = _store.with_origin(e)
+        if e["origin"] == "NOTE":
+            notes.append(e)
+            continue
         k = (e.get("field"), e.get("value"))
         if k in seen:
             continue
         seen.add(k)
         lines.append(f"  - {e.get('field')}: {e.get('value')}   "
-                     f"[{e.get('source')} | {e.get('confidence')} | {e.get('evidence_type')}"
+                     f"[{e['origin_label']} | {e.get('source')} | {e.get('confidence')} | {e.get('evidence_type')}"
                      + (f" | as of {e['effective_date']}" if e.get("effective_date") else "")
+                     + (f" | {e['ref']}" if e.get("ref") else "")
+                     + (" | superseded by a newer reading" if e.get("superseded") else "")
+                     + (" | CONFLICT open" if e.get("conflict") else "")
                      + "]")
+    human_notes = [n.get("body") for n in (prop.get("notes") or []) if n.get("body")] + [n.get("value") for n in notes]
+    if human_notes:
+        lines.append("")
+        lines.append("NOTES (human commentary, UNVERIFIED - never evidence, never a fact):")
+        for n in human_notes[:12]:
+            lines.append(f"  - NOTE: {str(n)[:300]}")
     sigs = prop.get("distress") or []
     if sigs:
         lines.append("")

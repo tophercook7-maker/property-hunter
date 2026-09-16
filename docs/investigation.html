@@ -53,8 +53,8 @@ function qHtml(q){
     ${q.state==='UNKNOWN' ? `<div style="margin-top:4px">${actionHtml(q.next)}</div>` : ''}</span></div>`;
 }
 function evHtml(e){
-  const v = e.verification==='MANUAL VERIFICATION' ? 'M' : e.verification==='NOTE' ? 'N' : 'A';
-  return `<div class="ev ${e.state}"><span><span class="lab">${STW[e.state]}</span><br><span class="ver ${v}">${esc(e.verification)}</span></span><span>${esc(e.field)} — ${esc(e.value)}<small>source: ${e.url ? `<a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.source_name||e.source)}</a>` : esc(e.source_name||e.source)} · date ${esc(e.date||'—')} · ${esc(e.etype)} / ${esc(e.conf)} · ${esc(e.ref)}${e.raw_ref ? ` · ${esc(String(e.raw_ref).slice(0,120))}` : ''}</small></span></div>`;
+  const v = {MANUAL_VERIFICATION:'M', NOTE:'N', DERIVED:'D', AI_OPINION:'AI'}[e.origin] || 'A';
+  return `<div class="ev ${e.state}${e.superseded?' superseded':''}"><span><span class="lab">${STW[e.state]}</span><br><span class="ver ${v}">${esc(PH.originLabel(e.origin))}</span>${e.superseded?'<br><span class="flag">SUPERSEDED</span>':''}${e.conflict?'<br><span class="flag">CONFLICT OPEN</span>':''}</span><span>${esc(e.field)} — ${esc(e.value)}<small>source: ${e.url ? `<a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.source_name||e.source)}</a>` : esc(e.source_name||e.source)} · date ${esc(e.date||'—')} · ${esc(e.etype)} / ${esc(e.conf)} · ${esc(e.ref)}${e.raw_ref ? ` · ${esc(String(e.raw_ref).slice(0,120))}` : ''}</small></span></div>`;
 }
 function render(){
   const c = CASE, pr = c.property, tx = c.tax, sale = c.sale;
@@ -87,7 +87,7 @@ function render(){
       <div><button class="btn" type="button" id="l-save">Record manual verification</button> <span class="msg" id="l-msg"></span></div></section>
     <section class="form"><h3>Note — a NOTE, never a fact</h3><textarea id="n-body" rows="2" placeholder="What you think, what to try next. Notes stay separate from evidence."></textarea><div><button class="btn ghost" type="button" id="n-save">Add note</button> <span class="msg" id="n-msg"></span></div></section>` : ''}
     <div class="two">
-      <section><h3>Evidence (${c.evidence.length})</h3><div class="ev-panel">${c.evidence.map(evHtml).join('') || '<div class="empty">No evidence rows beyond the roll.</div>'}</div></section>
+      <section><h3>Evidence (${c.evidence.length}) — origin on every row: automated source · manual verification · note · derived · AI opinion</h3><div class="ev-panel">${c.evidence.map(evHtml).join('') || '<div class="empty">No evidence rows beyond the roll.</div>'}</div></section>
       <section><h3>Notes (${c.notes.length})</h3><div style="display:grid;gap:6px">${c.notes.map(n=>`<div class="note-item"><b>NOTE · ${esc(n.author)} · ${esc(when(n.created_at))} · ${esc(n.confidence)}</b><div>${esc(n.body)}</div></div>`).join('') || '<div class="empty">No notes.</div>'}</div>
         <h3 style="margin-top:14px">Timeline (${c.events.length})</h3><ol class="tl">${c.events.map(e=>`<li class="${esc(e.cls.replace(/ /g,'_'))}"><time>${esc(when(e.at))}</time><b>${esc(e.cls)}</b><span>${esc(e.title)}${e.detail?` — ${esc(e.detail)}`:''}<small>${esc(e.actor)}${e.ref?` · ${esc(e.ref)}`:''}${e.ref_date?` · record date ${esc(e.ref_date)}`:''}</small></span></li>`).join('')}</ol></section>
     </div>`;

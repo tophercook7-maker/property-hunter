@@ -34,8 +34,8 @@ CATEGORIES = ("IDENTITY", "OWNERSHIP", "TAXES", "SALE_STATUS", "LIENS", "VACANCY
 EVENT_CLASSES = ("SIGNAL RECEIVED", "INVESTIGATION OPENED", "SOURCE CHECK", "MANUAL VERIFICATION", "EVIDENCE ADDED",
                  "QUESTION ANSWERED", "QUESTION REMAINS UNKNOWN", "ACTION COMPLETED", "STATUS CHANGE", "NOTE ADDED")
 MANUAL_SOURCE = "manual_verification"
-MANUAL_SOURCES = (MANUAL_SOURCE, "topher_manual_verification", "county_delinquent_list")
-NOTE_SOURCES = ("topher_field_note",)
+MANUAL_SOURCES = store.MANUAL_SOURCES          # P3A: one vocabulary, defined in store
+NOTE_SOURCES = store.NOTE_SOURCES
 
 # ------------------------------------------------------------------ questions (neutral wording)
 # key: (category, wording, action kind)
@@ -127,7 +127,8 @@ def state_inventory_ctx() -> dict:
 # ------------------------------------------------------------------ evaluation from evidence only
 
 def _ev(pid, field):
-    return store.latest_evidence(pid, field)
+    """Only an AUTOMATED_SOURCE or MANUAL_VERIFICATION reading can answer a question (P3A)."""
+    return store.latest_answer(pid, field)
 
 
 def _ref(e):
@@ -455,7 +456,7 @@ def log_manual(case_id: int, payload: dict, actor="user") -> dict:
     field = f"manual:{key or 'check'}"
     value = result or f"checked {source}: no result recorded"
     store.store_evidence(c["property_id"], [{
-        "field": field, "value": value, "evidence_type": "OBSERVATION", "confidence": "MEDIUM",
+        "field": field, "value": value, "evidence_type": "OBSERVATION", "confidence": "MEDIUM", "origin": "MANUAL_VERIFICATION",
         "source": MANUAL_SOURCE, "source_name": f"{source} — MANUAL VERIFICATION by {actor}", "source_url": url,
         "effective_date": date, "raw_ref": "MANUAL VERIFICATION" + (f"; document: {doc}" if doc else "") + (f"; ref: {payload['evidence_ref']}" if payload.get("evidence_ref") else "")}])
     e = db.q1("SELECT id FROM evidence WHERE property_id=? AND field=? ORDER BY id DESC LIMIT 1", (c["property_id"], field))
@@ -493,22 +494,22 @@ def evidence_panel(pid: int) -> list[dict]:
     skip = ("coordinates", "acreage_from_geometry", "parcel_perimeter_m", "gis_publication_date", "parcel_type_code", "property_class",
             "improvement_state", "slope_pct", "terrain")
     out = []
+    conf = {r["field"] for r in db.q("SELECT field FROM conflicts WHERE property_id=? AND status='NEEDS VERIFICATION'", (pid,))}
     for e in db.q("SELECT * FROM evidence WHERE property_id=? ORDER BY id DESC LIMIT 400", (pid,)):
         f = e["field"]
         if f in skip or f.startswith("signal:"):
             continue
-        manual = e["source"] in MANUAL_SOURCES or f.startswith("manual:")
-        note = e["source"] in NOTE_SOURCES or f == "field_observation"
-        if e["evidence_type"] == "UNKNOWN":
-            state = "UNKNOWN"
-        elif f in ("tax_status_check", "tax_delinquent_removed"):
+        e = store.with_origin(dict(e))
+        if e["evidence_type"] == "UNKNOWN" or e["origin"] in ("NOTE", "AI_OPINION"):
+            state = "UNKNOWN"          # commentary and model opinions answer nothing
+        elif f in ("tax_status_check", "tax_delinquent_removed") or f.endswith("_removed"):
             state = "NOT_FOUND"
         else:
             state = "FOUND"
-        out.append({"ref": f"evidence:{e['id']}", "field": f, "value": (e["value"] or "")[:200], "source": e["source"], "source_name": e["source_name"],
+        out.append({"ref": e["ref"], "field": f, "value": (e["value"] or "")[:200], "source": e["source"], "source_name": e["source_name"],
                     "url": e["source_url"] if e["source_url"] and str(e["source_url"]).startswith("http") else None,
-                    "date": (e["effective_date"] or e["created_at"] or "")[:10], "recorded_at": (e["created_at"] or "")[:16], "etype": e["evidence_type"], "conf": e["confidence"],
-                    "state": state, "verification": "NOTE" if note else "MANUAL VERIFICATION" if manual else "AUTOMATED SOURCE", "raw_ref": e["raw_ref"]})
+                    "date": e["date"], "recorded_at": (e["created_at"] or "")[:16], "etype": e["evidence_type"], "conf": e["confidence"],
+                    "state": state, "origin": e["origin"], "verification": e["origin_label"], "superseded": e["superseded"], "conflict": f in conf, "raw_ref": e["raw_ref"]})
     return out
 
 

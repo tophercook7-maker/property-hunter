@@ -241,13 +241,16 @@
       <span class="acts"><a class="next" href="${PH.esc(x.next.href)}"${ext ? ' target="_blank" rel="noopener"' : ''}>${PH.esc(x.next.label)} →</a>${PH.investigateBtn(x, x)}<a class="file" href="lookup.html?county=${PH.esc(x.cf)}&q=${encodeURIComponent(x.pid || x.a || '')}">Open property file</a></span>
     </article>`;
   };
+  // ---------- EVIDENCE PROVENANCE (P3A): who produced a reading, never guessed ----------
+  PH.ORIGIN = { AUTOMATED_SOURCE: 'AUTOMATED SOURCE', MANUAL_VERIFICATION: 'MANUAL VERIFICATION', NOTE: 'NOTE', DERIVED: 'DERIVED', AI_OPINION: 'AI OPINION' };
+  PH.originLabel = o => PH.ORIGIN[o] || 'ORIGIN NOT RECORDED';
   // ---------- EVIDENCE TIMELINE ----------
   PH.timelineHtml = (events, cp) => {
     const ev = (events || []).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     if (cp && cp.open === false) ev.push({ date: (cp.checked_at || '').slice(0, 16), cls: 'SOURCE_CHECK', title: 'Collector source unavailable', detail: `CountyPay has said "${cp.detail || 'unavailable'}" since ${(cp.down_since || '').slice(0, 10)}; this parcel was not checked`, src: 'docs/data/status.json (poller)', ref: 'status:countypay' });
     if (!ev.length) return '<div class="empty">No dated evidence beyond the county roll for this parcel.</div>';
     const L = { WORLD_EVENT: 'WORLD EVENT', FIRST_DISCOVERY: 'FIRST DISCOVERED BY PROPERTY HUNTER', INFORMATIONAL: 'INFORMATIONAL RECORD CHANGE', SOURCE_CHECK: 'SOURCE CHECK', MANUAL: 'MANUAL VERIFICATION' };
-    return `<ol class="tl">${ev.map(e => `<li class="${PH.esc(e.cls)}"><time>${PH.esc((e.date || '').replace('T', ' '))}</time><b>${PH.esc(L[e.cls] || e.cls)}</b><span>${PH.esc(e.title)}${e.detail ? ` — ${PH.esc(e.detail)}` : ''}<small>source: ${e.url ? `<a href="${PH.esc(e.url)}" target="_blank" rel="noopener">${PH.esc(e.src || '')}</a>` : PH.esc(e.src || '')}${e.ref ? ' · ' + PH.esc(e.ref) : ''}</small></span></li>`).join('')}</ol>`;
+    return `<ol class="tl">${ev.map(e => `<li class="${PH.esc(e.cls)}"><time>${PH.esc((e.date || '').replace('T', ' '))}</time><b>${PH.esc(L[e.cls] || e.cls)}</b><span>${PH.esc(e.title)}${e.detail ? ` — ${PH.esc(e.detail)}` : ''}<small>${e.origin ? `<span class="org org-${PH.esc(e.origin)}">${PH.esc(PH.ORIGIN[e.origin] || e.origin)}</span> · ` : ''}source: ${e.url ? `<a href="${PH.esc(e.url)}" target="_blank" rel="noopener">${PH.esc(e.src || '')}</a>` : PH.esc(e.src || '')}${e.ref ? ' · ' + PH.esc(e.ref) : ''}</small></span></li>`).join('')}</ol>`;
   };
   // ---------- WHAT WE KNOW / DON'T KNOW / NEXT ----------
   PH.knowBlock = (r, cp, tl) => {

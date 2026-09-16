@@ -15,7 +15,8 @@ def dossier(prop_id: int, include_ai: bool = False) -> dict:
     if not p:
         return {}
     sc = scoring.scores_for(prop_id)
-    ev = store.evidence_for(prop_id)
+    ev = store.evidence_view(prop_id)
+    notes = store.notes_for(prop_id)
     out = {
         "property": p,
         "scores": sc,
@@ -26,6 +27,8 @@ def dossier(prop_id: int, include_ai: bool = False) -> dict:
         "business_use": analyzers.business_use_analysis(p),
         "evidence": ev,
         "evidence_count": len(ev),
+        "notes": notes,
+        "provenance": "every evidence row carries origin (AUTOMATED_SOURCE | MANUAL_VERIFICATION | NOTE | DERIVED | AI_OPINION), source, date, verification (evidence_type), confidence and reference",
         "timeline": db.rows_to_dicts(
             db.q("SELECT * FROM timeline WHERE property_id=? ORDER BY "
                  "IFNULL(event_date,created_at) DESC, id DESC", (prop_id,))),
@@ -152,6 +155,7 @@ def dossier_html(prop_id: int) -> str:
     esc = lambda s: (str(s) if s is not None else "").replace("&", "&amp;").replace("<", "&lt;")
     rows = "".join(
         f"<tr><td>{esc(e['field'])}</td><td>{esc(e['value'])}</td>"
+        f"<td><b>{esc(e.get('origin_label'))}</b></td>"
         f"<td>{esc(e['evidence_type'])}</td><td>{esc(e['confidence'])}</td>"
         f"<td>{esc(e['source'])}</td><td>{esc(e['effective_date'] or e['retrieved_at'])}</td></tr>"
         for e in d["evidence"])
@@ -200,7 +204,7 @@ def dossier_html(prop_id: int) -> str:
 <p><b>Biggest unresolved concern:</b> {esc(d['why_cheap']['biggest_unresolved_concern'])}</p>
 <h2>What to do next</h2><ol>{steps}</ol>
 <h2>Every fact we hold, and where it came from</h2>
-<table><tr><th>Field</th><th>Value</th><th>Type</th><th>Confidence</th>
+<table><tr><th>Field</th><th>Value</th><th>Origin</th><th>Type</th><th>Confidence</th>
 <th>Source</th><th>As of</th></tr>{rows}</table>
 <div class="box warn">{esc(d['disclaimer'])}</div>
 """

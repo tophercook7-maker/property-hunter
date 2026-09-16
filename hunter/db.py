@@ -481,6 +481,8 @@ def init_db() -> None:
     conn.executescript(SCHEMA)
     conn.commit()
     _ensure_column(conn, "notes", "investigation_id", "INTEGER")   # P2: notes may belong to a case
+    _ensure_column(conn, "evidence", "origin", "TEXT")               # P3A: canonical provenance (AUTOMATED_SOURCE|MANUAL_VERIFICATION|NOTE|DERIVED|AI_OPINION)
+    _ensure_column(conn, "evidence", "superseded_by", "INTEGER")     # P3A: a newer row of equal-or-higher precedence replaced this reading; never deleted
     conn.commit()
 
 

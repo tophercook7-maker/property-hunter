@@ -615,11 +615,25 @@ def api_task_update(task_id: int, payload: dict = Body(...)) -> dict:
         store.add_timeline(row["property_id"], "task", f"Completed: {row['title']}",
                            payload.get("evidence") or payload.get("notes") or "")
         if payload.get("evidence"):
+            # P3A: what a person records when completing a task is a MANUAL VERIFICATION - an
+            # observation at medium confidence with the person named - never an automated FACT/HIGH.
+            actor = str(payload.get("actor") or row["owner"] or "user")[:40]
+            today = utcnow()[:10]
             store.store_evidence(row["property_id"], [{
-                "field": f"manual:{row['source'] or 'check'}",
-                "value": payload["evidence"], "evidence_type": "FACT",
-                "confidence": "HIGH", "source": "topher_manual_verification",
-                "source_name": row["title"], "source_url": row["source_url"]}])
+                "field": f"manual:{row['source'] or 'check'}", "value": payload["evidence"],
+                "evidence_type": "OBSERVATION", "confidence": "MEDIUM", "origin": "MANUAL_VERIFICATION",
+                "source": "manual_verification", "source_name": f"{row['title']} — MANUAL VERIFICATION by {actor}",
+                "source_url": row["source_url"] if row["source_url"] and str(row["source_url"]).startswith("http") else None,
+                "effective_date": today, "raw_ref": f"MANUAL VERIFICATION; task:{task_id}"}])
+            from . import cases
+            c = cases.case_for_property(row["property_id"])
+            if c:
+                e = db.q1("SELECT id FROM evidence WHERE property_id=? AND field=? ORDER BY id DESC LIMIT 1", (row["property_id"], f"manual:{row['source'] or 'check'}"))
+                ref = f"evidence:{e['id']}" if e else f"task:{task_id}"
+                cases._event(c["id"], "MANUAL VERIFICATION", f"Task completed: {row['title']}", payload["evidence"][:300], ref, actor, today)
+                cases._event(c["id"], "EVIDENCE ADDED", f"Manual verification stored as manual:{row['source'] or 'check'}", "labelled MANUAL VERIFICATION; not an official source record", ref, actor, today)
+                cases._event(c["id"], "ACTION COMPLETED", row["title"], f"task:{task_id}", ref, actor, today)
+                cases._touch(c["id"])
     return {"ok": True}
 
 
@@ -633,13 +647,8 @@ def api_note(prop_id: int, payload: dict = Body(...)) -> dict:
                  payload.get("confidence", "UNVERIFIED"), utcnow()))
     store.add_timeline(prop_id, "note", "Field note added",
                        (payload.get("body") or "")[:200])
-    store.store_evidence(prop_id, [{
-        "field": "field_observation", "value": payload.get("body", ""),
-        "evidence_type": "OBSERVATION", "confidence": "LOW",
-        "source": "topher_field_note",
-        "source_name": f"{payload.get('author','Topher')} on site",
-        "raw_ref": "Unverified first-hand or second-hand observation. A neighbour "
-                   "saying nobody has lived there is a lead, not a fact."}])
+    # P3A: a note is a NOTE. It lives in `notes` (confidence UNVERIFIED) and is shown to people and
+    # to the model under that label; it never becomes an evidence row because it contains a claim.
     return {"id": cur.lastrowid}
 
 
@@ -1332,13 +1341,7 @@ def api_note_update(note_id: int, payload: dict = Body(...)) -> dict:
     if not row:
         raise HTTPException(404, "no such note")
     if "body" in payload:
-        db.ex("UPDATE notes SET body=? WHERE id=?", (payload["body"], note_id))
-        if row["kind"] == "voice_note" and payload["body"].strip():
-            store.store_evidence(row["property_id"], [{
-                "field": "field_observation", "value": payload["body"],
-                "evidence_type": "OBSERVATION", "confidence": "LOW",
-                "source": "topher_voice_note", "source_name": "Topher on site (voice)",
-                "source_url": row["audio_path"]}])
+        db.ex("UPDATE notes SET body=? WHERE id=?", (payload["body"], note_id))   # P3A: a corrected transcript stays a NOTE
     return {"ok": True}
 
 

@@ -163,7 +163,7 @@ def next_steps(prop: dict) -> list[dict]:
 # ---------------------------------------------------------------- explain ---
 
 def explain(prop: dict, use_ai: bool = True) -> dict:
-    evidence = store.evidence_for(prop["id"])
+    evidence = store.evidence_view(prop["id"]); prop = dict(prop, notes=store.notes_for(prop["id"]))
     block = ai.evidence_block(prop, evidence)
     prompt = f"""{block}
 
@@ -200,7 +200,7 @@ haven't checked it. Do not invent numbers. Do not give legal advice.
 def what_would_you_do(prop: dict, use_ai: bool = True) -> dict:
     scores = scoring.scores_for(prop["id"])
     dot = deal_or_trap(prop, scores)
-    evidence = store.evidence_for(prop["id"])
+    evidence = store.evidence_view(prop["id"]); prop = dict(prop, notes=store.notes_for(prop["id"]))
     prompt = f"""{ai.evidence_block(prop, evidence)}
 
 Our own conservative read: {dot['verdict']} - {dot['why']}

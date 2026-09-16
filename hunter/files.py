@@ -112,16 +112,8 @@ def save_voice(prop_id: int, upload, original: str, transcript: str = "",
         "VALUES(?,?,?,?,?,?,?)",
         (prop_id, "voice_note", body, author, "UNVERIFIED", f"/files/{rel(dest)}", utcnow()))
     store.add_timeline(prop_id, "note", "Voice note added", body[:200])
-    if text:
-        store.store_evidence(prop_id, [{
-            "field": "field_observation", "value": text,
-            "evidence_type": "OBSERVATION", "confidence": "LOW",
-            "source": "topher_voice_note",
-            "source_name": f"{author} on site (voice)"
-                           + (" - transcribed locally by whisper" if auto else ""),
-            "source_url": f"/files/{rel(dest)}",
-            "raw_ref": "Spoken on site. Anything a neighbour said is hearsay until "
-                       "a record confirms it."}])
+    # P3A: the transcript is a NOTE (kept in `notes`, confidence UNVERIFIED); it is never an evidence row.
+
     return {"id": cur.lastrowid, "url": f"/files/{rel(dest)}", "bytes": size,
             "transcript": text, "auto_transcribed": auto,
             "note": (None if text else

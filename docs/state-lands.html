@@ -267,7 +267,7 @@ function card(x){
 function gated(){ const c = $('county').value; return !MEMBER && c !== FREE_COUNTY; }
 function render(){
   const shown = gated() ? view.slice(0, FREE_PEEK) : view.slice(0, limit);
-  const gate = gated() && view.length > FREE_PEEK ? `<div class="gate"><b>${(view.length-FREE_PEEK).toLocaleString()} more in ${esc(title($('county').value||'these counties'))}</b>Garland County is free, all of it. Every other county, every week, with the Monday email and CSV export, is Tax Sale Radar: $29 a month, cancel any time.<br><a class="btn" href="pro.html">See Radar</a></div>` : '';
+  const gate = gated() && view.length > FREE_PEEK ? `<div class="gate"><b>${(view.length-FREE_PEEK).toLocaleString()} more in ${esc(title($('county').value||'these counties'))}</b>Garland County is free, all of it. Every other county, every week, with the Monday email and CSV export, is Tax Sale Radar &mdash; in development, pricing not set yet.<br><a class="btn" href="pro.html">See Radar</a></div>` : '';
   $('grid').innerHTML = (shown.map(card).join('') || '<p class="warn">Nothing matches.</p>') + gate;
   const more=$('more'); if(gated()){ more.hidden = true; }
   $('shown').textContent = Math.min(limit,view.length).toLocaleString(); $('total').textContent = DATA.listings.length.toLocaleString();

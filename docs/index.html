@@ -288,7 +288,7 @@ async function main(){
     ['state-lands.html?county=GARLAND','Tax sale','What the State is selling for unpaid taxes, what lots like it sold for.', `${(sl.listings||[]).length.toLocaleString()} for sale · ${cnt} counties · ${withBldg} with a building`],
     ['campaign.html','Owner outreach','Prepared inside an investigation, behind an evidence gate. You review, print or mail, and record what you did; the site never sends.', `${preps.length} in preparation · ${drafted} drafted`],
     ['watch.html','Watch','Your pipeline: re-checked live, changes shown before and after.', `${watch.length} watched`],
-    ['pro.html','Radar','Never miss the property that changed this week.', 'from $29 / month'],
+    ['pro.html','Radar','Never miss the property that changed this week.', 'in development · pricing not set'],
   ].map(d=>`<a class="door" href="${d[0]}"><b>${d[1]}</b><span>${d[2]}</span><em>${d[3]}</em></a>`).join('');
   $('means').innerHTML = PH.means(
     ['Every figure comes from a named public record with a date, or is labelled derived, estimated or unknown', 'The State tax-sale list is checked daily and is the most reliable number here', 'Village and Diamondhead parcels are excluded at the source, never scored', 'A research-priority score ranks what to look at first'],

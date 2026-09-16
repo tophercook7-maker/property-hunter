@@ -203,3 +203,17 @@ def test_provenance_survives_export_and_ui(client):
     ph = (DOCS / "ph.js").read_text()
     assert "PH.ORIGIN = " in ph and "org-${PH.esc(e.origin)}" in ph
     assert (DOCS / "ph.css").read_text().count(".org-") >= 5
+
+
+def test_record_date_beats_insert_order_for_answers():
+    """A City roll copy dated 2004 that is read after the 2025 State roll is not the newer owner reading."""
+    from hunter import store, db
+    a = _prop("807-1")
+    _ev(a, field="owner_name", value="NEW OWNER LLC", evidence_type="FACT", confidence="HIGH", source="ar_gis_parcels", effective_date="2026-05-01")
+    _ev(a, field="owner_name", value="OLD OWNER", evidence_type="FACT", confidence="HIGH", source="hs_gis_owner_mailing", effective_date="2004-02-20")
+    ans = store.latest_answer(a, "owner_name")
+    assert ans["value"] == "NEW OWNER LLC" and ans["effective_date"] == "2026-05-01"
+    rows = {r["value"]: dict(r) for r in db.q("SELECT * FROM evidence WHERE property_id=? AND field='owner_name'", (a,))}
+    assert rows["NEW OWNER LLC"]["superseded_by"] is None, "an older-dated reading never supersedes a newer-dated one"
+    assert db.q1("SELECT 1 FROM conflicts WHERE property_id=? AND field='owner_name'", (a,)), "the disagreement is still recorded"
+

@@ -294,7 +294,8 @@ def store_evidence(prop_id: int, items: Iterable[dict]) -> None:
              item.get("effective_date"), item.get("raw_ref"), utcnow(), origin))
         # Precedence: the new reading supersedes the prior one for this field only when its origin
         # ranks at least as high. The prior row is kept and points at what replaced it.
-        if prior and PRECEDENCE.get(origin, 0) >= PRECEDENCE.get(prior["origin"] or origin_of(dict(prior)), 0):
+        older_record = bool(item.get("effective_date") and prior and prior["effective_date"] and str(item["effective_date"]) < str(prior["effective_date"]))
+        if prior and not older_record and PRECEDENCE.get(origin, 0) >= PRECEDENCE.get(prior["origin"] or origin_of(dict(prior)), 0):
             db.ex("UPDATE evidence SET superseded_by=? WHERE id=? AND superseded_by IS NULL", (cur.lastrowid, prior["id"]))
         # A different source disagreeing is a conflict, not an overwrite.
         if (prior and prior["source"] != item.get("source")
@@ -340,13 +341,19 @@ def evidence_view(prop_id: int) -> list[dict]:
 
 
 def latest_answer(prop_id: int, field: str) -> dict | None:
-    """The newest reading of a field that can ANSWER a question: an automated source or a person's
-    verification. Notes, derived values and model opinions never answer."""
-    for e in db.q("SELECT * FROM evidence WHERE property_id=? AND field=? ORDER BY id DESC LIMIT 20", (prop_id, field)):
-        d = dict(e)
-        if (d.get("origin") or origin_of(d)) in ("AUTOMATED_SOURCE", "MANUAL_VERIFICATION"):
-            return with_origin(d)
-    return None
+    """The reading of a field that can ANSWER a question: an automated source or a person's verification,
+    preferring the higher-ranked origin, then the newest RECORD DATE (effective_date), then the newest row.
+    A roll copy dated 2004 read after the 2025 roll is not the newer fact. Notes, derived values and
+    model opinions never answer."""
+    rows = []
+    for e in db.q("SELECT * FROM evidence WHERE property_id=? AND field=? ORDER BY id DESC LIMIT 40", (prop_id, field)):
+        d = with_origin(dict(e))
+        if d["origin"] in ("AUTOMATED_SOURCE", "MANUAL_VERIFICATION"):
+            rows.append(d)
+    if not rows:
+        return None
+    rows.sort(key=lambda d: (d["precedence"], d.get("effective_date") or d.get("created_at") or "", d["id"]), reverse=True)
+    return rows[0]
 
 
 def notes_for(prop_id: int) -> list[dict]:

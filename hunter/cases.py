@@ -41,6 +41,8 @@ EVENT_CLASSES = ("SIGNAL RECEIVED", "INVESTIGATION OPENED", "SOURCE CHECK", "MAN
                  "INVESTIGATION OPENED FROM ADDRESS SEARCH",
                  # P7: one orchestrated workup over every applicable domain
                  "WORKUP STARTED", "WORKUP COMPLETED",
+                 # P8: a person's research task lifecycle; conflicts a person found; the gate looked at again (never sent)
+                 "RESEARCH TASK OPENED", "RESEARCH TASK STARTED", "RESEARCH TASK COMPLETED", "RESEARCH TASK SKIPPED", "RESEARCH TASK BLOCKED", "CONFLICT RECORDED", "OUTREACH GATE RE-EVALUATED",
                  # P4 Bee: an AI_OPINION analysis was recorded (OK or FAILED); a person decided on a proposal
                  "BEE ANALYSIS", "BEE PROPOSAL DECISION",
                  # P5: one authorized check per accepted proposal
@@ -185,7 +187,8 @@ def evaluate(prop: dict, row: dict, *, cp=None, hunt=None, inv=None) -> dict:
                           "Arkansas GIS Office (county assessor roll)", (e or {}).get("source_url"), _when(e)) if e and prop.get("owner_name") else \
         _unknown("Owner of record not found on the roll reading; not a finding about ownership")
     e = _ev(pid, "owner_mailing_address") or _ev(pid, "manual:mailing_address")
-    out["mailing_address"] = _found(f"{e['value']} (where the tax bill goes; {e['origin_label'].lower()})", [_ref(e)], e.get("source_name") or e["source"], e.get("source_url"), _when(e)) if e else \
+    # a person's own row names its manual source so refresh() lets the person's chosen state stand (P8: an UNKNOWN attempt is not an address)
+    out["mailing_address"] = _found(f"{e['value']} (where the tax bill goes; {e['origin_label'].lower()})", [_ref(e)], (e["source"] if e["origin"] == "MANUAL_VERIFICATION" else e.get("source_name") or e["source"]), e.get("source_url"), _when(e)) if e else \
         _unknown("MAILING ADDRESS: UNKNOWN — no mailing address of record has been read; the situs address is never substituted")
     e = _ev(pid, "deed_reference") or _ev(pid, "sourceref")
     out["deed"] = _found(f"Deed reference {e['value']}", [_ref(e)], e.get("source_name") or e["source"], e.get("source_url"), _when(e)) if e else \
@@ -481,10 +484,20 @@ def log_manual(case_id: int, payload: dict, actor="user") -> dict:
     doc = (payload.get("document") or "").strip() or None
     field = f"manual:{key or 'check'}"
     value = result or f"checked {source}: no result recorded"
+    # P8: what a person submits is typed by what it is. A deed they read is a FACT; what they saw is an OBSERVATION;
+    # a figure they worked out is a CALCULATION. Default stays OBSERVATION / MEDIUM (the P2 behaviour).
+    etype = (payload.get("evidence_type") or "OBSERVATION").upper()
+    conf = (payload.get("confidence") or "MEDIUM").upper()
+    if etype not in ("FACT", "OBSERVATION", "CALCULATION", "ESTIMATE") or conf not in ("HIGH", "MEDIUM", "LOW"):
+        raise ValueError("evidence_type must be FACT / OBSERVATION / CALCULATION / ESTIMATE and confidence HIGH / MEDIUM / LOW")
+    doc_id = payload.get("document_id")
+    fields = payload.get("fields") if isinstance(payload.get("fields"), dict) else None
+    raw = "MANUAL VERIFICATION" + (f"; document: {doc}" if doc else "") + (f"; document_id: {doc_id}" if doc_id else "") + (f"; ref: {payload['evidence_ref']}" if payload.get("evidence_ref") else "") \
+          + (f"; reference: {payload['reference']}" if payload.get("reference") else "") + (f"; fields: {jdump({k: v for k, v in fields.items() if v})}" if fields else "")
     store.store_evidence(c["property_id"], [{
-        "field": field, "value": value, "evidence_type": "OBSERVATION", "confidence": "MEDIUM", "origin": "MANUAL_VERIFICATION",
+        "field": field, "value": value, "evidence_type": etype, "confidence": conf, "origin": "MANUAL_VERIFICATION",
         "source": MANUAL_SOURCE, "source_name": f"{source} — MANUAL VERIFICATION by {actor}", "source_url": url,
-        "effective_date": date, "raw_ref": "MANUAL VERIFICATION" + (f"; document: {doc}" if doc else "") + (f"; ref: {payload['evidence_ref']}" if payload.get("evidence_ref") else "")}])
+        "effective_date": date, "raw_ref": raw[:2000]}])
     e = db.q1("SELECT id FROM evidence WHERE property_id=? AND field=? ORDER BY id DESC LIMIT 1", (c["property_id"], field))
     ref = f"evidence:{e['id']}" if e else None
     if doc:

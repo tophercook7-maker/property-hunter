@@ -301,6 +301,8 @@ def _finalize(workup_id: int, cid: int, pid: int, timings: dict, total_ms: int) 
     status = "COMPLETE_WITH_SOURCE_FAILURES" if failures else "COMPLETE_WITH_UNKNOWN" if unknown else "COMPLETE"
     db.ex("UPDATE workups SET status=?, completed_at=?, evidence_json=?, questions_json=?, failures_json=?, conflicts_json=?, next_actions_json=?, outreach_json=?, timings_json=? WHERE id=?",
           (status, utcnow(), jdump(evidence), jdump(qs), jdump(failures), jdump(conflicts), jdump(actions), jdump(gate), jdump(dict(timings, total_ms=total_ms)), workup_id))
+    from . import research
+    research.ensure_tasks(workup_id)                                  # P8: one OPEN task per real gap, never duplicated
     counts = {"found": sum(1 for v in qs.values() if v["state"] == "FOUND"), "not_found": sum(1 for v in qs.values() if v["state"] == "NOT_FOUND"), "unknown": len(unknown)}
     cases._event(cid, "WORKUP COMPLETED", f"Workup {workup_id}: {status.replace('_', ' ')}",
                  f"{len(attempts)} domains; {sum(1 for a in attempts if a['status'].startswith('SUCCESS'))} answered; {len(failures)} source failures; {sum(1 for a in attempts if a['status'] == 'MANUAL_ONLY')} manual-only; "
@@ -420,9 +422,16 @@ def property_file(workup_id: int, license_id: int | None = None) -> dict | None:
     unknown_q = [{"key": q["key"], "wording": q["wording"], "answer": q["answer"], "category": q["category"]} for q in (c or {}).get("questions", []) if q["state"] == "UNKNOWN"]
     ledger = [{k: a.get(k) for k in ("domain", "label", "source", "check_type", "execution_id", "status", "health", "failure_category", "failure_detail", "evidence_count", "questions", "manual_required", "reused", "started_at", "completed_at", "ms")} for a in w["attempts"]]
     events = [{k: e.get(k) for k in ("at", "actor", "cls", "title", "detail", "ref")} for e in (c or {}).get("events", [])]
-    return {"workup": {k: w[k] for k in ("workup_id", "status", "status_label", "version", "started_at", "completed_at", "actor", "timings", "error")},
+    from . import research
+    manual = research.for_property(pid, license_id)
+    task_for = {t["question_key"]: t["task_id"] for t in manual["tasks"] if t["status"] in research.ACTIVE}
+    actions = [dict(a, task_id=task_for.get(a["question"])) for a in w["next_actions"]]
+    gate_now = outreach_gate(c) if c else w["outreach"]
+    if gate_now and gate_now.get("verdict") == "OUTREACH READY":
+        gate_now["verdict"] = "OUTREACH READY FOR HUMAN REVIEW"
+    return {"workup": {k: w[k] for k in ("workup_id", "status", "status_label", "version", "started_at", "completed_at", "actor", "timings", "error")}, "manual_research": manual,
             "identity": identity, "what_we_know": known, "checked_not_found": checked_nf, "tax": tax, "sections": sections, "listing": listing, "what_we_dont_know": unknown_q,
-            "source_failures": w["failures"], "conflicts": w["conflicts"], "checks_performed": ledger, "next_actions": w["next_actions"], "outreach_gate": w["outreach"],
+            "source_failures": w["failures"], "conflicts": w["conflicts"], "checks_performed": ledger, "next_actions": actions, "outreach_gate": gate_now, "outreach_gate_at_workup": w["outreach"],
             "investigation": ({"id": cid, "status": c["status"], "counts": c["counts"], "signals": [{"label": s["label"], "cls": s["cls"], "date": s["event_date"], "src": s["src"]} for s in c["signals"]], "bee": f"investigation.html?id={cid}"} if c else None),
             "timeline": events, "evidence": (c or {}).get("evidence", []),
             "links": {"investigation": f"investigation.html?id={cid}" if cid else None, "roll_file": f"lookup.html?county={prop.get('county_fips')}&q={prop.get('parcel_id') or prop.get('address') or ''}", "search": f"find.html?search={w['search_id']}"}}

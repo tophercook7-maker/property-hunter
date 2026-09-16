@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Research Task · Property Hunter</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="ph.css">
+<style>
+main{max-width:900px;margin:0 auto;padding:16px 16px 70px;display:grid;gap:16px}
+h2{font-size:22px;text-transform:uppercase;letter-spacing:.03em;margin:0;font-family:var(--display)}
+h3{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 4px;font-family:var(--body);font-weight:600}
+.fine{font-size:12px;color:var(--muted)}
+.head{background:var(--paper);color:var(--paper-ink);border:1px solid var(--rule);padding:14px 16px;display:grid;gap:6px}
+.head .t{font-family:var(--display);font-size:28px;line-height:1.05;text-transform:uppercase;font-weight:600}
+.brief{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.box{background:var(--surface);border:1px solid var(--rule);padding:12px 14px;display:grid;gap:6px;font-size:13px;align-content:start}
+.st{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.06em;padding:2px 6px;border:1px solid;white-space:nowrap}
+.st.OPEN,.st.IN_PROGRESS{color:var(--info);border-color:var(--info)} .st.COMPLETED{color:var(--good);border-color:var(--good)} .st.SKIPPED{color:var(--muted);border-color:var(--rule)} .st.BLOCKED{color:var(--bad);border-color:var(--bad)}
+.st.FOUND{color:var(--good);border-color:var(--good)} .st.NOT_FOUND{color:var(--info);border-color:var(--info)} .st.UNKNOWN{color:var(--muted);border-color:var(--rule)} .st.CONFLICTING{color:var(--warn);border-color:var(--warn)}
+form{display:grid;gap:10px}
+label{display:grid;gap:3px;font-size:12px;color:var(--muted)}
+input,select,textarea{font:inherit;font-size:13px;padding:7px 9px;background:var(--surface2);color:var(--ink);border:1px solid var(--rule)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px}
+.msg{font-size:13px}.msg.err{color:var(--bad)}.msg.ok{color:var(--good)}
+.ev{font-size:12px;padding:4px 0;border-top:1px solid var(--rule)}
+details summary{cursor:pointer;color:var(--accent);font-size:13px}
+.warn{font-size:12px;color:var(--warn)}
+</style>
+</head>
+<body>
+<header class="ph-top"><h1><small>What are we checking · why it matters · where to look · what would answer it · record exactly what you found</small>Research task</h1><nav data-nav aria-label="Sections"></nav></header>
+<main>
+  <section class="head" id="head"><div class="t">Loading…</div></section>
+  <section class="brief" id="brief" hidden>
+    <div class="box"><h3>What are we checking?</h3><div id="what"></div></div>
+    <div class="box"><h3>Why does it matter?</h3><div id="why"></div></div>
+    <div class="box"><h3>Where should I look?</h3><div id="where"></div></div>
+    <div class="box"><h3>What would answer the question?</h3><div id="resolve"></div></div>
+    <div class="box"><h3>Current status</h3><div id="status"></div></div>
+    <div class="box"><h3>Evidence already known</h3><div id="known"></div></div>
+  </section>
+  <section class="box" id="intake" hidden>
+    <h2>Record what you found</h2>
+    <p class="fine" id="intake-note"></p>
+    <form id="f">
+      <div class="grid"><label>Your name *<input id="actor" value="Topher" maxlength="40"></label><label>Date checked (YYYY-MM-DD) *<input id="date" type="date"></label><label>Result *<select id="result"></select></label></div>
+      <label>Source you checked (office / site / person) *<input id="source" maxlength="160" placeholder="e.g. Garland County Circuit Clerk, in person"></label>
+      <div class="grid" id="fields"></div>
+      <label id="conflict-wrap" hidden>The other record it conflicts with (name it) *<input id="conflict_with" maxlength="300"></label>
+      <div class="grid"><label>Evidence type<select id="etype"></select></label><label>Confidence<select id="conf"></select></label><label>Reference (your own, optional)<input id="reference" maxlength="200"></label></div>
+      <details><summary>Attach a document reference (what you read — a reference, never the contents)</summary>
+        <div class="grid" style="margin-top:8px"><label>Document type<select id="d-type"></select></label><label>Title<input id="d-title" maxlength="160" placeholder="e.g. TEST RECORD — warranty deed"></label><label>Source<input id="d-source" maxlength="160"></label><label>Record date<input id="d-record" type="date"></label><label>Instrument<input id="d-instr" maxlength="80"></label><label>Book / page<input id="d-book" maxlength="80"></label><label>Reference number<input id="d-ref" maxlength="160"></label><label>URL (only if the record is really online)<input id="d-url" maxlength="300"></label><label>Local file reference<input id="d-local" maxlength="300" placeholder="e.g. ~/Documents/deeds/302-lincoln.pdf"></label></div>
+      </details>
+      <label>Notes (in your words; a guess belongs here and answers nothing)<textarea id="notes" rows="3" maxlength="2000"></textarea></label>
+      <div class="btnrow"><button class="btn" type="submit" id="save">Record as MANUAL VERIFICATION</button><button class="btn ghost" type="button" id="skip">Skip</button><button class="btn ghost" type="button" id="block">Blocked</button><input id="skip-reason" placeholder="why skipped / blocked" maxlength="500" style="min-width:220px"><span class="msg" id="msg"></span></div>
+    </form>
+  </section>
+  <section class="box" id="done" hidden><h2>Recorded</h2><div id="done-body"></div></section>
+</main>
+<script src="ph-auth.js"></script>
+<script src="ph.js"></script>
+<script>
+const $ = id => document.getElementById(id); const esc = PH.esc;
+const p = new URLSearchParams(location.search); const TID = p.get('task');
+let T = null;
+async function api(path, body, ms){
+  const r = await PH.apiFetch(path, body ? {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)} : {}, ms || 20000);
+  if(PH.needsActivation(r)){ location.href = PH.activateHref(); throw new Error('Activation required.'); }
+  const j = await r.json().catch(() => ({}));
+  if(!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
+  return j;
+}
+const st = (s, t) => `<span class="st ${esc(s)}">${esc(t || String(s||'').replace(/_/g,' '))}</span>`;
+const RESULT_TXT = {FOUND: 'FOUND — the record establishes it', NOT_FOUND: 'NOT FOUND — the source answered and had nothing matching', UNKNOWN: 'UNKNOWN — I could not determine it', CONFLICTING: 'CONFLICTING — credible records disagree'};
+function render(t){
+  T = t;
+  $('head').innerHTML = `<div class="t">${esc(t.title)}</div><div class="fine">${esc(t.purpose)} · question <code>${esc(t.question_key)}</code> · ${st(t.status)} ${t.result_state ? st(t.result_state) : ''} · property #${t.property_id} · <a href="investigation.html?id=${t.case_id}">investigation #${t.case_id}</a>${t.created_from_workup_id ? ` · <a href="property-file.html?workup=${t.created_from_workup_id}">property file</a>` : ''}</div>`;
+  $('what').textContent = t.what_to_check; $('why').textContent = t.why; $('resolve').textContent = t.what_would_resolve;
+  const w = t.where || {};
+  $('where').innerHTML = w.href ? `<a href="${esc(w.href)}" ${/^http/.test(w.href) ? 'target="_blank" rel="noopener"' : ''}>${esc(w.label || w.href)}</a>${w.note ? `<div class="fine">${esc(w.note)}</div>` : ''}` : `${esc(w.label || 'in person')}${w.note ? ` · ${esc(w.note)}` : ''}`;
+  const q = t.question || {};
+  $('status').innerHTML = `${st(q.state || 'UNKNOWN')} <div class="fine" style="margin-top:4px">${esc(q.answer || '')}${q.checked_at ? ` · ${esc(q.checked_at)}` : ''}${q.checked_by === 'manual' ? ' · MANUAL VERIFICATION' : ''}</div><div class="fine" style="margin-top:4px">Task ${esc(t.status.toLowerCase().replace(/_/g,' '))}${t.started_at ? ' · started ' + esc(t.started_at.slice(0,16).replace('T',' ')) : ''}${t.completed_at ? ' · completed ' + esc(t.completed_at.slice(0,16).replace('T',' ')) + ' by ' + esc(t.actor) : ''}</div>`;
+  $('known').innerHTML = (t.evidence_known || []).map(e => `<div class="ev"><b>${esc(e.field)}</b>: ${esc(e.value)}<div class="fine">${esc(e.source)} · ${esc(e.origin_label || '')} · ${esc(e.date || '—')} · ${esc(e.ref)}</div></div>`).join('') || '<div class="fine">Nothing on file for this question.</div>';
+  $('brief').hidden = false;
+  if(t.status === 'COMPLETED' || t.status === 'SKIPPED'){
+    $('intake').hidden = true; $('done').hidden = false;
+    $('done-body').innerHTML = `${st(t.status)} ${t.result_state ? st(t.result_state) : ''} <div class="fine" style="margin-top:6px">${t.status === 'COMPLETED' ? `Result recorded by ${esc(t.actor)} on ${esc((t.completed_at||'').slice(0,10))} as ${esc(t.evidence_type || '')} ${esc(t.confidence || '')} · evidence ${esc((t.evidence_refs||[]).join(', ') || 'none')} · question ${esc(t.state_before || 'UNKNOWN')} → ${esc(t.state_after || '?')}` : `Skipped: ${esc(t.notes || '')}`}</div>${(t.documents||[]).map(d => `<div class="ev"><b>${esc(d.doc_type)}</b> ${esc(d.title)}${d.instrument ? ' · instrument ' + esc(d.instrument) : ''}${d.book_page ? ' · book/page ' + esc(d.book_page) : ''}${d.record_date ? ' · recorded ' + esc(d.record_date) : ''} · ${esc(d.source || '')} · ${esc(d.path || d.url || 'reference only')} · document #${d.id}</div>`).join('')}${t.intake ? `<details style="margin-top:6px"><summary>What was entered</summary><pre class="fine" style="white-space:pre-wrap">${esc(JSON.stringify(t.intake, null, 1))}</pre></details>` : ''}${t.outreach ? `<div class="fine" style="margin-top:6px">Outreach gate after this task: <b>${esc(t.outreach.verdict)}</b> — ${esc(t.outreach.explanation)}</div>` : ''}<div class="btnrow" style="margin-top:8px">${t.created_from_workup_id ? `<a class="btn" href="property-file.html?workup=${t.created_from_workup_id}">Back to the property file</a>` : ''}<a class="btn ghost" href="investigation.html?id=${t.case_id}">Investigation</a></div>`;
+    return;
+  }
+  const s = t.intake_schema;
+  $('intake').hidden = false;
+  $('intake-note').textContent = `This is a ${t.kind.replace(/_/g,' ').toLowerCase()} intake. The strongest evidence type it can produce is ${s.max_evidence_type}. ${t.kind === 'INSPECTION' ? 'Everything you record here stays an OBSERVATION; the system draws no conclusion about condition, vacancy or distress.' : t.kind === 'DEED_TITLE' ? 'A deed establishes the deed record and the grantee as owner of record. It never establishes clear title; say separately whether you ran a title search.' : t.kind === 'LISTING' ? 'No listing found on one source is NOT FOUND for that source and day. It is never "not for sale".' : t.kind === 'MAILING_ADDRESS' ? 'Record the mailing address exactly as recorded with its date. It is not assumed current beyond that date and never replaces the situs address.' : 'Record exactly what the source said.'}`;
+  $('result').innerHTML = s.results.map(r => `<option value="${r}">${esc(RESULT_TXT[r])}</option>`).join('');
+  $('etype').innerHTML = s.evidence_types.map(e => `<option value="${e}" ${e === s.default_evidence_type ? 'selected' : ''}>${e}</option>`).join('');
+  $('conf').innerHTML = s.confidences.map(c => `<option value="${c}" ${c === 'MEDIUM' ? 'selected' : ''}>${c}</option>`).join('');
+  $('d-type').innerHTML = s.doc_types.map(d => `<option value="${d}">${d}</option>`).join('');
+  $('fields').innerHTML = s.fields.map(f => `<label>${esc(f.label)}${/observations|search_result|record_result|exterior_condition|apparent_occupancy/.test(f.key) ? `<textarea data-f="${f.key}" rows="2"></textarea>` : `<input data-f="${f.key}" maxlength="500">`}</label>`).join('');
+  $('date').value = new Date().toISOString().slice(0,10);
+  $('result').onchange = () => { $('conflict-wrap').hidden = $('result').value !== 'CONFLICTING'; };
+}
+$('f').onsubmit = async ev => {
+  ev.preventDefault(); const m = $('msg'); m.textContent = 'recording…'; m.className = 'msg'; $('save').disabled = true;
+  const fields = {}; document.querySelectorAll('[data-f]').forEach(el => { if(el.value.trim()) fields[el.dataset.f] = el.value.trim(); });
+  const body = {actor: $('actor').value.trim(), result: $('result').value, source: $('source').value.trim(), date: $('date').value, fields, notes: $('notes').value.trim(), reference: $('reference').value.trim(), evidence_type: $('etype').value, confidence: $('conf').value};
+  if($('result').value === 'CONFLICTING') body.conflict_with = $('conflict_with').value.trim();
+  if($('d-title').value.trim()){ body.document = {doc_type: $('d-type').value, title: $('d-title').value.trim(), source: $('d-source').value.trim(), record_date: $('d-record').value, instrument: $('d-instr').value.trim(), book_page: $('d-book').value.trim(), reference: $('d-ref').value.trim(), url: $('d-url').value.trim(), local_reference: $('d-local').value.trim()}; Object.keys(body.document).forEach(k => { if(!body.document[k]) delete body.document[k]; }); }
+  try { render(await api(`/api/property/research/tasks/${TID}/complete`, body)); window.scrollTo(0, 0); }
+  catch(e){ m.textContent = e.message; m.className = 'msg err'; }
+  finally { $('save').disabled = false; }
+};
+async function skipOrBlock(blocked){
+  const m = $('msg'); m.textContent = '…'; m.className = 'msg';
+  try { render(await api(`/api/property/research/tasks/${TID}/skip`, {actor: $('actor').value.trim(), reason: $('skip-reason').value.trim(), blocked})); }
+  catch(e){ m.textContent = e.message; m.className = 'msg err'; }
+}
+$('skip').onclick = () => skipOrBlock(false); $('block').onclick = () => skipOrBlock(true);
+(async () => {
+  if(!TID){ $('head').innerHTML = '<div class="t">No task selected</div><div class="fine">Open one from a property file.</div>'; return; }
+  try { const t = await api(`/api/property/research/tasks/${TID}`); if(t.status === 'OPEN' || t.status === 'BLOCKED') render(await api(`/api/property/research/tasks/${TID}/start`, {actor: 'Topher'})); else render(t); }
+  catch(e){ $('head').innerHTML = `<div class="t">Could not load the task</div><div class="fine">${esc(e.message)}</div>`; }
+})();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

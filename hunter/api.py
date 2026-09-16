@@ -1502,6 +1502,90 @@ def api_property_workup_latest(request: Request, prop_id: int) -> dict:
     return out
 
 
+# --- P8: MANUAL RESEARCH INTAKE ----------------------------------------------------------------------------
+# Licensed. A task is opened from a real gap (workup or a person's CLOSE THIS GAP on an UNKNOWN question), started,
+# then completed with a typed, structured result that becomes MANUAL_VERIFICATION evidence through cases.log_manual.
+# No evidence id, property id, url, source name or command is accepted as input.
+def _research_limited(request: Request) -> None:
+    from . import licensing as _l
+    w = _who(request)
+    key = f"lic:{w['license_id']}" if w["license_id"] else f"ip:{_ip(request)}"
+    if _l.rate_limited("research", key):
+        raise HTTPException(429, "Too many research actions. Wait a few minutes and try again.")
+
+
+@app.get("/api/property/{prop_id}/research")
+def api_research_for_property(request: Request, prop_id: int) -> dict:
+    from . import research
+    _require(prop_id)
+    return research.for_property(prop_id, license_id=_who(request)["license_id"])
+
+
+@app.post("/api/case/{case_id}/research/open")
+def api_research_open(request: Request, case_id: int, payload: dict = Body(...)) -> dict:
+    """CLOSE THIS GAP: the task-specific workflow for one UNKNOWN question on this case."""
+    from . import research
+    if not isinstance(payload, dict) or set(payload) - {"question", "actor", "purpose"}:
+        raise HTTPException(400, "Only question, actor and purpose are accepted here.")
+    _case_or_404(case_id)
+    _research_limited(request)
+    try:
+        return research.open_for_question(case_id, str(payload.get("question") or ""), actor=str(payload.get("actor") or "user")[:40], license_id=_who(request)["license_id"], purpose=str(payload.get("purpose") or "GAP").upper())
+    except KeyError:
+        raise HTTPException(404, "No such question on this case.")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.get("/api/property/research/tasks/{task_id}")
+def api_research_task(request: Request, task_id: int) -> dict:
+    from . import research
+    out = research.view(task_id, license_id=_who(request)["license_id"])
+    if not out:
+        raise HTTPException(404, "No such task on this license.")
+    return out
+
+
+@app.post("/api/property/research/tasks/{task_id}/start")
+def api_research_start(request: Request, task_id: int, payload: dict = Body(default={})) -> dict:
+    from . import research
+    if not isinstance(payload, dict) or set(payload) - {"actor"}:
+        raise HTTPException(400, "Only actor is accepted here.")
+    _research_limited(request)
+    try:
+        return research.start(task_id, actor=str(payload.get("actor") or "")[:40], license_id=_who(request)["license_id"])
+    except KeyError:
+        raise HTTPException(404, "No such task on this license.")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/property/research/tasks/{task_id}/complete")
+def api_research_complete(request: Request, task_id: int, payload: dict = Body(...)) -> dict:
+    from . import research
+    _research_limited(request)
+    try:
+        return research.complete(task_id, payload if isinstance(payload, dict) else {}, actor=str((payload or {}).get("actor") or "")[:40] if isinstance(payload, dict) else "", license_id=_who(request)["license_id"])
+    except KeyError:
+        raise HTTPException(404, "No such task on this license.")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/property/research/tasks/{task_id}/skip")
+def api_research_skip(request: Request, task_id: int, payload: dict = Body(...)) -> dict:
+    from . import research
+    if not isinstance(payload, dict) or set(payload) - {"actor", "reason", "blocked"}:
+        raise HTTPException(400, "Only actor, reason and blocked are accepted here.")
+    _research_limited(request)
+    try:
+        return research.skip(task_id, actor=str(payload.get("actor") or "")[:40], reason=str(payload.get("reason") or "")[:500], blocked=bool(payload.get("blocked")), license_id=_who(request)["license_id"])
+    except KeyError:
+        raise HTTPException(404, "No such task on this license.")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
 @app.post("/api/case/{case_id}/log")
 def api_case_log(case_id: int, payload: dict = Body(...)) -> dict:
     """MANUAL RESEARCH LOG: source checked, date, result, notes, optional evidence/document reference,

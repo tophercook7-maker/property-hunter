@@ -602,6 +602,46 @@ CREATE TABLE IF NOT EXISTS workup_attempts (
     ms INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_workup_attempts ON workup_attempts(workup_id, id);
+-- P8: one manual research task per property + question (only one active at a time). Historical rows are kept.
+CREATE TABLE IF NOT EXISTS research_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    case_id INTEGER NOT NULL REFERENCES investigation_cases(id) ON DELETE CASCADE,
+    property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+    question_key TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    title TEXT NOT NULL,
+    purpose TEXT,
+    what_to_check TEXT,
+    why TEXT,
+    where_json TEXT,
+    what_would_resolve TEXT,
+    status TEXT NOT NULL,              -- OPEN|IN_PROGRESS|COMPLETED|SKIPPED|BLOCKED
+    priority INTEGER NOT NULL DEFAULT 99,
+    created_at TEXT NOT NULL,
+    started_at TEXT,
+    completed_at TEXT,
+    updated_at TEXT,
+    actor TEXT,
+    result_state TEXT,                 -- FOUND|NOT_FOUND|UNKNOWN|CONFLICTING
+    result_evidence_id INTEGER,
+    document_id INTEGER,
+    evidence_refs_json TEXT,
+    photo_ids_json TEXT,
+    document_ids_json TEXT,
+    intake_json TEXT,
+    evidence_type TEXT,
+    confidence TEXT,
+    notes TEXT,
+    reference TEXT,
+    source_destination TEXT,
+    created_from_workup_id INTEGER,
+    license_id INTEGER NOT NULL DEFAULT 0,
+    version TEXT NOT NULL,
+    state_before TEXT,
+    state_after TEXT,
+    outreach_json TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_research_prop ON research_tasks(property_id, question_key, status);
 CREATE TABLE IF NOT EXISTS address_searches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     license_id INTEGER NOT NULL DEFAULT 0,
@@ -676,6 +716,18 @@ def init_db() -> None:
     _ensure_column(conn, "evidence", "superseded_by", "INTEGER")     # P3A: a newer row of equal-or-higher precedence replaced this reading; never deleted
     _ensure_column(conn, "bee_proposals", "accepted_fingerprint", "TEXT")   # P5: the evidence state a person accepted; execution refuses if it changed
     _ensure_column(conn, "investigation_executions", "workup_id", "INTEGER")
+    _ensure_column(conn, "documents", "doc_type", "TEXT")
+    _ensure_column(conn, "documents", "source", "TEXT")
+    _ensure_column(conn, "documents", "record_date", "TEXT")
+    _ensure_column(conn, "documents", "retrieved_at", "TEXT")
+    _ensure_column(conn, "documents", "instrument", "TEXT")
+    _ensure_column(conn, "documents", "book_page", "TEXT")
+    _ensure_column(conn, "documents", "reference", "TEXT")
+    _ensure_column(conn, "documents", "actor", "TEXT")
+    _ensure_column(conn, "documents", "private", "INTEGER NOT NULL DEFAULT 1")
+    _ensure_column(conn, "documents", "case_id", "INTEGER")
+    _ensure_column(conn, "documents", "task_id", "INTEGER")
+    _ensure_column(conn, "documents", "evidence_id", "INTEGER")
     conn.commit()
 
 

@@ -291,6 +291,12 @@ def build_timelines(rows_by_id: dict) -> dict:
             title = "Delinquent on the county's list (imported county record)"
         if origin == "MANUAL_VERIFICATION":
             cls = "MANUAL"
+        if e["field"].startswith("manual:") or e["field"].startswith("photo:"):
+            # P8: a person's research (deed names, mailing addresses, inspection notes, photos) is private to the license.
+            # The public timeline keeps the fact that a verification was recorded on that date, never its content.
+            add(e["property_id"], {"date": (e["effective_date"] or e["created_at"] or "")[:10], "cls": "MANUAL", "title": "Manual verification recorded by a person",
+                                   "detail": "details are private to the license holder", "src": "a person (MANUAL VERIFICATION)", "ref": f"evidence:{e['id']}", "url": None, "etype": e["evidence_type"], "conf": e["confidence"], "origin": origin})
+            continue
         if e["field"] == "tax_status_check":
             title = "State Lands: not held by the State" if e["source"] == "cosl_listings" else "Collector: no open real-estate bill"
         eff = (e["effective_date"] or "")[:10]

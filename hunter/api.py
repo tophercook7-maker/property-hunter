@@ -1350,6 +1350,88 @@ def api_case_note(case_id: int, payload: dict = Body(...)) -> dict:
         raise HTTPException(400, str(exc))
 
 
+# --- P6: ARKANSAS ADDRESS → PARCEL RESOLVER ------------------------------------------------------------
+# Licensed. Narrow by construction: the only input is an address string. No source names, URLs, SQL,
+# adapters or commands are accepted; any extra key is refused so nothing can be smuggled in.
+RESOLVE_KEYS = {"address", "actor"}
+
+
+def _who(request: Request) -> dict:
+    who = getattr(request.state, "license", None) or {}
+    return {"license_id": int(who.get("license_id") or 0), "session_id": int(who.get("session_id") or 0)}
+
+
+def _resolve_limited(request: Request) -> None:
+    from . import licensing as _l
+    w = _who(request)
+    key = f"lic:{w['license_id']}" if w["license_id"] else f"ip:{_ip(request)}"
+    if _l.rate_limited("resolve", key):
+        raise HTTPException(429, "Too many address searches. Wait a few minutes and try again.")
+
+
+def _reject_extra(payload: dict) -> None:
+    if not isinstance(payload, dict):
+        raise HTTPException(400, "Send a JSON object with an address.")
+    extra = set(payload) - RESOLVE_KEYS
+    if extra:
+        raise HTTPException(400, f"Only an address is accepted here (unexpected: {', '.join(sorted(extra))[:80]}).")
+
+
+@app.post("/api/property/resolve")
+def api_property_resolve(request: Request, payload: dict = Body(...)) -> dict:
+    """USER ENTERS ADDRESS → one verified parcel only when the rules justify it; otherwise the honest state."""
+    from . import resolver
+    _reject_extra(payload)
+    _resolve_limited(request)
+    addr = payload.get("address")
+    if not isinstance(addr, str):
+        raise HTTPException(400, "The address must be text.")
+    w = _who(request)
+    return resolver.resolve(addr, license_id=w["license_id"], session_id=w["session_id"], actor=str(payload.get("actor") or "user")[:40])
+
+
+@app.get("/api/property/resolve/history")
+def api_property_resolve_history(request: Request, limit: int = 50) -> dict:
+    from . import resolver
+    w = _who(request)
+    return {"license_id": w["license_id"], "searches": resolver.history(w["license_id"], limit)}
+
+
+@app.get("/api/property/resolve/{search_id}")
+def api_property_resolve_view(request: Request, search_id: int) -> dict:
+    from . import resolver
+    out = resolver.view(search_id, license_id=_who(request)["license_id"])
+    if not out:
+        raise HTTPException(404, "No such search on this license.")
+    return out
+
+
+@app.post("/api/property/resolve/{search_id}/select")
+def api_property_resolve_select(request: Request, search_id: int, payload: dict = Body(...)) -> dict:
+    """HUMAN PROPERTY SELECTION among listed candidates. Recorded as MANUAL VERIFICATION with actor, date, reason."""
+    from . import resolver
+    try:
+        return resolver.select(search_id, int(payload.get("property_id") or 0), actor=str(payload.get("actor") or "")[:40],
+                               reason=str(payload.get("reason") or "")[:500], reference=str(payload.get("reference") or "")[:200],
+                               license_id=_who(request)["license_id"])
+    except KeyError:
+        raise HTTPException(404, "No such search on this license.")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/property/resolve/{search_id}/investigate")
+def api_property_resolve_investigate(request: Request, search_id: int, payload: dict = Body(default={})) -> dict:
+    """Open the one investigation for the resolved property, or attach to it. Never a duplicate case."""
+    from . import resolver
+    try:
+        return resolver.open_investigation(search_id, actor=str(payload.get("actor") or "user")[:40], license_id=_who(request)["license_id"])
+    except KeyError:
+        raise HTTPException(404, "No such search on this license.")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
 @app.post("/api/case/{case_id}/log")
 def api_case_log(case_id: int, payload: dict = Body(...)) -> dict:
     """MANUAL RESEARCH LOG: source checked, date, result, notes, optional evidence/document reference,

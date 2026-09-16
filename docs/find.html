@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Find a property · Property Hunter</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="ph.css">
+<style>
+main{max-width:980px;margin:0 auto;padding:16px 16px 60px;display:grid;gap:18px}
+h2{font-size:26px;text-transform:uppercase;letter-spacing:.02em;margin:0}
+.lead{margin:2px 0 0;font-size:14px;color:var(--muted);max-width:75ch}
+form.search{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:stretch}
+form.search input{font:inherit;font-size:18px;padding:12px 14px;background:var(--surface);color:var(--ink);border:1px solid var(--rule);min-width:0}
+form.search input:focus{outline:2px solid var(--accent);outline-offset:1px}
+@media (max-width:560px){form.search{grid-template-columns:1fr}}
+.state{display:grid;gap:10px;background:var(--surface);border:1px solid var(--rule);padding:14px 16px;border-left:6px solid var(--rule)}
+.state .k{font-family:var(--display);font-size:24px;letter-spacing:.03em;text-transform:uppercase;font-weight:600;line-height:1}
+.state.EXACT_MATCH,.state.STRONG_MATCH{border-left-color:var(--good)} .state.EXACT_MATCH .k,.state.STRONG_MATCH .k{color:var(--good)}
+.state.AMBIGUOUS,.state.MANUAL_REVIEW_REQUIRED{border-left-color:var(--warn)} .state.AMBIGUOUS .k,.state.MANUAL_REVIEW_REQUIRED .k{color:var(--warn)}
+.state.NO_MATCH,.state.OUT_OF_SCOPE,.state.INVALID_INPUT{border-left-color:var(--muted)} .state.NO_MATCH .k,.state.OUT_OF_SCOPE .k,.state.INVALID_INPUT .k{color:var(--muted)}
+.state.SOURCE_UNAVAILABLE{border-left-color:var(--bad)} .state.SOURCE_UNAVAILABLE .k{color:var(--bad)}
+.state.SEARCHING{border-left-color:var(--info)} .state.SEARCHING .k{color:var(--info)}
+.norm{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.norm b{color:var(--ink);font-weight:500}
+.prop{background:var(--paper);color:var(--paper-ink);border:1px solid var(--rule);padding:14px 16px;display:grid;gap:8px}
+.prop .addr{font-family:var(--display);font-size:30px;line-height:1.05;text-transform:uppercase;font-weight:600}
+.prop dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px 14px;margin:0;font-size:13px}
+.prop dt{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;opacity:.75}
+.prop dd{margin:0;font-family:var(--mono);font-size:13px}
+.prop .ver{display:inline-flex;gap:6px;align-items:center;font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.prop .ver.auto{color:var(--good)} .prop .ver.human{color:var(--accent)}
+.cands{display:grid;gap:8px}
+.cand{background:var(--surface);border:1px solid var(--rule);padding:10px 12px;display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:13px;align-items:start}
+.cand.hist{opacity:.75;border-style:dashed}
+.cand .who{font-family:var(--display);font-size:20px;text-transform:uppercase;font-weight:600;line-height:1.05}
+.cand .meta{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.cand .rules{display:flex;flex-wrap:wrap;gap:4px}
+.cand .mis{color:var(--bad);font-size:12px}
+.cand .pick{display:grid;gap:6px;min-width:200px}
+.cand .pick input{font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--rule);background:var(--surface2);color:var(--ink)}
+.src{font-size:12px;color:var(--muted);display:grid;gap:3px}
+.src b{color:var(--ink);font-weight:500}
+.src .UNAVAILABLE{color:var(--bad)} .src .OK{color:var(--good)}
+.hist{background:var(--surface);border:1px solid var(--rule)}
+.hist table{width:100%;border-collapse:collapse;font-size:12.5px}
+.hist th,.hist td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+.hist th{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.msg{font-size:13px;min-height:1.2em}.msg.err{color:var(--bad)}.msg.ok{color:var(--good)}
+.fine{font-size:12px;color:var(--muted)}
+details.rules{font-size:13px}details.rules summary{cursor:pointer;color:var(--accent)}
+details.rules ol{margin:6px 0 0;padding-left:18px;display:grid;gap:3px}
+</style>
+</head>
+<body>
+<header class="ph-top"><h1><small>Address → normalized → candidates → explicit rules → one verified parcel, or the honest reason why not</small>Find a property</h1><nav data-nav aria-label="Sections"></nav></header>
+<main>
+  <section>
+    <h2>Arkansas address search</h2>
+    <p class="lead">Type an Arkansas street address. The search checks the local copy of the State roll and then the live Arkansas GIS parcel layer, applies the same written rules every time, and resolves to <b>one parcel only when those rules justify it</b>. Nothing is guessed; a fuzzy match is never called a verified identity.</p>
+    <form class="search" id="f"><input id="q" placeholder="302 Lincoln St, Hot Springs, AR 71901" autocomplete="street-address" spellcheck="false" required maxlength="200"><button class="btn" type="submit" id="go">Find</button></form>
+    <details class="rules"><summary>The match rules, in the order they are applied</summary><ol id="rules"></ol></details>
+  </section>
+  <section id="out" hidden></section>
+  <section id="candsec" hidden><h2 style="font-size:20px" id="candh">Candidates</h2><div class="cands" id="cands"></div></section>
+  <section id="srcsec" hidden><h2 style="font-size:20px">Sources checked</h2><div class="src" id="src"></div></section>
+  <section id="histsec"><h2 style="font-size:20px">Your searches</h2><p class="fine">Private to this license. Never published, never exported.</p><div class="hist"><table><thead><tr><th>When</th><th>Searched</th><th>Normalized</th><th>Result</th><th>Property</th><th>Case</th></tr></thead><tbody id="hist"><tr><td colspan="6" class="fine">Loading…</td></tr></tbody></table></div></section>
+</main>
+<script src="ph-auth.js"></script>
+<script src="ph.js"></script>
+<script>
+const $ = id => document.getElementById(id); const esc = PH.esc;
+const RULES = [['House number','must be identical (required)'],['Street name','must be identical after normalization (required)'],['Suffix','ST / AVE / RD must agree when both sides state one'],['Directional','N / S / E / W must agree when both sides state one'],['City','must agree when you give one and the source records one'],['ZIP','must agree when you give one and the source records one'],['County','must agree when you name one ("…, Garland County")'],['Unit','kept and shown; the State roll has no units, so a unit never picks a parcel'],['Source agreement','the same parcel on the local copy and the live roll corroborates it'],['Parcel identity','candidates are grouped by county + parcel id']];
+$('rules').innerHTML = RULES.map(([a,b]) => `<li><b>${esc(a)}</b> — ${esc(b)}</li>`).join('');
+const STATE_TXT = {EXACT_MATCH:'Exact match', STRONG_MATCH:'Strong match', AMBIGUOUS:'Multiple possible properties', NO_MATCH:'No match', SOURCE_UNAVAILABLE:'Source unavailable', OUT_OF_SCOPE:'Outside Arkansas scope', INVALID_INPUT:'Invalid input', MANUAL_REVIEW_REQUIRED:'Manual review required', SEARCHING:'Searching…'};
+let CUR = null;
+const p = new URLSearchParams(location.search);
+
+async function api(path, body, ms){
+  const r = await PH.apiFetch(path, body ? {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)} : {}, ms || 20000);
+  if(PH.needsActivation(r)){ location.href = PH.activateHref(); throw new Error('Activation required.'); }
+  const j = await r.json().catch(() => ({}));
+  if(!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
+  return j;
+}
+function stateBox(state, title, body, extra){
+  return `<div class="state ${esc(state)}"><div class="k">${esc(title || STATE_TXT[state] || state)}</div>${body ? `<div>${body}</div>` : ''}${extra || ''}</div>`;
+}
+function normLine(n){
+  if(!n || !n.normalized) return '';
+  return `<div class="norm">Searched <b>${esc(n.original)}</b> → normalized <b>${esc(n.normalized)}</b> · rules ${esc(n.rules_version)}${n.unit ? ` · unit ${esc(n.unit)} kept` : ''}${n.county ? ` · ${esc(n.county)} County` : ''}</div>`;
+}
+function propHeader(id, r){
+  const by = id.verified_by === 'MANUAL_VERIFICATION';
+  const file = `lookup.html?county=${encodeURIComponent(id.county_fips||'')}&q=${encodeURIComponent(id.parcel_id||id.situs||'')}`;
+  const caseBtn = (r.case && r.case.attached) ? `<a class="btn" href="investigation.html?id=${r.case.id}">Open investigation #${r.case.id}</a>` : `<button class="btn" type="button" id="inv">${r.case ? `Attach to investigation #${r.case.id}` : 'Investigate this property'}</button>`;
+  return `<div class="prop">
+    <div class="addr">${esc(id.situs || '')}${id.city ? `, ${esc(id.city)}` : ''}${id.zip ? ` ${esc(id.zip)}` : ''}</div>
+    <dl><div><dt>County</dt><dd>${esc(id.county || id.county_fips || '—')}</dd></div><div><dt>Parcel</dt><dd>${esc(id.parcel_id || '—')}</dd></div><div><dt>RPID</dt><dd>${esc(id.rpid || '—')}</dd></div>
+    <div><dt>Identity</dt><dd><span class="ver ${by?'human':'auto'}">${by ? '✓ Verified · human property selection' : '✓ Verified · State roll'}</span></dd></div>
+    <div><dt>Source</dt><dd>${esc(id.source_label || id.source)}</dd></div><div><dt>Source date</dt><dd>${esc((id.source_date||'').slice(0,10) || '—')}</dd></div><div><dt>Read</dt><dd>${esc((id.read_at||'').slice(0,16).replace('T',' '))}</dd></div>${by ? `<div><dt>Chosen by</dt><dd>${esc(id.actor)} · ${esc((id.selected_at||'').slice(0,10))}</dd></div><div><dt>Reason</dt><dd>${esc(id.reason||'')}</dd></div>` : ''}</dl>
+    <div class="btnrow"><a class="btn ghost" href="${file}">Open property file</a>${caseBtn}<span class="msg" id="invmsg"></span></div></div>`;
+}
+function candCard(c, r, pickable){
+  const situs = `${c.situs || c.normalized_situs || ''}${c.city ? ', ' + c.city : ''}${c.zip ? ' ' + c.zip : ''}`;
+  const rules = (c.match_reasons||[]).map(x => `<span class="pill fact">${esc(x.replace(/_/g,' '))}</span>`).join('');
+  const mis = (c.mismatches||[]).map(m => `<div class="mis">✗ ${esc(m)}</div>`).join('');
+  const file = `lookup.html?county=${encodeURIComponent(c.county_fips||'')}&q=${encodeURIComponent(c.parcel_id||c.situs||'')}`;
+  const pick = pickable && !c.historical ? `<div class="pick"><input placeholder="Why this one? (what you checked)" data-reason="${c.property_id}" maxlength="500"><input placeholder="Reference (optional)" data-ref="${c.property_id}" maxlength="200"><button class="btn ghost" type="button" data-pick="${c.property_id}">This is the property</button></div>` : `<div class="pick"><a class="btn ghost" href="${file}">Open property file</a></div>`;
+  return `<div class="cand${c.historical ? ' hist' : ''}"><div><div class="who">${esc(situs)}</div><div class="meta">${esc(c.county || c.county_fips || '')} County · parcel ${esc(c.parcel_id || '—')}${c.rpid ? ` · RPID ${esc(c.rpid)}` : ''}${c.acreage ? ` · ${esc(c.acreage)} ac` : ''} · ${(c.sources||[]).map(s => s === 'STATE_ROLL_LIVE' ? 'live State roll' : 'local copy').join(' + ')}${c.source_date ? ` · source ${esc(String(c.source_date).slice(0,10))}` : ''}${c.historical ? ' · HISTORICAL' : ''}</div><div class="rules">${rules}</div>${mis}</div>${pick}</div>`;
+}
+function render(r){
+  CUR = r;
+  const ex = r.explanation || {};
+  const st = r.state;
+  let html = '';
+  const id = r.identity;
+  if(id){
+    html += stateBox(st, `${STATE_TXT[st]}${r.selected_by === 'MANUAL_VERIFICATION' ? ' · resolved by your selection' : ''}`, esc(ex.summary || ''), normLine(r.normalized));
+    html += propHeader(id, r);
+  } else {
+    const next = ex.next_action ? `<div class="fine" style="margin-top:6px"><b>Next:</b> ${esc(ex.next_action)}</div>` : '';
+    const ca = ex.county_assumption ? `<div class="fine">County: ${esc(ex.county_assumption)}</div>` : '';
+    const un = (ex.unavailable||[]).length ? `<div class="fine" style="color:var(--bad)">Unavailable: ${esc(ex.unavailable.join('; '))}</div>` : '';
+    html += stateBox(st, STATE_TXT[st], esc(ex.summary || ''), normLine(r.normalized) + ca + un + next);
+  }
+  $('out').innerHTML = html; $('out').hidden = false;
+  const cands = r.candidates || [];
+  const pickable = (st === 'AMBIGUOUS' || st === 'MANUAL_REVIEW_REQUIRED') && !r.selected_property_id;
+  if(cands.length && (pickable || st === 'MANUAL_REVIEW_REQUIRED' || st === 'AMBIGUOUS')){
+    $('candh').textContent = st === 'AMBIGUOUS' ? `Multiple possible properties (${r.qualifying})` : 'Near-miss records (nothing resolved)';
+    $('cands').innerHTML = cands.map(c => candCard(c, r, pickable)).join('');
+    $('candsec').hidden = false;
+  } else { $('candsec').hidden = true; $('cands').innerHTML = ''; }
+  if((r.sources||[]).length){
+    $('src').innerHTML = r.sources.map(s => `<div><span class="${esc(s.status)}">${s.status === 'OK' ? '✓' : '⏸'}</span> <b>${esc(s.label)}</b> · ${esc(s.status.toLowerCase())}${s.failure_category ? ` (${esc(s.failure_category)})` : ''} · read ${esc((s.read_at||'').slice(0,16).replace('T',' '))}${s.detail ? ` · ${esc(s.detail)}` : ''}</div>`).join('') + `<div class="fine">${r.latency_ms != null ? `${r.latency_ms} ms` : ''}</div>`;
+    $('srcsec').hidden = false;
+  } else $('srcsec').hidden = true;
+  const inv = $('inv'); if(inv) inv.onclick = investigate;
+  document.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => pick(+b.dataset.pick));
+  history.replaceState(null, '', `?search=${r.search_id}`);
+}
+async function run(addr){
+  $('go').disabled = true; $('candsec').hidden = true; $('srcsec').hidden = true;
+  $('out').innerHTML = stateBox('SEARCHING', 'Searching…', 'Checking the local copy, then the live State roll…'); $('out').hidden = false;
+  try { render(await api('/api/property/resolve', {address: addr, actor: 'Topher'}, 25000)); loadHistory(); }
+  catch(e){ $('out').innerHTML = stateBox('SOURCE_UNAVAILABLE', 'Could not search', esc(e.name === 'AbortError' ? 'The local app did not answer in time.' : e.message)); }
+  $('go').disabled = false;
+}
+async function pick(pid){
+  const reason = (document.querySelector(`[data-reason="${pid}"]`)||{}).value || '', ref = (document.querySelector(`[data-ref="${pid}"]`)||{}).value || '';
+  try { render(await api(`/api/property/resolve/${CUR.search_id}/select`, {property_id: pid, actor: 'Topher', reason, reference: ref})); loadHistory(); }
+  catch(e){ const b = document.querySelector(`[data-pick="${pid}"]`); if(b){ b.textContent = e.message; b.style.color = 'var(--bad)'; setTimeout(() => { b.textContent = 'This is the property'; b.style.color = ''; }, 3500); } }
+}
+async function investigate(){
+  const m = $('invmsg'); m.textContent = 'Opening…'; m.className = 'msg';
+  try { const o = await api(`/api/property/resolve/${CUR.search_id}/investigate`, {actor: 'Topher'}); m.textContent = o.created ? 'Investigation opened.' : 'Attached to the existing investigation.'; m.className = 'msg ok'; render(o.search); loadHistory(); }
+  catch(e){ m.textContent = e.message; m.className = 'msg err'; }
+}
+async function loadHistory(){
+  try {
+    const h = await api('/api/property/resolve/history?limit=40');
+    $('hist').innerHTML = (h.searches||[]).map(s => `<tr><td>${esc(String(s.created_at||'').slice(0,16).replace('T',' '))}</td><td><a href="?search=${s.id}">${esc(s.input_original)}</a></td><td class="norm">${esc(s.input_normalized||'')}</td><td>${esc(STATE_TXT[s.state]||s.state)}${s.selected_by === 'MANUAL_VERIFICATION' ? ' · chosen' : ''}</td><td>${s.selected_property_id ? `#${s.selected_property_id}` : '—'}</td><td>${s.case_id ? `<a href="investigation.html?id=${s.case_id}">#${s.case_id}</a>` : '—'}</td></tr>`).join('') || '<tr><td colspan="6" class="fine">No searches yet on this license.</td></tr>';
+  } catch(e){ $('hist').innerHTML = `<tr><td colspan="6" class="fine">${esc(e.message)}</td></tr>`; }
+}
+$('f').onsubmit = ev => { ev.preventDefault(); const v = $('q').value.trim(); if(v) run(v); };
+(async () => {
+  if(p.get('search')){ try { render(await api(`/api/property/resolve/${encodeURIComponent(p.get('search'))}`)); $('q').value = CUR.input.original; } catch(e){ $('out').innerHTML = stateBox('NO_MATCH', 'Search not found', esc(e.message)); $('out').hidden = false; } }
+  else if(p.get('q')){ $('q').value = p.get('q'); run(p.get('q')); }
+  loadHistory();
+})();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

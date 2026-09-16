@@ -37,6 +37,8 @@ EVENT_CLASSES = ("SIGNAL RECEIVED", "INVESTIGATION OPENED", "SOURCE CHECK", "MAN
                  "OUTREACH PREPARATION STARTED", "OUTREACH GATE EVALUATED", "DRAFT GENERATED", "DRAFT EDITED", "DRAFT REVIEWED", "DRAFT DISCARDED",
                  # P3C: a person's own record of what they did with a draft. HUMAN-REPORTED; never a system assertion of delivery.
                  "HUMAN OUTREACH ACTION",
+                 # P6: the case was opened or attached from an address search (identity by AUTOMATED_SOURCE or HUMAN PROPERTY SELECTION)
+                 "INVESTIGATION OPENED FROM ADDRESS SEARCH",
                  # P4 Bee: an AI_OPINION analysis was recorded (OK or FAILED); a person decided on a proposal
                  "BEE ANALYSIS", "BEE PROPOSAL DECISION",
                  # P5: one authorized check per accepted proposal

@@ -555,6 +555,30 @@ CREATE TABLE IF NOT EXISTS investigation_executions (
 CREATE INDEX IF NOT EXISTS idx_exec_case ON investigation_executions(case_id, id);
 
 -- P5.5: commercial access. Codes are stored as a peppered HMAC only; device public keys, not secrets; sessions hashed.
+-- P6: private address-search history. One row per resolve call, keyed to the license that asked.
+-- Never exported, never public; holds no activation secrets (license_id is an integer row id).
+CREATE TABLE IF NOT EXISTS address_searches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    license_id INTEGER NOT NULL DEFAULT 0,
+    session_id INTEGER NOT NULL DEFAULT 0,
+    actor TEXT,
+    input_original TEXT NOT NULL,
+    input_normalized TEXT,
+    normalized_json TEXT,
+    state TEXT NOT NULL,
+    candidate_count INTEGER NOT NULL DEFAULT 0,
+    candidates_json TEXT,
+    selected_property_id INTEGER,
+    selected_by TEXT,
+    selected_at TEXT,
+    selected_actor TEXT,
+    identity_json TEXT,
+    case_id INTEGER,
+    sources_json TEXT,
+    latency_ms INTEGER,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_addr_search_license ON address_searches(license_id, id);
 CREATE TABLE IF NOT EXISTS licenses (
   id INTEGER PRIMARY KEY,
   code_hash TEXT NOT NULL UNIQUE,

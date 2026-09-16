@@ -34,7 +34,7 @@ def clean_db():
                  "parcel_type TEXT, mailing TEXT, looked_up_at TEXT)")
     for t in ("parcel_lookup", "properties", "property_aliases", "evidence", "conflicts", "snapshots",
               "changes", "timeline", "scores", "watchlist", "alerts", "tasks",
-              "notes", "decisions", "investigations", "logs", "scans"):
+              "notes", "decisions", "investigations", "logs", "scans", "address_searches"):
         conn.execute(f"DELETE FROM {t}")
     conn.commit()
     exclusions.refresh_cache()

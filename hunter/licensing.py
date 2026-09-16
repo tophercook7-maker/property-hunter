@@ -114,7 +114,7 @@ def audit(event: str, *, license_id=None, device=None, actor=None, ok: bool, rea
 
 _RL: dict[str, list[float]] = {}
 _RL_LOCK = threading.Lock()
-LIMITS = {"activate": (8, 600), "auth": (60, 600), "admin": (30, 600)}
+LIMITS = {"activate": (8, 600), "auth": (60, 600), "admin": (30, 600), "resolve": (40, 600)}
 
 
 def rate_limited(bucket: str, key: str) -> bool:

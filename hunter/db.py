@@ -433,6 +433,42 @@ CREATE TABLE IF NOT EXISTS approvals (
   requested_at TEXT, decided_at TEXT, decided_by TEXT
 );
 
+-- P2: the canonical INVESTIGATION CASE. One durable research object per property. Research state only,
+-- never investment quality. (The older `investigations` table records automated investigator sweeps;
+-- a case links to those as SOURCE CHECK events.)
+CREATE TABLE IF NOT EXISTS investigation_cases (
+  id INTEGER PRIMARY KEY,
+  property_id INTEGER NOT NULL UNIQUE REFERENCES properties(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'OPEN',   -- OPEN|RESEARCHING|WAITING_ON_SOURCE|READY_FOR_REVIEW|CLOSED
+  origin_cls TEXT,                        -- class of the first originating signal: WORLD_EVENT|FIRST_DISCOVERY|MANUAL
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS investigation_signals (
+  id INTEGER PRIMARY KEY,
+  case_id INTEGER NOT NULL REFERENCES investigation_cases(id) ON DELETE CASCADE,
+  event TEXT NOT NULL, cls TEXT NOT NULL, label TEXT, event_date TEXT, discovered_at TEXT,
+  src TEXT, src_url TEXT, evidence_ref TEXT, status TEXT, kind TEXT, why TEXT,
+  taxs_json TEXT, sale_json TEXT, received_at TEXT NOT NULL,
+  UNIQUE(case_id, event, evidence_ref)
+);
+CREATE TABLE IF NOT EXISTS investigation_questions (
+  id INTEGER PRIMARY KEY,
+  case_id INTEGER NOT NULL REFERENCES investigation_cases(id) ON DELETE CASCADE,
+  key TEXT NOT NULL, category TEXT NOT NULL, wording TEXT NOT NULL,
+  state TEXT NOT NULL DEFAULT 'UNKNOWN',  -- FOUND|NOT_FOUND|UNKNOWN
+  answer TEXT, evidence_refs_json TEXT, checked_at TEXT, checked_by TEXT,   -- checked_by: source|manual
+  source TEXT, source_url TEXT, notes TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  UNIQUE(case_id, key)
+);
+CREATE TABLE IF NOT EXISTS investigation_events (
+  id INTEGER PRIMARY KEY,
+  case_id INTEGER NOT NULL REFERENCES investigation_cases(id) ON DELETE CASCADE,
+  at TEXT NOT NULL, actor TEXT NOT NULL, cls TEXT NOT NULL, title TEXT NOT NULL,
+  detail TEXT, ref TEXT, ref_date TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_case_events ON investigation_events(case_id, at);
+
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT
@@ -444,6 +480,15 @@ def init_db() -> None:
     conn = connect()
     conn.executescript(SCHEMA)
     conn.commit()
+    _ensure_column(conn, "notes", "investigation_id", "INTEGER")   # P2: notes may belong to a case
+    conn.commit()
+
+
+def _ensure_column(conn, table: str, column: str, decl: str) -> None:
+    """Additive migration only: never drops, never rewrites data."""
+    cols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
 
 
 def setting(key: str, default: Any = None) -> Any:

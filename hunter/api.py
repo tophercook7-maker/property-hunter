@@ -1123,6 +1123,100 @@ def api_notify_send(payload: dict = Body(default={})) -> dict:
     return out
 
 
+# ------------------------------------------------------------ P2: investigation cases
+# One durable research object per property. Research state, never investment quality. Nothing here sends,
+# contacts, spends or decides; a person performs consequential actions elsewhere.
+
+def _case_or_404(case_id: int) -> dict:
+    from . import cases
+    c = cases.get_case(case_id)
+    if not c:
+        raise HTTPException(404, "No such investigation")
+    return c
+
+
+@app.get("/api/cases/index")
+def api_cases_index() -> dict:
+    from . import cases
+    return cases.index()
+
+
+@app.get("/api/cases")
+def api_cases(status: str | None = None) -> dict:
+    from . import cases
+    idx = cases.index()
+    out = [cases.get_case(v["id"]) for v in idx["by_property"].values() if not status or v["status"] == status]
+    out.sort(key=lambda c: c["updated_at"], reverse=True)
+    return {"count": len(out), "cases": [{k: c[k] for k in ("investigation_id", "property_id", "status", "origin_cls", "created_at", "updated_at", "property", "counts", "next_action")} for c in out]}
+
+
+@app.post("/api/property/{prop_id}/case")
+def api_case_open(prop_id: int, payload: dict = Body(default={})) -> dict:
+    """INVESTIGATE PROPERTY: create the case if none exists, otherwise open the existing one, recording the
+    originating signal (provenance and classification kept as given) exactly once."""
+    from . import cases
+    _require(prop_id)
+    sig = payload.get("signal") or None
+    if sig is not None and not isinstance(sig, dict):
+        raise HTTPException(400, "signal must be an object")
+    if sig and sig.get("cls") not in (None, "WORLD_EVENT", "FIRST_DISCOVERY", "MANUAL"):
+        raise HTTPException(400, "signal.cls must be WORLD_EVENT, FIRST_DISCOVERY or MANUAL")
+    return cases.open_or_create(prop_id, sig, actor=str(payload.get("actor") or "user")[:40])
+
+
+@app.get("/api/case/{case_id}")
+def api_case(case_id: int) -> dict:
+    from . import cases
+    _case_or_404(case_id)
+    cases.refresh(case_id)
+    return cases.get_case(case_id)
+
+
+@app.post("/api/case/{case_id}/status")
+def api_case_status(case_id: int, payload: dict = Body(...)) -> dict:
+    from . import cases
+    _case_or_404(case_id)
+    try:
+        return cases.set_status(case_id, str(payload.get("status") or "").upper(), actor=str(payload.get("actor") or "user")[:40], reason=str(payload.get("reason") or "")[:300])
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/case/{case_id}/note")
+def api_case_note(case_id: int, payload: dict = Body(...)) -> dict:
+    from . import cases
+    _case_or_404(case_id)
+    try:
+        return {"note_id": cases.add_note(case_id, str(payload.get("body") or ""), actor=str(payload.get("actor") or "user")[:40])}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/case/{case_id}/log")
+def api_case_log(case_id: int, payload: dict = Body(...)) -> dict:
+    """MANUAL RESEARCH LOG: source checked, date, result, notes, optional evidence/document reference,
+    optionally answering one question FOUND / NOT_FOUND / UNKNOWN. Always labelled MANUAL VERIFICATION."""
+    from . import cases
+    _case_or_404(case_id)
+    try:
+        out = cases.log_manual(case_id, payload, actor=str(payload.get("actor") or "user")[:40])
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    cases.refresh(case_id)
+    return out
+
+
+@app.post("/api/case/{case_id}/action")
+def api_case_action(case_id: int, payload: dict = Body(...)) -> dict:
+    from . import cases
+    _case_or_404(case_id)
+    try:
+        cases.complete_action(case_id, str(payload.get("question") or ""), actor=str(payload.get("actor") or "user")[:40], note=str(payload.get("note") or "")[:300])
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True}
+
+
 @app.post("/api/watch/import")
 def api_watch_import(payload: dict = Body(default={})) -> dict:
     """Watch a list of parcels pasted from the public site ("FIPS:PARCEL" or bare Garland ids).

@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Investigation · Property Hunter</title>
+<meta name="description" content="One durable investigation per property: why it surfaced, what is known, what is not, the evidence with its source, the questions still open, the next legitimate action, a manual research log and notes.">
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="ph.css">
+<style>
+main{max-width:1100px;margin:0 auto;padding:16px 16px 60px;display:grid;gap:18px}
+h2{font-size:26px;text-transform:uppercase;letter-spacing:.02em;margin:0}
+h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;font-family:var(--body);font-weight:600}
+.lead{margin:2px 0 0;font-size:14px;color:var(--muted);max-width:75ch}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.box{background:var(--surface);border:1px solid var(--rule);padding:10px 12px;font-size:13px}
+.box ul{margin:0;padding-left:18px;display:grid;gap:4px}
+.next-big{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:var(--accent-soft);border:1px solid var(--accent);padding:12px 14px}
+.next-big b{font-family:var(--display);font-size:22px;letter-spacing:.04em;text-transform:uppercase}
+.banner{background:var(--warn-soft,#fff4e0);border:1px solid var(--warn);padding:10px 12px;font-size:13px}
+.sigrow{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:8px 10px;background:var(--surface2);border-left:3px solid var(--accent);font-size:13px}.sigrow .cls{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em}
+.sigrow.FIRST_DISCOVERY{border-left-color:var(--muted)}.sigrow.MANUAL{border-left-color:var(--rule)}
+.pending{color:var(--muted);font-size:13px}
+.tl li.SIGNAL_RECEIVED{border-left-color:var(--accent)}.tl li.MANUAL_VERIFICATION{border-left-color:var(--good)}.tl li.QUESTION_ANSWERED{border-left-color:var(--good)}.tl li.QUESTION_REMAINS_UNKNOWN{border-left-color:var(--muted)}.tl li.STATUS_CHANGE{border-left-color:var(--warn)}
+</style>
+</head>
+<body>
+<header class="ph-top"><h1><small>Signal → investigation → evidence → answered / unknown → next action</small>Investigation</h1><nav data-nav aria-label="Sections"></nav></header>
+<main id="main"><p class="pending">Loading…</p></main>
+<script src="ph.js"></script>
+<script>
+const $ = id => document.getElementById(id); const esc = PH.esc;
+const when = v => v ? String(v).slice(0,16).replace('T',' ') : '—';
+const CATS = {IDENTITY:'Identity',OWNERSHIP:'Ownership',TAXES:'Taxes',SALE_STATUS:'Sale status',LIENS:'Liens',VACANCY:'Vacancy',CODE:'Code',PROPERTY:'Property',ACCESS:'Access',MARKET:'Market',PHYSICAL:'Physical',LEGAL_RECORD:'Legal record',OTHER:'Other'};
+const STW = {FOUND:'FOUND',NOT_FOUND:'NOT FOUND',UNKNOWN:'UNKNOWN'};
+let CASE = null, LIVE = false, SNAP = null;
+const p = new URLSearchParams(location.search);
+
+async function api(path, body){ const r = await PH.apiFetch(path, body ? {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)} : {}, 4000); if(!r.ok){ let m = r.statusText; try { m = (await r.json()).detail || m; } catch(e){} throw new Error(m); } return r.json(); }
+async function snapshot(){ if(SNAP) return SNAP; try { const r = await fetch('data/investigations.json', {cache:'no-store'}); SNAP = r.ok ? await r.json() : {cases:{}}; } catch(e){ SNAP = {cases:{}}; } return SNAP; }
+
+function actionHtml(n, big){
+  if(!n) return '';
+  if(n.manual || !n.href) return `<span><b>MANUAL ACTION REQUIRED</b>${n.note ? ` — ${esc(n.note)}` : ''}</span>`;
+  const ext = /^https?:/.test(n.href);
+  return `<a class="btn${big?'':' ghost'}" href="${esc(n.href)}"${ext?' target="_blank" rel="noopener"':''}>${esc(n.label)}${ext?' ↗':' →'}</a>${n.also ? ` <a class="btn ghost" href="${esc(n.also.href)}">${esc(n.also.label)}</a>` : ''}${n.note ? `<small class="msg" style="display:block">${esc(n.note)}</small>` : ''}`;
+}
+function qHtml(q){
+  return `<div class="q ${q.state}"><span class="st">${STW[q.state]}</span><span><span class="cat">${esc(CATS[q.category]||q.category)}</span> <span class="w">${esc(q.wording)}</span>
+    ${q.answer ? `<div class="a">${esc(q.answer)}</div>` : ''}
+    <small>${q.checked_by==='manual' ? '<span class="manual">MANUAL VERIFICATION</span> · ' : q.checked_by==='source' ? 'automated source · ' : 'no source has answered · '}${q.source ? esc(q.source) : ''}${q.source_url ? ` · <a href="${esc(q.source_url)}" target="_blank" rel="noopener">source</a>` : ''}${q.checked_at ? ` · checked ${esc(q.checked_at)}` : ''}${(q.evidence_refs||[]).length ? ` · ${q.evidence_refs.map(esc).join(', ')}` : ''}${q.notes ? ` · note: ${esc(q.notes)}` : ''}</small>
+    ${q.state==='UNKNOWN' ? `<div style="margin-top:4px">${actionHtml(q.next)}</div>` : ''}</span></div>`;
+}
+function evHtml(e){
+  const v = e.verification==='MANUAL VERIFICATION' ? 'M' : e.verification==='NOTE' ? 'N' : 'A';
+  return `<div class="ev ${e.state}"><span><span class="lab">${STW[e.state]}</span><br><span class="ver ${v}">${esc(e.verification)}</span></span><span>${esc(e.field)} — ${esc(e.value)}<small>source: ${e.url ? `<a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.source_name||e.source)}</a>` : esc(e.source_name||e.source)} · date ${esc(e.date||'—')} · ${esc(e.etype)} / ${esc(e.conf)} · ${esc(e.ref)}${e.raw_ref ? ` · ${esc(String(e.raw_ref).slice(0,120))}` : ''}</small></span></div>`;
+}
+function render(){
+  const c = CASE, pr = c.property, tx = c.tax, sale = c.sale;
+  const taxLine = PH.taxState(c.row, tx.collector);
+  document.title = `Investigation #${c.investigation_id} · ${pr.address || pr.parcel_id} · Property Hunter`;
+  $('main').innerHTML = `
+    ${LIVE ? '' : `<div class="banner"><b>READ-ONLY SNAPSHOT</b> exported ${esc(when(SNAP && SNAP.built_at))}. To continue this investigation, start the local app on this Mac (<code>python3 -m uvicorn hunter.api:app --port 8234</code>) and reload.</div>`}
+    <div class="status-bar"><span>INVESTIGATION STATUS <b class="stat">${esc(PH.CASE_STATUS[c.status]||c.status)}</b></span><span>LAST UPDATED <b>${esc(when(c.updated_at))}</b></span><span>opened ${esc(when(c.created_at))} · origin ${esc(c.origin_cls||'')}</span>
+      ${LIVE ? `<label style="margin-left:auto;font-size:12px">change status <select id="status">${Object.keys(PH.CASE_STATUS).map(k=>`<option value="${k}" ${k===c.status?'selected':''}>${PH.CASE_STATUS[k]}</option>`).join('')}</select></label>` : ''}</div>
+    <section><h2>${esc(pr.address || 'No situs address')}</h2><p class="lead">${esc(pr.county||pr.county_fips)} County · parcel <span class="mono">${esc(pr.parcel_id||'?')}</span> · owner of record ${esc(PH.title(pr.owner||'') || 'not on the roll')} · appraised ${PH.money(pr.total_value) || 'not known'} · <a href="${esc(pr.file)}">Open property file</a> · <a href="watch.html?add=${esc(pr.county_fips)}:${encodeURIComponent(pr.parcel_id||'')}&label=${encodeURIComponent(pr.address||'')}">Watch</a></p></section>
+    <div class="next-big"><span><h3>Next action</h3><b>${esc(c.next_action.label)}</b>${c.next_action.wording ? `<div style="font-size:13px;margin-top:2px">${esc(c.next_action.wording)}</div>` : ''}</span><span>${actionHtml(c.next_action, true)}</span></div>
+    <div class="two">
+      <section class="box"><h3>Why it surfaced</h3>${c.signals.length ? c.signals.map(s=>`<div class="sigrow ${esc(s.cls)}"><span class="cls">${esc(s.cls==='WORLD_EVENT'?'REAL-WORLD EVENT':s.cls==='FIRST_DISCOVERY'?'FIRST DISCOVERY':s.cls)}</span><span><b>${esc(s.label)}</b>${s.why?` — ${esc(s.why)}`:''}<br><small>event ${esc(s.event_date||'undated')} · received ${esc(when(s.received_at))} · source ${s.src_url?`<a href="${esc(s.src_url)}" target="_blank" rel="noopener">${esc(s.src||'')}</a>`:esc(s.src||'')} · ${esc(s.status||'')} · ${esc(s.evidence_ref||'')}${s.taxs?` · tax at signal: ${esc(s.taxs.st)}`:''}${s.sale?` · sale at signal: ${esc(s.sale.st)}`:''}</small></span></div>`).join('') : '<p class="msg">Opened by a person; no originating signal.</p>'}</section>
+      <section class="box"><h3>Tax state · sale state (shared P1 model)</h3>
+        <div class="q ${tx.st==='UNKNOWN'?'UNKNOWN':'FOUND'}"><span class="st">TAX STATE</span><span><b class="tx-${taxLine.tone}">${esc(taxLine.text)}</b><small>SOURCE ${esc(tx.src||'none')} · AS OF ${esc(tx.as_of||'—')} · AMOUNT ${tx.amt!=null?PH.money(tx.amt):'not documented'} · EVIDENCE ${tx.evidence.length?tx.evidence.map(esc).join(', '):'none'} · STATUS ${esc(tx.source_unavailable?'UNKNOWN / SOURCE UNAVAILABLE':tx.st)}</small></span></div>
+        <div class="q ${sale.st==='UNKNOWN'?'UNKNOWN':'FOUND'}" style="margin-top:6px"><span class="st">SALE STATE</span><span><b>${esc(sale.text)}</b><small>SOURCE ${esc(sale.src||'none')} · AS OF ${esc(sale.as_of||'—')} · EVIDENCE ${sale.evidence.length?sale.evidence.map(esc).join(', '):'none'}</small></span></div></section>
+    </div>
+    <div class="two">
+      <section class="box"><h3>What we know (${c.findings.length} found)</h3><ul>${c.findings.map(f=>`<li>${esc(f.answer)} <small class="msg">— ${f.manual?'<span class="manual">MANUAL VERIFICATION</span> · ':''}${esc(f.source||'')}${f.checked_at?` · ${esc(f.checked_at)}`:''}${(f.refs||[]).length?` · ${f.refs.map(esc).join(', ')}`:''}</small></li>`).join('') || '<li>Nothing verified yet.</li>'}</ul></section>
+      <section class="box"><h3>What we don't know (${c.unknowns.length} unknown · ${c.checked_no_result.length} checked, no result)</h3><ul>${c.unknowns.map(u=>`<li>${esc(u.wording)} <small class="msg">— ${esc(u.answer||'')}</small></li>`).join('') || '<li>No open questions.</li>'}</ul>
+        ${c.checked_no_result.length ? `<h3 style="margin-top:8px">Checked, no result</h3><ul>${c.checked_no_result.map(u=>`<li>${esc(u.wording)} <small class="msg">— ${esc(u.answer||'')} (${u.manual?'MANUAL VERIFICATION':'automated source'}: ${esc(u.source||'')}${u.checked_at?`, ${esc(u.checked_at)}`:''})</small></li>`).join('')}</ul>` : ''}</section>
+    </div>
+    <section><h3>Questions (${c.counts.found} found · ${c.counts.not_found} not found · ${c.counts.unknown} unknown)</h3><div class="q3" id="qs">${c.questions.map(qHtml).join('')}</div></section>
+    ${LIVE ? `<section class="form" id="logform"><h3>Manual research log — recorded as MANUAL VERIFICATION, never as an official source record</h3>
+      <div class="row"><label>Source checked *<input id="l-source" placeholder="e.g. Garland County Circuit Clerk, in person"></label><label>Date *<input id="l-date" type="date" value="${new Date().toISOString().slice(0,10)}"></label>
+      <label>Question<select id="l-q"><option value="">(log only, no question)</option>${c.questions.map(q=>`<option value="${esc(q.key)}">${esc(CATS[q.category]||q.category)}: ${esc(q.wording.slice(0,70))}</option>`).join('')}</select></label>
+      <label>Answer state<select id="l-state"><option value="">(none)</option><option value="FOUND">FOUND — verified evidence exists</option><option value="NOT_FOUND">NOT FOUND — checked, no such record</option><option value="UNKNOWN">UNKNOWN — could not answer</option></select></label></div>
+      <label>Result (what the source said) — required for FOUND and NOT FOUND<textarea id="l-result" rows="2"></textarea></label>
+      <div class="row"><label>Notes<input id="l-notes"></label><label>Evidence reference (optional, e.g. evidence:123 or a book/page)<input id="l-ref"></label><label>Document reference (optional)<input id="l-doc" placeholder="file name or record number"></label><label>Source URL (optional, https only)<input id="l-url"></label></div>
+      <div><button class="btn" type="button" id="l-save">Record manual verification</button> <span class="msg" id="l-msg"></span></div></section>
+    <section class="form"><h3>Note — a NOTE, never a fact</h3><textarea id="n-body" rows="2" placeholder="What you think, what to try next. Notes stay separate from evidence."></textarea><div><button class="btn ghost" type="button" id="n-save">Add note</button> <span class="msg" id="n-msg"></span></div></section>` : ''}
+    <div class="two">
+      <section><h3>Evidence (${c.evidence.length})</h3><div class="ev-panel">${c.evidence.map(evHtml).join('') || '<div class="empty">No evidence rows beyond the roll.</div>'}</div></section>
+      <section><h3>Notes (${c.notes.length})</h3><div style="display:grid;gap:6px">${c.notes.map(n=>`<div class="note-item"><b>NOTE · ${esc(n.author)} · ${esc(when(n.created_at))} · ${esc(n.confidence)}</b><div>${esc(n.body)}</div></div>`).join('') || '<div class="empty">No notes.</div>'}</div>
+        <h3 style="margin-top:14px">Timeline (${c.events.length})</h3><ol class="tl">${c.events.map(e=>`<li class="${esc(e.cls.replace(/ /g,'_'))}"><time>${esc(when(e.at))}</time><b>${esc(e.cls)}</b><span>${esc(e.title)}${e.detail?` — ${esc(e.detail)}`:''}<small>${esc(e.actor)}${e.ref?` · ${esc(e.ref)}`:''}${e.ref_date?` · record date ${esc(e.ref_date)}`:''}</small></span></li>`).join('')}</ol></section>
+    </div>`;
+  if(!LIVE) return;
+  $('status').onchange = async () => { try { await api(`/api/case/${c.investigation_id}/status`, {status: $('status').value}); await load(c.investigation_id); } catch(e){ alert(e.message); } };
+  $('l-save').onclick = async () => {
+    const body = {source: $('l-source').value, date: $('l-date').value, question: $('l-q').value || undefined, state: $('l-state').value || undefined, result: $('l-result').value, notes: $('l-notes').value, evidence_ref: $('l-ref').value, document: $('l-doc').value, source_url: $('l-url').value};
+    $('l-msg').textContent = 'saving…'; $('l-msg').className = 'msg';
+    try { const r = await api(`/api/case/${c.investigation_id}/log`, body); $('l-msg').textContent = `recorded ${r.evidence_ref||''}`; await load(c.investigation_id); } catch(e){ $('l-msg').textContent = e.message; $('l-msg').className = 'msg err'; }
+  };
+  $('n-save').onclick = async () => { try { await api(`/api/case/${c.investigation_id}/note`, {body: $('n-body').value}); await load(c.investigation_id); } catch(e){ $('n-msg').textContent = e.message; $('n-msg').className = 'msg err'; } };
+}
+async function load(id){
+  try { CASE = await api(`/api/case/${id}`); LIVE = true; }
+  catch(e){ const s = await snapshot(); CASE = (s.cases||{})[String(id)] || null; LIVE = false; if(!CASE){ $('main').innerHTML = `<div class="banner">No investigation #${esc(String(id))} in the local app or the exported snapshot. ${e.message ? `The local app did not answer (${esc(e.message)}).` : ''}</div>`; return; } }
+  render();
+}
+async function openFromSignal(pid, sigKey){
+  let signal = null;
+  if(sigKey){ const [event, ref] = sigKey.split('|'); try { const d = await (await fetch('data/signals.json', {cache:'no-store'})).json(); signal = (d.rows||[]).concat(d.discovered||[]).find(x => String(x.id)===String(pid) && x.event===event && (x.evidence_ref||'')===(ref||'')) || {event, evidence_ref: ref, cls: undefined}; } catch(e){ signal = {event, evidence_ref: ref}; } }
+  try { const c = await api(`/api/property/${pid}/case`, {signal}); history.replaceState(null, '', `investigation.html?id=${c.investigation_id}`); CASE = c; LIVE = true; render(); }
+  catch(e){ const idx = await PH.loadCaseIndex(); const ex = idx.by_property[String(pid)]; if(ex){ history.replaceState(null, '', `investigation.html?id=${ex.id}`); return load(ex.id); }
+    $('main').innerHTML = `<div class="banner"><b>MANUAL ACTION REQUIRED.</b> Opening an investigation needs the local app, which did not answer (${esc(e.message||'no connection')}). On this Mac run <code>python3 -m uvicorn hunter.api:app --port 8234</code>, then reload this page. Nothing was created.</div>`; }
+}
+async function list(){
+  let d = null, live = false;
+  try { d = await api('/api/cases'); live = true; } catch(e){ const s = await snapshot(); d = {count: Object.keys(s.cases||{}).length, cases: Object.values(s.cases||{})}; }
+  const rows = (d.cases||[]).slice().sort((a,b)=>(b.updated_at||'').localeCompare(a.updated_at||''));
+  $('main').innerHTML = `<section><h2>Investigations</h2><p class="lead">${rows.length} case${rows.length===1?'':'s'}${live?'':' (read-only snapshot; start the local app to continue them)'}. One per property; research state only, never investment quality. Open one from any signal on <a href="discover.html">Discover</a> or from a property file.</p></section>
+    <div class="case-list">${rows.map(c=>`<div class="case-row"><span><b>#${c.investigation_id}</b> · ${esc(c.property.address||'No situs address')} · ${esc(c.property.county||c.property.county_fips)} County · parcel <span class="mono">${esc(c.property.parcel_id||'?')}</span><br><small class="msg">${esc(PH.CASE_STATUS[c.status]||c.status)} · updated ${esc(when(c.updated_at))} · ${c.counts.found} found / ${c.counts.not_found} not found / ${c.counts.unknown} unknown · next: ${esc(c.next_action.label)}</small></span><a class="btn ghost" href="investigation.html?id=${c.investigation_id}">Open</a></div>`).join('') || '<div class="empty">No investigations yet.</div>'}</div>`;
+}
+if(p.get('id')) load(p.get('id')); else if(p.get('property')) openFromSignal(p.get('property'), p.get('sig')); else list();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

@@ -15,9 +15,18 @@ from hunter.db import init_db, q, q1  # noqa: E402
 DESKTOP = os.path.expanduser("~/Desktop/🏠 Property Hunter/SHARE - Property Hunter website.html")
 
 
-def _latest(field):
+def _only(only):
+    """SQL fragment restricting a query to some property ids (None = every property)."""
+    if not only:
+        return "", ()
+    ids = tuple(int(x) for x in only)
+    return f" AND property_id IN ({','.join('?' * len(ids))})", ids
+
+
+def _latest(field, only=None):
     out = {}
-    for r in q("SELECT property_id, value, raw_ref FROM evidence WHERE field=? ORDER BY id", (field,)):
+    frag, ids = _only(only)
+    for r in q(f"SELECT property_id, value, raw_ref FROM evidence WHERE field=?{frag} ORDER BY id", (field, *ids)):
         out[r["property_id"]] = dict(r)
     return out
 
@@ -72,9 +81,10 @@ def conflict_change_ids() -> dict:
     return out
 
 
-def _latest_full(field):
+def _latest_full(field, only=None):
     out = {}
-    for r in q("SELECT id, property_id, value, raw_ref, source, effective_date, created_at FROM evidence WHERE field=? ORDER BY id", (field,)):
+    frag, ids = _only(only)
+    for r in q(f"SELECT id, property_id, value, raw_ref, source, effective_date, created_at FROM evidence WHERE field=?{frag} ORDER BY id", (field, *ids)):
         out[r["property_id"]] = dict(r)
     return out
 
@@ -273,8 +283,8 @@ def build_timelines(rows_by_id: dict) -> dict:
         out.setdefault(r["cf"], {}).setdefault(str(pid), []).append(ev)
     for e in q("""SELECT e.id, e.property_id, e.field, e.value, e.source, e.source_name, e.source_url, e.effective_date, e.created_at, e.evidence_type, e.confidence
                   FROM evidence e JOIN properties p ON p.id=e.property_id
-                  WHERE e.field IN ({}) AND p.excluded=0 ORDER BY e.id""".format(",".join("?" * len(TIMELINE_FIELDS))), tuple(TIMELINE_FIELDS)):
-        cls, title, src = TIMELINE_FIELDS[e["field"]]
+                  WHERE (e.field IN ({}) OR e.field LIKE 'manual:%') AND p.excluded=0 ORDER BY e.id""".format(",".join("?" * len(TIMELINE_FIELDS))), tuple(TIMELINE_FIELDS)):
+        cls, title, src = TIMELINE_FIELDS.get(e["field"], ("MANUAL", "Manual verification recorded by a person", None))
         src = src or e["source_name"] or e["source"]
         if e["source"] == "county_delinquent_list":
             cls, title = "MANUAL", "Delinquent on the county's list (imported by a person)"
@@ -307,17 +317,21 @@ def build_timelines(rows_by_id: dict) -> dict:
     return out
 
 
-def export_rows():
-    mail, vac, code = _latest("owner_mailing_address"), _latest("vacant_structure"), _latest("code_case_open")
-    taxbill, taxchk, taxcosl = _latest_full("tax_bill"), _latest_full("tax_status_check"), _latest_full("tax_delinquent")
-    removed, redeemed, sold = _latest_full("tax_delinquent_removed"), _latest_full("tax_redemption"), _latest_full("tax_sale_history")
-    delinq, amt_state, amt_county = _latest_full("tax_delinquent_county"), _latest_full("tax_amount_owed"), _latest_full("tax_amount_owed_county")
+def export_rows(only=None):
+    """Every exported row, or (only=[ids]) just those properties through the very same code path,
+    so the investigation case engine reads the one tax-state model instead of re-implementing it."""
+    o = only
+    mail, vac, code = _latest("owner_mailing_address", o), _latest("vacant_structure", o), _latest("code_case_open", o)
+    taxbill, taxchk, taxcosl = _latest_full("tax_bill", o), _latest_full("tax_status_check", o), _latest_full("tax_delinquent", o)
+    removed, redeemed, sold = _latest_full("tax_delinquent_removed", o), _latest_full("tax_redemption", o), _latest_full("tax_sale_history", o)
+    delinq, amt_state, amt_county = _latest_full("tax_delinquent_county", o), _latest_full("tax_amount_owed", o), _latest_full("tax_amount_owed_county", o)
     today = datetime.date.today()
+    frag, ids = _only(o)
     liens = {}
-    for r in q("SELECT property_id, value, raw_ref FROM evidence WHERE field='cleanup_lien_amount'"):
+    for r in q(f"SELECT property_id, value, raw_ref FROM evidence WHERE field='cleanup_lien_amount'{frag}", ids):
         liens.setdefault(r["property_id"], {})[r["raw_ref"] or r["value"]] = r["value"]
     sc, lines, conf = {}, {}, {}
-    for r in q("SELECT property_id, kind, score, confidence, breakdown_json FROM scores"):
+    for r in q(f"SELECT property_id, kind, score, confidence, breakdown_json FROM scores WHERE 1=1{frag}", ids):
         sc.setdefault(r["property_id"], {})[r["kind"]] = r["score"]
         if r["kind"] == "overall":
             conf[r["property_id"]] = r["confidence"]
@@ -329,16 +343,16 @@ def export_rows():
                 pass
     chg = {}
     conflicts = conflict_change_ids()
-    for r in q("""SELECT id, property_id, field, old_value, new_value, severity, detected_at FROM changes
+    for r in q(f"""SELECT id, property_id, field, old_value, new_value, severity, detected_at FROM changes
                   WHERE detected_at > datetime('now','-7 days') AND severity IN ('medium','high')
-                  AND field NOT IN ('improved','acreage','property_type','register_attachment','building_sqft') ORDER BY id DESC"""):
+                  AND field NOT IN ('improved','acreage','property_type','register_attachment','building_sqft'){frag} ORDER BY id DESC""", ids):
         if conflicts.get(r["id"]) == "seed":
             continue
         chg.setdefault(r["property_id"], []).append({"f": r["field"], "o": (r["old_value"] or "")[:60], "n": (r["new_value"] or "")[:60],
                                                      "sev": r["severity"], "at": (r["detected_at"] or "")[:10],
                                                      **({"k": conflicts[r["id"]]} if r["id"] in conflicts else {})})
     inv = {}
-    for r in q("SELECT * FROM investigations WHERE status='complete' ORDER BY finished_at"):
+    for r in q(f"SELECT * FROM investigations WHERE status='complete'{frag} ORDER BY finished_at", ids):
         s = json.loads(r["summary_json"] or "{}")
         finds, seen = [], set()
         for stage in json.loads(r["stages_json"] or "[]"):
@@ -355,7 +369,8 @@ def export_rows():
                                  "findings": finds[:14]}
     rows, labels = [], {}
     county_name = {t["county_fips"]: t["county"] for t in __import__("hunter.config", fromlist=["TERRITORIES"]).TERRITORIES}
-    for p in q("SELECT * FROM properties WHERE excluded=0 AND data_class='real'"):
+    pfrag = frag.replace("property_id", "id")
+    for p in q(f"SELECT * FROM properties WHERE excluded=0 AND data_class='real'{pfrag}", ids):
         pid = p["id"]
         dist = json.loads(p["distress_json"] or "[]")
         for x in dist:
@@ -468,6 +483,8 @@ def build():
         byfield = Counter(r["f"] for r in real)
         json.dump(build_signals({r["i"]: r for r in slim}, county_name),
                   open(os.path.join(ROOT, "docs", "data", "signals.json"), "w"), separators=(",", ":"))
+        from hunter import cases as _cases
+        json.dump(_cases.export_all(), open(os.path.join(ROOT, "docs", "data", "investigations.json"), "w"), separators=(",", ":"))
         tdir = os.path.join(ROOT, "docs", "data", "timeline"); os.makedirs(tdir, exist_ok=True)
         for cf, per in build_timelines({r["i"]: r for r in slim}).items():
             json.dump({"built_at": built, "county": cf, "properties": per}, open(os.path.join(tdir, f"{cf}.json"), "w"), separators=(",", ":"))

@@ -146,6 +146,7 @@ function render(){
     ${ch.length?`<div class="chg"><b>What changed since last check</b>${ch.map(c=>{ const m=c.match(/^(.*?): (.*?) → (.*)$/); return m?`<div class="diff"><span>${esc(m[1])}</span><span class="o">${esc(m[2])}</span><span class="n">${esc(m[3])}</span></div>`:`<div>${esc(c)}</div>`; }).join('')}</div>`:(s.at?`<div class="ok">Re-checked ${esc(s.at.slice(0,16).replace('T',' '))}: the sources that answered show no change. A source that did not answer is not "no change".</div>`:'')}
     ${s.missing?`<div class="chg"><b>Parcel not found on the State roll</b> — the id may have been retired (split or merged).</div>`:''}
     ${sigBadges(w)}
+    ${window.PH && PH.CASES ? PH.activeCaseHtml({fips:w.fips, parcel_id:w.parcel_id}) : ''}
     <div class="facts">${FIELDS.map(([k,l,f])=>`<div><span>${l}</span>${esc(f(s[k]))}</div>`).join('')}</div>
     <div class="ok"><a href="lookup.html?county=${esc(w.fips)}&q=${encodeURIComponent(w.parcel_id)}">Open in the lookup</a></div>
   </div>`; }).join('');
@@ -180,7 +181,7 @@ if(p.get('add')){ const [fips,pid] = p.get('add').includes(':') ? p.get('add').s
 render();
 if(LIST.length && LIST.some(w=>!w.snap)) checkAll();
 </script>
-<script>loadSigs();</script>
+<script>loadSigs(); PH.loadCaseIndex().then(render);</script>
 <script src="nav.js"></script>
 </body>
 </html>

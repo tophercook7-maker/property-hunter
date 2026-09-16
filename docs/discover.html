@@ -73,7 +73,7 @@ function render(){
 }
 async function init(){
   const load = async (u, fb) => { try { const r = await fetch(u, {cache:'no-store'}); return r.ok ? await r.json() : fb; } catch(e){ return fb; } };
-  const [sig, st] = await Promise.all([load('data/signals.json', SIG), load('data/status.json', {})]);
+  const [sig, st] = await Promise.all([load('data/signals.json', SIG), load('data/status.json', {}), PH.loadCaseIndex()]);
   SIG = sig; CP = (st||{}).countypay || {};
   const all = (SIG.rows||[]).concat(SIG.discovered||[]);
   const counties = [...new Map(all.map(x=>[x.cf, x.cn])).entries()].sort((a,b)=>String(a[1]).localeCompare(String(b[1])));

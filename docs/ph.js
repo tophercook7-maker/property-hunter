@@ -134,7 +134,8 @@
     const s = (r && r.sale) || {};
     if (s.st === 'FOR_SALE' && s.src) return { state: 'FOR_SALE', text: `FOR SALE — ${s.src}${s.price ? ', asking ' + PH.money(s.price) : ''}`, source: s.src, kind: 'fact' };
     if (s.st === 'NOT_FOR_SALE' && s.src) return { state: 'NOT_FOR_SALE', text: `NOT FOR SALE — ${s.src}`, source: s.src, kind: 'fact' };
-    if (String((r && r.ts) || '').startsWith('CERTIFIED')) return { state: 'FOR_SALE_BY_STATE', text: 'FOR SALE BY THE STATE — tax sale (Commissioner of State Lands); not a private listing', source: 'Commissioner of State Lands', kind: 'fact' };
+    const certified = r && r.taxs ? r.taxs.st === 'TAX_SALE_VERIFIED' : String((r && r.ts) || '').startsWith('CERTIFIED');   // the tax model already knows when a certification ended
+    if (certified) return { state: 'FOR_SALE_BY_STATE', text: 'FOR SALE BY THE STATE — tax sale (Commissioner of State Lands); not a private listing', source: 'Commissioner of State Lands', kind: 'fact' };
     return { state: 'UNKNOWN', text: 'UNKNOWN — no listing source connected. Property Hunter is not saying this is for sale or not for sale.', source: null, kind: 'unknown' };
   };
   PH.searchListingsUrl = r => { const q = [r && r.a, r && r.c, 'Arkansas'].filter(Boolean).join(' '); return 'https://www.google.com/search?q=' + encodeURIComponent(q + ' listing'); };
@@ -237,7 +238,7 @@
         <div class="meta">event ${PH.esc(x.date)} · read ${PH.esc((x.discovered_at || '').replace('T', ' '))} · source: ${x.src_url ? `<a href="${PH.esc(x.src_url)}" target="_blank" rel="noopener">${PH.esc(x.src)}</a>` : PH.esc(x.src)} · ${PH.esc(x.status)}${x.evidence_ref ? ' · ref ' + PH.esc(x.evidence_ref) : ''}</div>
         <div class="meta"><b>Taxes:</b> <span class="tx-${tx.tone}">${PH.esc(tx.text)}</span> · <b>Sale:</b> ${PH.esc(sale.text.split('.')[0])}${x.tv ? ` · appraised ${PH.money(x.tv)}` : ''}</div>
       </span>
-      <span class="acts"><a class="next" href="${PH.esc(x.next.href)}"${ext ? ' target="_blank" rel="noopener"' : ''}>${PH.esc(x.next.label)} →</a><a class="file" href="lookup.html?county=${PH.esc(x.cf)}&q=${encodeURIComponent(x.pid || x.a || '')}">Open property file</a></span>
+      <span class="acts"><a class="next" href="${PH.esc(x.next.href)}"${ext ? ' target="_blank" rel="noopener"' : ''}>${PH.esc(x.next.label)} →</a>${PH.investigateBtn(x, x)}<a class="file" href="lookup.html?county=${PH.esc(x.cf)}&q=${encodeURIComponent(x.pid || x.a || '')}">Open property file</a></span>
     </article>`;
   };
   // ---------- EVIDENCE TIMELINE ----------
@@ -273,6 +274,53 @@
     return `<div class="know"><div><h4>What we know</h4><ul>${li(know) || '<li>Only the county roll reading.</li>'}</ul></div>
       <div><h4>What we don't know</h4><ul>${li(dont)}</ul></div>
       <div><h4>Next steps</h4><ol>${li(next)}</ol>${dated.length ? `<small>Newest dated event ${PH.esc(dated[dated.length - 1].date)} · oldest ${PH.esc(dated[0].date)} · ${PH.esc(String((tl || []).length))} evidence items</small>` : ''}</div></div>`;
+  };
+
+  // ---------- P2: INVESTIGATION CASES (durable research objects in the local app) ----------
+  PH.API = 'http://127.0.0.1:8234';
+  PH.CASES = null;                       // {by_property:{pid:{id,status,updated_at,unknown,signals}}, by_parcel:{'cf:pid':id}, live:bool}
+  PH.CASE_STATUS = { OPEN: 'OPEN', RESEARCHING: 'RESEARCHING', WAITING_ON_SOURCE: 'WAITING ON SOURCE', READY_FOR_REVIEW: 'READY FOR REVIEW', CLOSED: 'CLOSED' };
+  PH.apiFetch = async (path, opts, ms) => {
+    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const t = ctl ? setTimeout(() => ctl.abort(), ms || 1500) : null;
+    try { return await fetch(PH.API + path, Object.assign({ signal: ctl && ctl.signal }, opts || {})); }
+    finally { if (t) clearTimeout(t); }
+  };
+  PH.loadCaseIndex = async () => {
+    if (PH.CASES) return PH.CASES;
+    try { const r = await PH.apiFetch('/api/cases/index'); if (r.ok) { PH.CASES = Object.assign(await r.json(), { live: true }); return PH.CASES; } } catch (e) {}
+    try { const r = await fetch('data/investigations.json', { cache: 'no-store' }); if (r.ok) { const d = await r.json(); PH.CASES = { by_property: d.by_property || {}, by_parcel: d.by_parcel || {}, built_at: d.built_at, live: false }; return PH.CASES; } } catch (e) {}
+    PH.CASES = { by_property: {}, by_parcel: {}, live: false, unavailable: true };
+    return PH.CASES;
+  };
+  // the case for a scan/signal row (r.i or r.id = property id; cf:pid fallback for watch rows)
+  PH.caseFor = (r, idx) => {
+    const c = idx || PH.CASES; if (!c || !r) return null;
+    const pid = r.i != null ? r.i : (r.property_id != null ? r.property_id : r.id);
+    if (pid != null && c.by_property && c.by_property[String(pid)]) return c.by_property[String(pid)];
+    const key = `${r.cf || r.fips || ''}:${r.pid || r.parcel_id || ''}`;
+    const id = c.by_parcel && c.by_parcel[key];
+    if (id) { const hit = Object.values(c.by_property || {}).find(x => x.id === id); return hit || { id }; }
+    return null;
+  };
+  // INVESTIGATE PROPERTY opens or creates the one case; OPEN INVESTIGATION when it already exists. Never two.
+  PH.investigateHref = (r, sig, idx) => {
+    const ex = PH.caseFor(r, idx);
+    if (ex) return `investigation.html?id=${ex.id}`;
+    const pid = r.i != null ? r.i : (r.property_id != null ? r.property_id : r.id);
+    if (pid == null) return null;
+    const s = sig && sig.event ? `&sig=${encodeURIComponent(sig.event + '|' + (sig.evidence_ref || ''))}` : '';
+    return `investigation.html?property=${encodeURIComponent(pid)}${s}`;
+  };
+  PH.investigateBtn = (r, sig, idx) => {
+    const ex = PH.caseFor(r, idx), href = PH.investigateHref(r, sig, idx);
+    if (!href) return '';
+    return ex ? `<a class="btn ghost inv is-on" href="${PH.esc(href)}">OPEN INVESTIGATION · ${PH.esc(PH.CASE_STATUS[ex.status] || ex.status)}${ex.unknown != null ? ` · ${ex.unknown} unknown` : ''}</a>`
+              : `<a class="btn ghost inv" href="${PH.esc(href)}">INVESTIGATE PROPERTY</a>`;
+  };
+  PH.activeCaseHtml = (r, idx) => {
+    const ex = PH.caseFor(r, idx); if (!ex) return '';
+    return `<div class="active-inv"><b>ACTIVE INVESTIGATION</b> · ${PH.esc(PH.CASE_STATUS[ex.status] || ex.status)}${ex.updated_at ? ` · updated ${PH.esc(String(ex.updated_at).slice(0, 16).replace('T', ' '))}` : ''}${ex.unknown != null ? ` · ${ex.unknown} question${ex.unknown === 1 ? '' : 's'} unknown` : ''} · <a href="investigation.html?id=${ex.id}">Open investigation</a></div>`;
   };
 
   // ---------- DOM ----------

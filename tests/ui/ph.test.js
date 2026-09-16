@@ -128,7 +128,6 @@ ok('evidence chain names what it does not establish', () => {
   assert.match(h, /Does not establish/); assert.match(h, /clear title/);
 });
 ok('excluded areas keep their pill', () => { assert.match(PH.pill('excluded', 'Hot Springs Village'), /excluded/); });
-console.log(`ph.test.js: ${n} checks passed`);
 
 // ---- P1 discovery feed, timeline, know-block ----
 const sig = (o) => Object.assign({ id: 1, event: 'NEW_LIEN', cls: 'WORLD_EVENT', kind: 'verified', cf: '05051', cn: 'Garland', date: '2026-09-14', discovered_at: '2026-09-14T03:00', src: 'City of Hot Springs', src_url: null, status: 'VERIFIED', evidence_ref: 'evidence:1', label: 'New City lien', why: 'w', next: { label: 'Investigate lien', href: 'lookup.html?county=05051&q=p' }, a: '1 Sig St', pid: 'p', tv: 1000, taxs: { st: 'UNKNOWN', src: null }, sale: { st: 'UNKNOWN', src: null } }, o);
@@ -170,3 +169,19 @@ ok('know-block: unknown tax and unknown sale live under "don\'t know"; State abs
   const c = PH.knowBlock(Object.assign({}, r, { taxs: { st: 'CURRENT_BILL_OPEN', src: 'County Collector', as_of: '2026-09-15', amt: 66.65 } }), null, []);
   assert.match(c.split("What we don't know")[0], /CURRENT BILL OPEN — \$66\.65 — not delinquent/);
 });
+
+// ---- P2 investigation helpers ----
+ok('one case per property: INVESTIGATE PROPERTY becomes OPEN INVESTIGATION, never a second case', () => {
+  const idx = { by_property: { '877': { id: 3, status: 'RESEARCHING', unknown: 4, updated_at: '2026-09-16T02:00:00' } }, by_parcel: { '05051:400-1': 3 } };
+  assert.strictEqual(PH.investigateHref({ i: 877 }, null, idx), 'investigation.html?id=3');
+  assert.strictEqual(PH.investigateHref({ id: 5, cf: '05069', pid: 'z' }, { event: 'NEW_LIEN', evidence_ref: 'evidence:9' }, idx), 'investigation.html?property=5&sig=NEW_LIEN%7Cevidence%3A9');
+  assert.strictEqual(PH.investigateHref({ a: 'no ids' }, null, idx), null, 'no property id, no link, no fake button');
+  assert.match(PH.investigateBtn({ i: 877 }, null, idx), /OPEN INVESTIGATION · RESEARCHING · 4 unknown/);
+  assert.match(PH.investigateBtn({ id: 5, cf: '05069', pid: 'z' }, sig({}), idx), /INVESTIGATE PROPERTY/);
+  assert.strictEqual(PH.caseFor({ fips: '05051', parcel_id: '400-1' }, idx).id, 3, 'watch rows match by county:parcel');
+  assert.match(PH.activeCaseHtml({ fips: '05051', parcel_id: '400-1' }, idx), /ACTIVE INVESTIGATION<\/b> · RESEARCHING/);
+  assert.strictEqual(PH.activeCaseHtml({ i: 1 }, idx), '');
+  const card = PH.sigCard(sig({ id: 877 }));
+  assert.match(card, /investigation\.html\?/);
+});
+console.log(`ph.test.js: ${n} checks passed`);

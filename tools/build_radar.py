@@ -61,8 +61,15 @@ def main():
     for county, rows in by_county.items():
         keep = [x for x in rows if not x.get("excluded_area")]
         base_keys = set((base or {}).get(county, {}).keys()) if base else None
-        new = [x for x in keep if (x["rpid"] not in base_keys) if base_keys is not None] if base_keys is not None else \
-              [x for x in keep if (x.get("added") or "") >= week_ago]
+        # P1 classification. WORLD_EVENT only when something outside this site says the record changed this week:
+        # the State's own 'added' date, or absence from an earlier snapshot of the State's inventory.
+        # Anything else is a FIRST_DISCOVERY (this site read it for the first time; the record may be older).
+        if base_keys is not None:
+            new = [dict(slim(x), cls="WORLD_EVENT",
+                        basis=("state_added_date" if (x.get("added") or "") >= week_ago else "inventory_snapshot:" + base_date))
+                   for x in keep if x["rpid"] not in base_keys]
+        else:
+            new = [dict(slim(x), cls="WORLD_EVENT", basis="state_added_date") for x in keep if (x.get("added") or "") >= week_ago]
         gone = []
         if base_keys is not None:
             now_keys = {x["rpid"] for x in rows}
@@ -71,9 +78,12 @@ def main():
             sold = {s["parcel"]: s for s in hrows.get("sales", [])}
             red = {r["parcel"]: r for r in hrows.get("redemptions", [])}
             for k in gone_keys:
-                gone.append({"rpid": k, "county": county,
-                             "how": ("sold" if k in sold else "redeemed" if k in red else "left the inventory"),
-                             "detail": sold.get(k) or red.get(k)})
+                how = "sold" if k in sold else "redeemed" if k in red else "left the inventory"
+                gone.append({"rpid": k, "county": county, "how": how, "detail": sold.get(k) or red.get(k),
+                             # sold / redeemed come from the State's own deed and redemption reports: real-world events.
+                             # a bare exit is only observed by this site; the cause is unknown.
+                             "cls": "WORLD_EVENT" if how in ("sold", "redeemed") else "OBSERVED",
+                             "basis": ("state_deed_report" if how == "sold" else "state_redemption_report" if how == "redeemed" else "inventory_snapshot:" + base_date)})
         bids = sorted([x for x in keep if (x.get("current_bid") or 0) > 0], key=lambda x: -(x["current_bid"] or 0))
         val = sorted([x for x in keep if (x.get("improvements") or 0) > 0 and x.get("starting_bid")],
                      key=lambda x: -((x.get("appraised") or 0) / max(x["starting_bid"], 1)))[:10]
@@ -81,7 +91,7 @@ def main():
         h = (hist.get("counties") or {}).get(county, {})
         out["counties"][county] = {
             "fips": rows[0]["fips"],
-            "new": [slim(x) for x in new][:60], "gone": gone[:60], "bids": [slim(x) for x in bids][:40],
+            "new": new[:60], "gone": gone[:60], "bids": [slim(x) for x in bids][:40],
             "best_value": [slim(x) for x in val],
             "summary": {"for_sale": len(rows), "outside_village": len(keep), "with_building": sum(1 for x in keep if (x.get("improvements") or 0) > 0),
                         "new_this_week": len(new), "gone_this_week": len(gone), "with_bids": len(bids),

@@ -315,6 +315,8 @@ async function select(i){
     <div id="village"></div>
     <div class="strip" id="strip" aria-label="Summary"><div><span>Sale</span><b>UNKNOWN — no listing source connected</b></div><div><span>Taxes</span><b id="strip-tax">checking the State list and Collector status…</b></div><div><span>Signals</span><b id="strip-sig">looking up the scan…</b></div><div><span>Next</span><b id="strip-next">…</b></div></div>
     <div class="sec" id="whysec"><h3>Why this property? <span class="from">only from records read</span></h3><div id="why"><span class="pending">assembling…</span></div></div>
+    <div class="sec" id="knowsec"><h3>What we know · what we don't know · next steps <span class="from">verified is named; unknown stays unknown</span></h3><div id="know"><span class="pending">assembling…</span></div></div>
+    <div class="sec" id="tlsec"><h3>Evidence timeline <span class="from">dated records, oldest first · world events, first readings, source checks</span></h3><div id="tl"><span class="pending">reading the county timeline…</span></div></div>
     <div class="sec" id="prio"><h3>Signal stack <span class="from">what the records say, counted; from the hunt's scoring if this parcel was scanned</span></h3><div id="priobox"><span class="pending">looking it up…</span></div></div>
     <div class="money">
       <div class="hi"><b class="num">${fmt$(a.totalvalue)}</b><span>County appraised</span></div>
@@ -461,6 +463,7 @@ async function scanRow(fips, parcel){
 }
 async function whyBlock(a, c){
   const el = $('why'), pb = $('priobox'); if(!el) return;
+  await loadCP();
   const row = await scanRow(a.countyfips, a.parcelid);
   const verified = [`County roll: ${title(a.ownername)||'owner not found'} · appraised ${fmt$(a.totalvalue)}${a.impvalue>0?`, building ${fmt$(a.impvalue)}`:', no building value'}`];
   if(a.sourceref) verified.push(`Last deed ${clean(a.sourceref)}${a.sourcedate?' recorded '+dt(a.sourcedate):''}`);
@@ -472,7 +475,8 @@ async function whyBlock(a, c){
     if(row.cc) verified.push('Open 2025 code case at this address');
     if(row.ab) verified.push('Tax bill leaves the county (absentee owner)');
     (row.d||[]).forEach(k => { const L = PH.LABEL[k]; if(L && L[1]==='derived') derived.push(L[0]); });
-    if(!row.tax && !String(row.ts||'').startsWith('CERTIFIED')) unknown.push("This year's county tax bill: not checked (Collector's search was unavailable)");
+    const txw = PH.taxState(row, CPS); if(txw.kind !== 'fact') unknown.push('Taxes: ' + txw.text + txw.note);
+    if(PH.saleStatus(row).state === 'UNKNOWN') unknown.push('Sale status: unknown; no listing source is connected, and the State is not the seller');
   } else {
     unknown.push('Tax status beyond the State list: the live Taxes section below asks the daily inventory; the county bill is not checked here');
   }
@@ -483,14 +487,21 @@ async function whyBlock(a, c){
     ${risks.length?`<b style="display:block;margin-top:8px">Risk flags</b><ul style="margin:6px 0 0;padding-left:18px">${risks.map(v=>`<li>${esc(v)} ${PH.pill('risk','risk')}</li>`).join('')}</ul>`:''}
     <b style="display:block;margin-top:8px">Possible interpretation</b><p style="margin:4px 0 0">${row && (row.s||0)>=65 ? 'This combination of records may justify a closer look. That is a research judgement, not a valuation.' : row ? 'The records read so far do not make this a priority; it may still be worth a look for your own reasons.' : 'This parcel was not part of a hunt preset, so no priority has been computed. The records above stand on their own.'}</p>
     <b style="display:block;margin-top:8px">Unknown</b><ul style="margin:6px 0 0;padding-left:18px">${unknown.map(v=>`<li>${esc(v)} ${PH.pill('unknown','unknown')}</li>`).join('')}</ul>
-    <b style="display:block;margin-top:8px">Next step</b><p style="margin:4px 0 0">Drive by and verify condition before contacting the owner. Then work the checklist at the bottom of this file.</p></div>`;
+    <b style="display:block;margin-top:8px">Next step</b><p style="margin:4px 0 0">${row ? (()=>{ const nx = PH.nextAction(row, CPS); return `<a href="${esc(nx.href)}"${/^https?:/.test(nx.href)?' target="_blank" rel="noopener"':''}>${esc(nx.label)} →</a> Then work the checklist at the bottom of this file.`; })() : 'Drive by and verify condition before contacting the owner. Then work the checklist at the bottom of this file.'}</p></div>`;
   const cmax = row ? (SCAN_MAX[a.countyfips] || null) : null;
   pb.innerHTML = row ? PH.stackHtml(row, cmax) + `<div style="margin-top:8px"><button class="btn ghost" type="button" id="whybtn">Why this one? · step through the evidence</button> <a class="btn ghost" href="${esc(PH.searchListingsUrl(row))}" target="_blank" rel="noopener">Search public listings</a></div>` : `<div class="empty">Not scored: this parcel was not in the hunt's distress preset for ${esc(COUNTIES[a.countyfips]||'this county')}, or the county has not been hunted yet. Everything else in this file is read live from the records. Sale status is unknown: no listing source is connected.</div>`;
   const ss = $('strip-sig'), sn = $('strip-next');
   if(row){ const sg = PH.signals(row); const nx = PH.nextAction(row); ss.textContent = `${sg.verified.length} verified / ${sg.derived.length} derived${sg.strongest?' · '+sg.strongest.text:''}`; sn.innerHTML = `<a href="${esc(nx.href)}"${/^https?:/.test(nx.href)?' target="_blank" rel="noopener"':''}>${esc(nx.label)} →</a>`; }
   else { ss.textContent = 'not scanned; live records only'; sn.innerHTML = `Work the "Before you buy" checklist below · <a href="request.html">check Collector / request county list</a>`; }
   if(row) $('whybtn').addEventListener('click', ()=>PH.whyOpen(row, row.a));
+  // P1: evidence timeline (exported per county, keyed by the hunt's property id) + know / don't know / next
+  let tl = [];
+  if(row && row.i != null){ try { const r = await fetch(`data/timeline/${a.countyfips}.json`, {cache:'no-store'}); if(r.ok){ const t = await r.json(); tl = (t.properties||{})[String(row.i)] || []; } } catch(e){} }
+  const tlEl = $('tl'); if(tlEl) tlEl.innerHTML = row ? PH.timelineHtml(tl, CPS) : '<div class="empty">Not in the hunt for this county, so no exported timeline. The live sections above are the record for this parcel.</div>';
+  const kEl = $('know'); if(kEl) kEl.innerHTML = row ? PH.knowBlock(row, CPS, tl) : `<div class="know"><div><h4>What we know</h4><ul><li>${esc(verified[0])}</li></ul></div><div><h4>What we don't know</h4><ul>${unknown.map(u=>`<li>${esc(u)}</li>`).join('')}</ul></div><div><h4>Next steps</h4><ol><li>Work the "Before you buy" checklist below</li><li><a href="request.html?county=${esc(COUNTIES[a.countyfips]||'')}">Check Collector / request county list</a></li></ol></div></div>`;
 }
+let CPS = null;
+async function loadCP(){ if(CPS) return CPS; try { CPS = (((await (await fetch('data/status.json',{cache:'no-store'})).json())||{}).countypay) || {}; } catch(e){ CPS = {}; } return CPS; }
 /* ---------- visuals: aerials from the State's own imagery, no key needed ---------- */
 const IMG = 'https://gis.arkansas.gov/arcgis/rest/services/ImageServices';
 function aerialUrl(r, c, service, size){

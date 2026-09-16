@@ -133,6 +133,10 @@ async function snapshot(w){
 const FIELDS = [['owner','Owner of record', v=>title(v)], ['appraised','County appraised', fmt$], ['improvements','Building value', fmt$], ['deed','Last deed', v=>v||'—'], ['liens','City liens', v=>v==null?'n/a':fmt$(v)], ['vacant','Vacant register', v=>v==null?'n/a':(v?'ON':'no')], ['cases','Open code cases', v=>v==null?'n/a':String(v)], ['cosl','State Lands', v=>v||'—'], ['bid','Current bid', v=>v==null?'—':fmt$(v)]];
 function diff(a, b){ if(!a||!b||a.missing||b.missing) return []; return FIELDS.filter(([k])=>String(a[k]??'')!==String(b[k]??'')).map(([k,label,f])=>`${label}: ${f(a[k])} → ${f(b[k])}`); }
 
+let SIGS = null;
+async function loadSigs(){ if(SIGS) return SIGS; try { const r = await fetch('data/signals.json',{cache:'no-store'}); const d = r.ok ? await r.json() : {}; SIGS = (d.rows||[]).concat(d.discovered||[]); } catch(e){ SIGS = []; } render(); return SIGS; }
+function sigsFor(w){ return (SIGS||[]).filter(x => x.cf===w.fips && (x.pid===w.parcel_id)); }
+function sigBadges(w){ const xs = sigsFor(w); if(!xs.length) return ''; const L = window.PH ? PH.EVENT : {}; const C = window.PH ? PH.CLASS : {}; return `<div class="chg"><b>Public-record events this week</b>${xs.map(x=>`<div><span class="pill ${x.cls==='WORLD_EVENT'?'state':'derived'}">${esc(C[x.cls]||x.cls)}</span> ${esc((L[x.event]||[x.event])[0])} · ${esc(x.date)} · ${esc(x.src)} · ${esc(x.status)} · <a href="discover.html?county=${esc(x.cf)}">on Discover</a></div>`).join('')}</div>`; }
 function render(){
   if(!LIST.length){ $('list').innerHTML = `<div class="empty">Nothing watched yet. Open a parcel in the <a href="lookup.html">lookup</a> or the <a href="state-lands.html">tax-sale inventory</a> and press <b>Watch</b>, or paste parcel ids below.</div>`; return; }
   $('list').innerHTML = LIST.map((w,i) => { const s = w.snap||{}; const ch = w.changes||[]; const st = derivedStatus(w); return `<div class="card">
@@ -141,6 +145,7 @@ function render(){
     <button class="x" data-i="${i}">Remove</button>
     ${ch.length?`<div class="chg"><b>What changed since last check</b>${ch.map(c=>{ const m=c.match(/^(.*?): (.*?) → (.*)$/); return m?`<div class="diff"><span>${esc(m[1])}</span><span class="o">${esc(m[2])}</span><span class="n">${esc(m[3])}</span></div>`:`<div>${esc(c)}</div>`; }).join('')}</div>`:(s.at?`<div class="ok">Re-checked ${esc(s.at.slice(0,16).replace('T',' '))}: the sources that answered show no change. A source that did not answer is not "no change".</div>`:'')}
     ${s.missing?`<div class="chg"><b>Parcel not found on the State roll</b> — the id may have been retired (split or merged).</div>`:''}
+    ${sigBadges(w)}
     <div class="facts">${FIELDS.map(([k,l,f])=>`<div><span>${l}</span>${esc(f(s[k]))}</div>`).join('')}</div>
     <div class="ok"><a href="lookup.html?county=${esc(w.fips)}&q=${encodeURIComponent(w.parcel_id)}">Open in the lookup</a></div>
   </div>`; }).join('');
@@ -175,6 +180,7 @@ if(p.get('add')){ const [fips,pid] = p.get('add').includes(':') ? p.get('add').s
 render();
 if(LIST.length && LIST.some(w=>!w.snap)) checkAll();
 </script>
+<script>loadSigs();</script>
 <script src="nav.js"></script>
 </body>
 </html>

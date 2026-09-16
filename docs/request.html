@@ -99,7 +99,8 @@ code{font-family:var(--mono);font-size:12.5px;background:var(--surface2);padding
 <script>
 const $ = id => document.getElementById(id);
 const COUNTIES = ["Arkansas","Ashley","Baxter","Benton","Boone","Bradley","Calhoun","Carroll","Chicot","Clark","Clay","Cleburne","Cleveland","Columbia","Conway","Craighead","Crawford","Crittenden","Cross","Dallas","Desha","Drew","Faulkner","Franklin","Fulton","Garland","Grant","Greene","Hempstead","Hot Spring","Howard","Independence","Izard","Jackson","Jefferson","Johnson","Lafayette","Lawrence","Lee","Lincoln","Little River","Logan","Lonoke","Madison","Marion","Miller","Mississippi","Monroe","Montgomery","Nevada","Newton","Ouachita","Perry","Phillips","Pike","Poinsett","Polk","Pope","Prairie","Pulaski","Randolph","St. Francis","Saline","Scott","Searcy","Sebastian","Sevier","Sharp","Stone","Union","Van Buren","Washington","White","Woodruff","Yell"];
-$('county').innerHTML = COUNTIES.map(c=>`<option ${c==='Garland'?'selected':''}>${c}</option>`).join('');
+const want = new URLSearchParams(location.search).get('county') || 'Garland';
+$('county').innerHTML = COUNTIES.map(c=>`<option ${c.toLowerCase()===want.toLowerCase()?'selected':''}>${c}</option>`).join('');
 function build(){
   const c = $('county').value, n = $('name').value || '[your name]', k = $('contact').value || '[your email or phone]';
   const yr = new Date().getFullYear() - 1;

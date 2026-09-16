@@ -174,44 +174,57 @@ def build_signals(rows_by_id: dict, county_name: dict) -> dict:
         if kind == "directions" and r.get("lat"):
             return f"https://www.google.com/maps/dir/?api=1&destination={r['lat']},{r['lon']}"
         return f"lookup.html?county={r['cf']}&q={r['pid'] or r['a'] or ''}"
-    def row(pid, event, label, date, src, status, why, nxt, extra=None, discovery=False):
+    try:
+        sl_urls = {(x.get("fips"), x.get("parcel_id")): x.get("listing_url") for x in json.load(open(os.path.join(ROOT, "docs", "data", "state_lands.json"))).get("listings", [])}
+    except Exception:
+        sl_urls = {}
+    def row(pid, event, label, date, src, status, why, nxt, extra=None, discovery=False, ref=None, src_url=None, discovered_at=None):
         r = rows_by_id.get(pid)
         if not r or pid in artefact:
             return
+        url = src_url or (sl_urls.get((r["cf"], r["pid"])) if event.startswith(("NEW_TAX_SALE", "STATE_")) else None)
         out.append({"id": pid, "a": r["a"], "cn": r["cn"], "cf": r["cf"], "pid": r["pid"], "tv": r["tv"], "iv": r["iv"],
-                    "event": event, "label": label, "date": (date or "")[:10], "src": src, "status": status,
+                    "event": event, "label": label, "date": (date or "")[:10], "discovered_at": (discovered_at or date or "")[:16],
+                    "src": src, "src_url": url or None, "status": status, "kind": "verified" if status == "VERIFIED" else "observed",
+                    "evidence_ref": ref, "cls": "FIRST_DISCOVERY" if discovery else "WORLD_EVENT",
                     "why": why, "next": {"label": nxt["label"], "href": href(r, nxt["href"])},
+                    "taxs": r.get("taxs"), "sale": r.get("sale"), "conf": r.get("conf"),
                     "discovery": bool(discovery), **(extra or {})})
     # 1. State tax sale: certification recorded in the window (change row, seed or not)
-    for c in q("""SELECT c.property_id, c.old_value, c.detected_at, p.first_seen FROM changes c JOIN properties p ON p.id=c.property_id
+    for c in q("""SELECT c.id cid, c.property_id, c.old_value, c.detected_at, p.first_seen,
+                         (SELECT e.effective_date FROM evidence e WHERE e.property_id=c.property_id AND e.field='tax_delinquent' ORDER BY e.id DESC LIMIT 1) listed,
+                         (SELECT e.source_url FROM evidence e WHERE e.property_id=c.property_id AND e.field='tax_delinquent' ORDER BY e.id DESC LIMIT 1) surl
+                  FROM changes c JOIN properties p ON p.id=c.property_id
                   WHERE c.field='tax_status' AND c.new_value LIKE 'CERTIFIED%' AND c.detected_at > ? AND p.excluded=0""", (since,)):
         first = (c["first_seen"] or "") > since
         row(c["property_id"], "NEW_TAX_SALE",
             "First seen on the State tax-sale list" if first else "Newly certified to the State for unpaid taxes",
-            c["detected_at"], "Commissioner of State Lands", "VERIFIED",
+            (c["listed"] or c["detected_at"]), "Commissioner of State Lands", "VERIFIED",
             "The State is selling this parcel for unpaid taxes; the amount owed is public and the owner can still redeem until it sells.",
-            {"label": "Open sale file", "href": "state-lands"}, discovery=first)
+            {"label": "Open sale file", "href": "state-lands"}, discovery=first, ref=f"change:{c['cid']}", src_url=c["surl"], discovered_at=c["detected_at"])
     # 2. Left the State inventory: sold / redeemed from the monthly report, else 'left'
-    for e in q("""SELECT e.property_id, e.field, e.value, e.created_at FROM evidence e JOIN properties p ON p.id=e.property_id
+    for e in q("""SELECT e.id eid, e.property_id, e.field, e.value, e.created_at, e.effective_date, e.source_url FROM evidence e JOIN properties p ON p.id=e.property_id
                   WHERE e.field IN ('tax_sale_history','tax_redemption','tax_delinquent_removed') AND e.created_at > ? AND p.excluded=0
                   ORDER BY e.id""", (since,)):
         kind = {"tax_sale_history": ("STATE_SOLD", "Sold at the State tax sale", "The State's monthly sales report lists this parcel as sold; the deed goes to the buyer after the litigation period."),
                 "tax_redemption": ("STATE_REDEEMED", "Redeemed by the owner", "The State's monthly report says the owner paid up; it is off the sale list."),
                 "tax_delinquent_removed": ("STATE_LEFT", "Left the State tax-sale inventory", "It is no longer listed; the monthly report will say whether it sold or was redeemed.")}[e["field"]]
-        row(e["property_id"], kind[0], kind[1], e["created_at"], "Commissioner of State Lands",
+        row(e["property_id"], kind[0], kind[1], (e["effective_date"] or e["created_at"]), "Commissioner of State Lands",
             "VERIFIED" if e["field"] != "tax_delinquent_removed" else "OBSERVED", kind[2],
-            {"label": "Re-check the file", "href": "lookup"})
+            {"label": "Re-check the file", "href": "lookup"}, ref=f"evidence:{e['eid']}", src_url=e["source_url"], discovered_at=e["created_at"])
     # 3. City registers: first evidence row inside the window
     for field, ev_name, label, why, nxt in (
             ("vacant_structure", "NEW_VACANCY_RECORD", "New vacant-structure register record", "The City itself now records this building as vacant.", {"label": "Drive by", "href": "directions"}),
             ("cleanup_lien_amount", "NEW_LIEN", "New City cleanup / demolition lien", "The City spent money here and holds a lien; it is paid at closing or negotiated.", {"label": "Investigate lien", "href": "lookup"}),
             ("code_case_open", "NEW_CODE_CASE", "New code-enforcement case", "The City opened a housing or code case at this address.", {"label": "Review case", "href": "lookup"}),
             ("tax_delinquent_county", "VERIFIED_DELINQUENCY", "Delinquent at the county (verified)", "The county's own record says the taxes are behind.", {"label": "Inspect delinquent record", "href": "lookup"})):
-        for e in q(f"""SELECT e.property_id, MIN(e.created_at) first_at, p.first_seen FROM evidence e JOIN properties p ON p.id=e.property_id
+        for e in q(f"""SELECT e.property_id, MIN(e.created_at) first_at, MIN(e.id) eid, MIN(e.effective_date) eff, MIN(e.source_url) surl, p.first_seen
+                       FROM evidence e JOIN properties p ON p.id=e.property_id
                        WHERE e.field=? AND p.excluded=0 GROUP BY e.property_id HAVING first_at > ?""", (field, since)):
             first = (e["first_seen"] or "") > since
-            row(e["property_id"], ev_name, label + (" (first seen by the scanner)" if first else ""), e["first_at"],
-                "City of Hot Springs" if field != "tax_delinquent_county" else "County Collector", "VERIFIED", why, nxt, discovery=first)
+            row(e["property_id"], ev_name, label + (" (first seen by the scanner)" if first else ""), (e["eff"] or e["first_at"]),
+                "City of Hot Springs" if field != "tax_delinquent_county" else "County Collector", "VERIFIED", why, nxt,
+                discovery=first, ref=f"evidence:{e['eid']}", src_url=e["surl"], discovered_at=e["first_at"])
     out.sort(key=lambda x: x["date"], reverse=True)
     events = [x for x in out if not x["discovery"]]
     discovered = [x for x in out if x["discovery"]]
@@ -220,13 +233,78 @@ def build_signals(rows_by_id: dict, county_name: dict) -> dict:
         for x in xs:
             c[x["event"]] = c.get(x["event"], 0) + 1
         return c
-    return {"built_at": datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z", "window_days": 7,
+    return {"schema": 2, "built_at": datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z", "window_days": 7,
+            "classes": {"WORLD_EVENT": "the public record itself changed inside the window", "FIRST_DISCOVERY": "Property Hunter read the record for the first time inside the window; the record may be older"},
             # `total` = events on parcels the hunt already knew (a change in the world this week);
             # `discovered` = signals on parcels the scanner met for the first time this week (new to the
             # user too, but not "new this week" in the world). Never merged into one number.
             "total": len(events), "by_event": counts(events),
             "discovered_total": len(discovered), "discovered_by_event": counts(discovered),
             "listing_source": None, "rows": events[:200], "discovered": discovered[:200]}
+
+
+TIMELINE_FIELDS = {
+    "tax_delinquent": ("WORLD_EVENT", "Entered the State tax-sale inventory", "Commissioner of State Lands"),
+    "tax_sale_history": ("WORLD_EVENT", "Sold at the State tax sale", "Commissioner of State Lands"),
+    "tax_redemption": ("WORLD_EVENT", "Redeemed by the owner (State report)", "Commissioner of State Lands"),
+    "tax_delinquent_removed": ("SOURCE_CHECK", "No longer in the State inventory when re-read", "Commissioner of State Lands"),
+    "vacant_structure": ("WORLD_EVENT", "On the City vacant-structure register", "City of Hot Springs"),
+    "cleanup_lien_amount": ("WORLD_EVENT", "City cleanup / demolition lien recorded", "City of Hot Springs"),
+    "code_case_open": ("WORLD_EVENT", "Code-enforcement case opened", "City of Hot Springs"),
+    "tax_status_check": ("SOURCE_CHECK", "Source answered: no open bill / not held", None),
+    "tax_bill": ("SOURCE_CHECK", "Collector answered with an open bill", "County Collector"),
+    "tax_delinquent_county": ("WORLD_EVENT", "Delinquent at the county", None),
+}
+
+
+def build_timelines(rows_by_id: dict) -> dict:
+    """Per-property chronological evidence, classified, with provenance. Facts only:
+      WORLD_EVENT     the record's own date (effective_date) says something happened
+      FIRST_DISCOVERY the moment Property Hunter first read that record (created_at)
+      SOURCE_CHECK    a source was asked and answered (incl. 'not held' / 'no open bill')
+      INFORMATIONAL   a roll reading changed (owner, value) - information, not opportunity
+      MANUAL          a human-imported record (county delinquent list)
+    Exported only for properties that have at least one non-roll event, one file per county."""
+    out = {}
+    def add(pid, ev):
+        r = rows_by_id.get(pid)
+        if not r:
+            return
+        out.setdefault(r["cf"], {}).setdefault(str(pid), []).append(ev)
+    for e in q("""SELECT e.id, e.property_id, e.field, e.value, e.source, e.source_name, e.source_url, e.effective_date, e.created_at, e.evidence_type, e.confidence
+                  FROM evidence e JOIN properties p ON p.id=e.property_id
+                  WHERE e.field IN ({}) AND p.excluded=0 ORDER BY e.id""".format(",".join("?" * len(TIMELINE_FIELDS))), tuple(TIMELINE_FIELDS)):
+        cls, title, src = TIMELINE_FIELDS[e["field"]]
+        src = src or e["source_name"] or e["source"]
+        if e["source"] == "county_delinquent_list":
+            cls, title = "MANUAL", "Delinquent on the county's list (imported by a person)"
+        if e["field"] == "tax_status_check":
+            title = "State Lands: not held by the State" if e["source"] == "cosl_listings" else "Collector: no open real-estate bill"
+        eff = (e["effective_date"] or "")[:10]
+        seen = (e["created_at"] or "")[:16]
+        base = {"src": src, "ref": f"evidence:{e['id']}", "url": e["source_url"] or None, "etype": e["evidence_type"], "conf": e["confidence"]}
+        if cls == "WORLD_EVENT" and eff:
+            add(e["property_id"], {"date": eff, "cls": "WORLD_EVENT", "title": title, "detail": (e["value"] or "")[:140], **base})
+            add(e["property_id"], {"date": seen, "cls": "FIRST_DISCOVERY", "title": f"Property Hunter first read this record", "detail": title, **base})
+        elif cls == "WORLD_EVENT":
+            add(e["property_id"], {"date": seen, "cls": "FIRST_DISCOVERY", "title": title + " (record undated; this is when it was read)", "detail": (e["value"] or "")[:140], **base})
+        else:
+            add(e["property_id"], {"date": eff or seen, "cls": cls, "title": title, "detail": (e["value"] or "")[:140], **base})
+    # the roll itself: first read, and informational reading changes in the last 90 days
+    ids = {int(k) for c in out.values() for k in c}
+    if ids:
+        marks = ",".join("?" * len(ids))
+        for p in q(f"SELECT id, first_seen FROM properties WHERE id IN ({marks})", tuple(ids)):
+            add(p["id"], {"date": (p["first_seen"] or "")[:16], "cls": "FIRST_DISCOVERY", "title": "Property Hunter first read this parcel from the county roll", "src": "Arkansas GIS Office (county assessor roll)", "ref": f"property:{p['id']}", "url": None})
+        for c in q(f"""SELECT id, property_id, field, old_value, new_value, source, detected_at FROM changes
+                       WHERE property_id IN ({marks}) AND field IN ('owner_name','total_value','imp_value','land_value','tax_status')
+                       AND detected_at > datetime('now','-90 days') AND old_value IS NOT NULL AND old_value NOT IN ('', 'None', 'not known') ORDER BY id""", tuple(ids)):
+            add(c["property_id"], {"date": (c["detected_at"] or "")[:16], "cls": "INFORMATIONAL", "title": f"Roll reading changed: {c['field'].replace('_', ' ')}",
+                                   "detail": f"{(c['old_value'] or '')[:40]} -> {(c['new_value'] or '')[:40]}", "src": c["source"], "ref": f"change:{c['id']}", "url": None})
+    for cf in out:
+        for pid in out[cf]:
+            out[cf][pid].sort(key=lambda x: x["date"])
+    return out
 
 
 def export_rows():
@@ -390,6 +468,9 @@ def build():
         byfield = Counter(r["f"] for r in real)
         json.dump(build_signals({r["i"]: r for r in slim}, county_name),
                   open(os.path.join(ROOT, "docs", "data", "signals.json"), "w"), separators=(",", ":"))
+        tdir = os.path.join(ROOT, "docs", "data", "timeline"); os.makedirs(tdir, exist_ok=True)
+        for cf, per in build_timelines({r["i"]: r for r in slim}).items():
+            json.dump({"built_at": built, "county": cf, "properties": per}, open(os.path.join(tdir, f"{cf}.json"), "w"), separators=(",", ":"))
         json.dump({"built_at": built, "week": True, "total": len(real), "conflicts": sum(1 for r in chrows if r["k"] == "conflict"),
                    "sources": sum(1 for r in chrows if r["k"] == "sources"), "by_field": byfield.most_common(12),
                    "rows": real[:120] + [r for r in chrows if r["k"] != "change"][:80]},

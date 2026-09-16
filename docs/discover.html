@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Discover · Property Hunter</title>
+<meta name="description" content="New opportunity signals from Arkansas public records: State tax-sale listings, sales and redemptions, City vacancy, lien and code records, verified delinquencies. Real-world events kept separate from first discoveries; every card names its source, date, tax state, sale state and next action.">
+<meta property="og:title" content="Discover · Property Hunter">
+<meta property="og:description" content="New opportunity signals from Arkansas public records, with source, date, tax state, sale state and a next action on every card.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tophercook7-maker.github.io/property-hunter/discover.html">
+<link rel="canonical" href="https://tophercook7-maker.github.io/property-hunter/discover.html">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="ph.css">
+<style>
+main{max-width:1100px;margin:0 auto;padding:16px 16px 60px;display:grid;gap:18px}
+h2{font-size:26px;text-transform:uppercase;letter-spacing:.02em;margin:0}
+.lead{margin:2px 0 0;font-size:14px;color:var(--muted);max-width:70ch}
+.grid{display:grid;gap:8px}
+.sec-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.sec-h .n{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.def{font-size:12.5px;color:var(--muted);background:var(--surface);border:1px solid var(--rule);padding:8px 10px}
+</style>
+</head>
+<body>
+<header class="ph-top"><h1><small>Public-record events · last seven days · every card names its source</small>Discover</h1><nav data-nav aria-label="Sections"></nav></header>
+<main>
+  <section>
+    <h2>New opportunity signals</h2>
+    <p class="lead" id="lead">Loading the feed…</p>
+    <div class="def"><b>Two kinds, never mixed.</b> A <b>real-world event</b> is the public record itself changing inside the window (the State listed, sold or redeemed a parcel; the City recorded a vacancy, lien or code case). A <b>first discovery</b> is Property Hunter reading a record for the first time inside the window; the record may be older. Neither says a property is for sale, and neither says the county taxes are paid: those lines are on every card, and they say UNKNOWN when nothing was checked.</div>
+    <div class="filters2" role="group" aria-label="Filters">
+      <label>From<input type="date" id="f-since"></label>
+      <label>To<input type="date" id="f-until"></label>
+      <label>County<select id="f-county"><option value="">All counties</option></select></label>
+      <label>Event<select id="f-event"><option value="">All events</option></select></label>
+      <label>Kind<select id="f-cls"><option value="">Events and discoveries</option><option value="WORLD_EVENT">Real-world events only</option><option value="FIRST_DISCOVERY">First discoveries only</option></select></label>
+      <label>Evidence<select id="f-kind"><option value="">Verified and observed</option><option value="verified">Verified</option><option value="observed">Observed</option></select></label>
+      <label>Tax state<select id="f-tax"><option value="">Any</option><option>TAX_SALE_VERIFIED</option><option>DELINQUENT_VERIFIED</option><option>CURRENT_BILL_OPEN</option><option>CURRENT_VERIFIED</option><option>STALE</option><option>SOURCE_UNAVAILABLE</option><option>UNKNOWN</option></select></label>
+      <label>Sale state<select id="f-sale"><option value="">Any</option><option value="FOR_SALE_BY_STATE">For sale by the State</option><option value="UNKNOWN">Unknown (no listing source)</option></select></label>
+      <button class="btn ghost" type="button" id="clear">Clear</button>
+    </div>
+  </section>
+  <section>
+    <div class="sec-h"><h2 style="font-size:20px">Real-world events</h2><span class="n" id="n-ev"></span></div>
+    <p class="lead">The record changed this week: a State listing appeared, a parcel sold or was redeemed at the State's sale, or a City register gained a record on a parcel the hunt already knew.</p>
+    <div class="grid" id="events"></div>
+  </section>
+  <section>
+    <div class="sec-h"><h2 style="font-size:20px">New public-record discoveries</h2><span class="n" id="n-disc"></span></div>
+    <p class="lead">Records Property Hunter read for the first time this week. New to you; not necessarily new in the world. The event date on each card is the record's own date when the source gives one.</p>
+    <div class="grid" id="discoveries"></div>
+    <div id="more"></div>
+  </section>
+  <section class="def" id="foot">No opportunity score is applied here. Cards are ordered by event date, newest first. Nothing on this page is a listing, a valuation, a title opinion or advice to buy.</section>
+</main>
+<script src="ph.js"></script>
+<script>
+const $ = id => document.getElementById(id); const esc = PH.esc;
+let SIG = {rows:[],discovered:[]}, CP = {}, LIMIT = 60;
+const F = {};
+function readFilters(){ F.since = $('f-since').value || null; F.until = $('f-until').value || null; F.county = $('f-county').value || null; F.event = $('f-event').value || null; F.cls = $('f-cls').value || null; F.kind = $('f-kind').value || null; F.tax = $('f-tax').value || null; F.sale = $('f-sale').value || null; }
+function render(){
+  readFilters();
+  const ev = PH.filterSignals(SIG.rows, F).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const disc = PH.filterSignals(SIG.discovered, F).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  $('n-ev').textContent = `${ev.length.toLocaleString()} of ${(SIG.rows||[]).length.toLocaleString()}`;
+  $('n-disc').textContent = `${disc.length.toLocaleString()} of ${(SIG.discovered_total||SIG.discovered.length).toLocaleString()}`;
+  $('events').innerHTML = ev.length ? ev.slice(0, LIMIT).map(x=>PH.sigCard(x, CP)).join('') : `<div class="empty">No new opportunity signals this week${Object.values(F).some(Boolean)?' for these filters':''}.</div>`;
+  $('discoveries').innerHTML = disc.length ? disc.slice(0, LIMIT).map(x=>PH.sigCard(x, CP)).join('') : `<div class="empty">No first discoveries${Object.values(F).some(Boolean)?' for these filters':''}.</div>`;
+  $('more').innerHTML = disc.length > LIMIT ? `<button class="btn ghost" type="button" id="morebtn">Show ${Math.min(60, disc.length-LIMIT)} more</button>` : '';
+  const mb = $('morebtn'); if(mb) mb.onclick = () => { LIMIT += 60; render(); };
+}
+async function init(){
+  const load = async (u, fb) => { try { const r = await fetch(u, {cache:'no-store'}); return r.ok ? await r.json() : fb; } catch(e){ return fb; } };
+  const [sig, st] = await Promise.all([load('data/signals.json', SIG), load('data/status.json', {})]);
+  SIG = sig; CP = (st||{}).countypay || {};
+  const all = (SIG.rows||[]).concat(SIG.discovered||[]);
+  const counties = [...new Map(all.map(x=>[x.cf, x.cn])).entries()].sort((a,b)=>String(a[1]).localeCompare(String(b[1])));
+  $('f-county').insertAdjacentHTML('beforeend', counties.map(([cf,cn])=>`<option value="${esc(cf)}">${esc(cn)}</option>`).join(''));
+  const events = [...new Set(all.map(x=>x.event))];
+  $('f-event').insertAdjacentHTML('beforeend', events.map(e=>`<option value="${esc(e)}">${esc((PH.EVENT[e]||[e])[0])}</option>`).join(''));
+  const p = new URLSearchParams(location.search); for(const [k,id] of [['county','f-county'],['event','f-event'],['cls','f-cls']]) if(p.get(k)) $(id).value = p.get(k);
+  $('lead').textContent = `${(SIG.total||0).toLocaleString()} real-world events and ${(SIG.discovered_total||0).toLocaleString()} first discoveries in the ${SIG.window_days||7} days to ${(SIG.built_at||'').slice(0,16).replace('T',' ')} UTC. Listing source connected: ${SIG.listing_source ? esc(SIG.listing_source) : 'none, so sale status is UNKNOWN unless the State itself is the seller'}.`;
+  document.querySelectorAll('.filters2 select, .filters2 input').forEach(el => el.addEventListener('change', render));
+  $('clear').onclick = () => { document.querySelectorAll('.filters2 select, .filters2 input').forEach(el => el.value = ''); render(); };
+  render();
+}
+init();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

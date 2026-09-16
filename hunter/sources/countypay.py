@@ -144,9 +144,12 @@ class CountyPayTaxes(PropertySource):
         if delinquent:
             ev.append(self.ev("tax_delinquent_county", f"delinquent at the county: ${sum(b['amount'] or 0 for b in delinquent):,.2f}",
                               etype="FACT", confidence="HIGH", source=self.name, source_name=self.label, source_url=src_url))
+        # The State's certification is the stronger, newer fact about the parcel's taxes: a bill on the
+        # county payment site must not overwrite it on the row. The evidence is kept either way.
+        fields = {} if str(prop.get("tax_status") or "").startswith("CERTIFIED") else {"tax_status": status}
         return SourceResult(status=OK, detail=f"${total:,.2f} owed ({'DELINQUENT' if delinquent else 'current year, unpaid'})",
                             records=[Record(source=self.name, identity={"id": prop["id"]},
-                                            fields={"tax_status": status}, evidence=ev)])
+                                            fields=fields, evidence=ev)])
 
 
 register(CountyPayTaxes())

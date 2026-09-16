@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Arkansas Tax Intelligence · Property Hunter</title>
+<meta name="description" content="What Property Hunter has verified about Arkansas property taxes, county by county: State tax-sale parcels, Collector-verified bills, what is unknown, which sources are available, and the public-record path to fill the gaps.">
+<meta property="og:title" content="Arkansas Tax Intelligence · Property Hunter">
+<meta property="og:description" content="Verified tax states, source availability by county, and the coverage queue. Unknown stays unknown.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tophercook7-maker.github.io/property-hunter/taxes.html">
+<link rel="canonical" href="https://tophercook7-maker.github.io/property-hunter/taxes.html">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="ph.css">
+<style>
+main{max-width:1100px;margin:0 auto;padding:16px 16px 60px;display:grid;gap:20px}
+h2{font-size:26px;text-transform:uppercase;letter-spacing:.02em;margin:0}
+.lead{margin:2px 0 0;font-size:14px;color:var(--muted);max-width:75ch}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.stat{background:var(--surface);border:1px solid var(--rule);padding:10px 12px}
+.stat b{display:block;font-family:var(--display);font-size:28px;line-height:1;font-weight:600}
+.stat span{font-size:10.5px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--rule)}
+.q{background:var(--surface);border:1px solid var(--rule);padding:10px 12px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+.q .rank{font-family:var(--display);font-size:22px;color:var(--accent);grid-row:span 5}
+.q b.k{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block}
+.q .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.path{background:var(--surface);border:1px solid var(--rule);padding:10px 12px;font-size:13px}
+.path ol{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
+</style>
+</head>
+<body>
+<header class="ph-top"><h1><small>What is verified, what is unknown, and how to fill the gaps</small>Arkansas tax intelligence</h1><nav data-nav aria-label="Sections"></nav></header>
+<main>
+  <section>
+    <h2>Arkansas tax intelligence</h2>
+    <p class="lead" id="lead">Loading…</p>
+    <div class="stats" id="stats"></div>
+    <p class="lead"><b>How to read this.</b> "Unknown" means nobody has asked the county Collector about that parcel; it is not a finding either way. "Source unavailable" is a fact about the Collector's website, not about any parcel. A parcel on the State tax-sale list is verified by the State's own inventory. A current-year bill is a current bill, not a delinquency.</p>
+  </section>
+  <section>
+    <h2 style="font-size:20px">County coverage</h2>
+    <p class="lead">Every Arkansas county, its Collector source as last observed, and how many of its parcels have any county tax answer. Sorted by unknown parcels, most first.</p>
+    <div class="tablewrap"><table class="cov" id="cov"><thead><tr><th>County</th><th>Collector source</th><th>Status</th><th>Last checked</th><th>Last success</th><th>Reason</th><th class="num">Tax sale</th><th class="num">Delinquent</th><th class="num">Current bill</th><th class="num">Current</th><th class="num">Unknown</th><th class="num">Parcels</th></tr></thead><tbody></tbody></table></div>
+  </section>
+  <section>
+    <h2 style="font-size:20px">Tax data coverage queue</h2>
+    <p class="lead">Counties where tax intelligence is missing, ordered by how much the hunt has to gain from it: parcels with a strong signal stack first, then State tax-sale activity, then roll size. This is a research queue. It is not a ranking of investment value.</p>
+    <div id="queue" style="display:grid;gap:8px"></div>
+  </section>
+  <section>
+    <h2 style="font-size:20px">When the automated source is unavailable</h2>
+    <div class="path">The legitimate public-record path, in order. Nothing here is sent automatically; a person asks, receives and imports.
+      <ol>
+        <li><b>Open the county's Collector page</b> on CountyPay (links in the table). If it answers, the poller fills verified bills on its own within 20 minutes.</li>
+        <li><b>Open State Lands</b> at <a href="https://www.cosl.org/" target="_blank" rel="noopener">cosl.org</a> for anything certified for sale; the site already reads this daily.</li>
+        <li><b>Open the county Assessor</b> for deeds and mailing addresses (a browser link on every property file; some assessor sites refuse automation and are never bypassed).</li>
+        <li><b>Generate the request kit</b> for the county's one-year delinquent list (<a href="request.html">Request</a>), send it yourself, and when the spreadsheet arrives import it: <code>python3 tools/import_delinquent_list.py &lt;file&gt; --year 2025</code>. Every parcel on it becomes DELINQUENT — verified, with the list's date, as a MANUAL VERIFICATION on its timeline.</li>
+        <li><b>Record a manual result</b> on the property file's "Before you buy" checklist for anything you confirmed by phone or in person.</li>
+      </ol></div>
+  </section>
+</main>
+<script src="ph.js"></script>
+<script>
+const $ = id => document.getElementById(id); const esc = PH.esc;
+const when = v => v ? String(v).slice(0,16).replace('T',' ') : '—';
+const SW = {AVAILABLE:'Available', TEMPORARILY_UNAVAILABLE:'Temporarily unavailable', BLOCKED:'Blocked', MANUAL_ONLY:'Manual only', NOT_FOUND:'Not found', NOT_APPLICABLE:'Not applicable', UNKNOWN:'Unknown'};
+fetch('data/tax_sources.json', {cache:'no-store'}).then(r=>r.json()).then(d => {
+  const t = d.totals || {};
+  $('stats').innerHTML = [[t.tax_sale_verified,'verified tax-sale parcels'],[t.delinquent_verified,'verified delinquent'],[t.current_bill_open,'current bill verified (not delinquent)'],[t.current_verified,'no open bill verified'],[t.collector_unavailable_counties,'counties: Collector source unavailable'],[t.unknown,'parcels: tax state unknown']].map(([b,s])=>`<div class="stat"><b>${(b||0).toLocaleString()}</b><span>${esc(s)}</span></div>`).join('');
+  const g = d.countypay_global || {};
+  $('lead').textContent = `${(t.parcels||0).toLocaleString()} scored parcels across ${Object.keys(d.counties||{}).length} counties. Collector portal (CountyPay) statewide: ${g.open===false?`unavailable since ${when(g.down_since)}`:g.open===true?'open':'untested'} · last checked ${when(g.checked_at)}. Registry built ${when(d.built_at)} UTC.`;
+  const rows = Object.values(d.counties||{}).sort((a,b)=>b.counts.unknown-a.counts.unknown);
+  $('cov').querySelector('tbody').innerHTML = rows.map(c => { const s = c.sources.countypay, k = c.counts; return `<tr><td><b>${esc(c.county)}</b></td><td>${s.public_url?`<a href="${esc(s.public_url)}" target="_blank" rel="noopener">CountyPay</a>`:'—'}</td><td class="st-${esc(s.status)}">${esc(SW[s.status]||s.status)}</td><td>${esc(when(s.last_checked))}</td><td>${esc(when(s.last_success))}</td><td style="max-width:220px">${esc(s.failure_reason||'')}</td><td class="num">${k.tax_sale_verified.toLocaleString()}</td><td class="num">${k.delinquent_verified.toLocaleString()}</td><td class="num">${k.current_bill_open.toLocaleString()}</td><td class="num">${k.current_verified.toLocaleString()}</td><td class="num">${k.unknown.toLocaleString()}</td><td class="num">${k.parcels.toLocaleString()}</td></tr>`; }).join('');
+  $('queue').innerHTML = (d.queue||[]).slice(0,25).map((x,i)=>`<div class="q"><span class="rank">${i+1}</span><div><b class="k">Why this county</b>${esc(x.why)}</div><div><b class="k">What source is missing</b>${esc(x.missing)}</div><div><b class="k">What is known</b>${esc(x.known)}</div><div><b class="k">What is unknown</b>${esc(x.unknown)}</div><div><b class="k">Next public-record action</b><div class="acts"><a class="btn" href="${esc(x.next.href)}">${esc(x.next.label)}</a>${(x.also||[]).map(a=>`<a class="btn ghost" href="${esc(a.href)}" target="_blank" rel="noopener">${esc(a.label)}</a>`).join('')}</div></div></div>`).join('') || '<div class="empty">Every county has a county tax answer for every parcel.</div>';
+}).catch(e => { $('lead').textContent = 'The tax source registry has not been built yet.'; });
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

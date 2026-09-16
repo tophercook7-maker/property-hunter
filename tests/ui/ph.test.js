@@ -129,3 +129,44 @@ ok('evidence chain names what it does not establish', () => {
 });
 ok('excluded areas keep their pill', () => { assert.match(PH.pill('excluded', 'Hot Springs Village'), /excluded/); });
 console.log(`ph.test.js: ${n} checks passed`);
+
+// ---- P1 discovery feed, timeline, know-block ----
+const sig = (o) => Object.assign({ id: 1, event: 'NEW_LIEN', cls: 'WORLD_EVENT', kind: 'verified', cf: '05051', cn: 'Garland', date: '2026-09-14', discovered_at: '2026-09-14T03:00', src: 'City of Hot Springs', src_url: null, status: 'VERIFIED', evidence_ref: 'evidence:1', label: 'New City lien', why: 'w', next: { label: 'Investigate lien', href: 'lookup.html?county=05051&q=p' }, a: '1 Sig St', pid: 'p', tv: 1000, taxs: { st: 'UNKNOWN', src: null }, sale: { st: 'UNKNOWN', src: null } }, o);
+ok('filters are exact and composable; a first discovery never passes a world-event filter', () => {
+  const rows = [sig({}), sig({ id: 2, cls: 'FIRST_DISCOVERY', event: 'NEW_VACANCY_RECORD', cf: '05069', cn: 'Jefferson', date: '2026-09-10', kind: 'observed', status: 'OBSERVED' }), sig({ id: 3, event: 'NEW_TAX_SALE', taxs: { st: 'TAX_SALE_VERIFIED', src: 'Commissioner of State Lands', as_of: '2026-09-14', amt: 500 }, ts: 'CERTIFIED_TO_STATE_FOR_SALE', sale: { st: 'FOR_SALE_BY_STATE', src: 'Commissioner of State Lands' } })];
+  assert.deepStrictEqual(PH.filterSignals(rows, { cls: 'WORLD_EVENT' }).map(r => r.id), [1, 3]);
+  assert.deepStrictEqual(PH.filterSignals(rows, { cls: 'FIRST_DISCOVERY' }).map(r => r.id), [2]);
+  assert.deepStrictEqual(PH.filterSignals(rows, { county: '05069' }).map(r => r.id), [2]);
+  assert.deepStrictEqual(PH.filterSignals(rows, { county: 'garland', kind: 'verified' }).map(r => r.id), [1, 3]);
+  assert.deepStrictEqual(PH.filterSignals(rows, { event: 'NEW_TAX_SALE' }).map(r => r.id), [3]);
+  assert.deepStrictEqual(PH.filterSignals(rows, { tax: 'TAX_SALE_VERIFIED' }).map(r => r.id), [3]);
+  assert.deepStrictEqual(PH.filterSignals(rows, { tax: 'UNKNOWN' }).map(r => r.id), [1, 2]);
+  assert.deepStrictEqual(PH.filterSignals(rows, { sale: 'FOR_SALE_BY_STATE' }).map(r => r.id), [3]);
+  assert.deepStrictEqual(PH.filterSignals(rows, { since: '2026-09-12' }).map(r => r.id), [1, 3]);
+  assert.deepStrictEqual(PH.filterSignals(rows, { until: '2026-09-12' }).map(r => r.id), [2]);
+  assert.strictEqual(PH.filterSignals(rows, {}).length, 3);
+});
+ok('a card names its class, source, tax and sale state; never a link to a source it does not have', () => {
+  const h = PH.sigCard(sig({}));
+  assert.match(h, /REAL-WORLD EVENT/); assert.match(h, /source: City of Hot Springs/); assert.doesNotMatch(h, /<a href="null"/);
+  assert.match(h, /UNKNOWN — never checked/); assert.match(h, /Sale:<\/b> UNKNOWN/); assert.match(h, /Open property file/);
+  const d = PH.sigCard(sig({ cls: 'FIRST_DISCOVERY', src_url: 'https://services1.arcgis.com/x/99' }));
+  assert.match(d, /FIRST DISCOVERY/); assert.doesNotMatch(d, /REAL-WORLD EVENT/); assert.match(d, /href="https:\/\/services1\.arcgis\.com\/x\/99"/);
+  assert.doesNotMatch(PH.sigCard(sig({})), /for sale/i);
+});
+ok('the timeline shows a source outage as a SOURCE CHECK, never as a parcel finding', () => {
+  const h = PH.timelineHtml([{ date: '2024-11-20', cls: 'WORLD_EVENT', title: 'On the City vacant-structure register', src: 'City of Hot Springs', ref: 'evidence:1', url: 'https://services1.arcgis.com/x/99' }, { date: '2026-09-12T16:03', cls: 'FIRST_DISCOVERY', title: 'first read', src: 'City of Hot Springs', ref: 'evidence:1' }], { open: false, down_since: '2026-09-14T14:25:00-0500', detail: 'Online payments are currently unavailable.', checked_at: '2026-09-15T01:00' });
+  assert.match(h, /WORLD EVENT.*FIRST DISCOVERED BY PROPERTY HUNTER.*SOURCE CHECK/s);
+  assert.match(h, /Collector source unavailable/); assert.doesNotMatch(h, /delinquent|paid|current\b/i);
+  assert.match(PH.timelineHtml([], {}), /No dated evidence/);
+});
+ok('know-block: unknown tax and unknown sale live under "don\'t know"; State absence is never "current"', () => {
+  const r = Object.assign({}, base, { o: 'SMITH, JOHN', tv: 50000, iv: 20000, vac: 1, taxs: { st: 'UNKNOWN', src: null, cosl_check: '2026-09-14' }, sale: { st: 'UNKNOWN', src: null } });
+  const h = PH.knowBlock(r, null, [{ date: '2024-11-20', cls: 'WORLD_EVENT', title: 't', src: 's', ref: 'evidence:1' }]);
+  const know = h.split("What we don't know")[0], dont = h.split("What we don't know")[1].split('Next steps')[0];
+  assert.match(know, /Owner of record on the county roll: Smith, John/); assert.match(know, /\$50,000/); assert.match(know, /vacant/i);
+  assert.doesNotMatch(know, /Taxes:|Sale:/); assert.match(dont, /Taxes: UNKNOWN/); assert.match(dont, /Sale: UNKNOWN/);
+  assert.doesNotMatch(h, /taxes (are )?current|paid/i); assert.match(h, /Newest dated event 2024-11-20/);
+  const c = PH.knowBlock(Object.assign({}, r, { taxs: { st: 'CURRENT_BILL_OPEN', src: 'County Collector', as_of: '2026-09-15', amt: 66.65 } }), null, []);
+  assert.match(c.split("What we don't know")[0], /CURRENT BILL OPEN — \$66\.65 — not delinquent/);
+});

@@ -199,6 +199,82 @@
   };
   PH.priorityHtml = (r, countyMax) => PH.stackHtml(r, countyMax);
 
+  // ---------- DISCOVERY FEED: shared vocabulary, filters and cards ----------
+  PH.EVENT = {
+    NEW_TAX_SALE: ['New State tax-sale listing', 'state'], STATE_SOLD: ['State sold', 'state'], STATE_REDEEMED: ['State redeemed', 'state'], STATE_LEFT: ['State inventory exit', 'state'],
+    NEW_VACANCY_RECORD: ['New vacancy record', 'city'], NEW_LIEN: ['New lien', 'city'], NEW_CODE_CASE: ['New code case', 'city'], VERIFIED_DELINQUENCY: ['Verified delinquency', 'county'],
+  };
+  PH.CLASS = { WORLD_EVENT: 'REAL-WORLD EVENT', FIRST_DISCOVERY: 'FIRST DISCOVERY', INFORMATIONAL: 'INFORMATIONAL' };
+  PH.CLASS_NOTE = {
+    WORLD_EVENT: 'the public record itself changed inside the window',
+    FIRST_DISCOVERY: 'Property Hunter read this record for the first time inside the window; the record may be older',
+    INFORMATIONAL: 'a reading changed; not an opportunity by itself',
+  };
+  // pure filter over feed rows; every key optional. Used by discover.html and tests.
+  PH.filterSignals = (rows, f) => {
+    f = f || {};
+    return (rows || []).filter(r => {
+      if (f.county && r.cf !== f.county && String(r.cn || '').toLowerCase() !== String(f.county).toLowerCase()) return false;
+      if (f.event && r.event !== f.event) return false;
+      if (f.cls && r.cls !== f.cls) return false;
+      if (f.kind && r.kind !== f.kind) return false;
+      if (f.tax && PH.taxState(r).state !== f.tax) return false;
+      if (f.sale && PH.saleStatus(r).state !== f.sale) return false;
+      if (f.since && (r.date || '') < f.since) return false;
+      if (f.until && (r.date || '') > f.until) return false;
+      return true;
+    });
+  };
+  PH.sigCard = (x, cp) => {
+    const [label, fam] = PH.EVENT[x.event] || [x.event, ''];
+    const tx = PH.taxState(x, cp), sale = PH.saleStatus(x);
+    const ext = /^https?:/.test(x.next.href);
+    return `<article class="sig sig-${fam}" data-id="${PH.esc(x.id)}">
+      <span class="ev">${PH.esc(label)}<small>${PH.esc(PH.CLASS[x.cls] || x.cls)}</small></span>
+      <span>
+        <span class="a">${PH.esc(x.a || 'No situs address')}</span> · ${PH.esc(x.cn || '')} County · parcel <span class="mono">${PH.esc(x.pid || '?')}</span>
+        <div>${PH.esc(x.label)}. ${PH.esc(x.why)}</div>
+        <div class="meta">event ${PH.esc(x.date)} · read ${PH.esc((x.discovered_at || '').replace('T', ' '))} · source: ${x.src_url ? `<a href="${PH.esc(x.src_url)}" target="_blank" rel="noopener">${PH.esc(x.src)}</a>` : PH.esc(x.src)} · ${PH.esc(x.status)}${x.evidence_ref ? ' · ref ' + PH.esc(x.evidence_ref) : ''}</div>
+        <div class="meta"><b>Taxes:</b> <span class="tx-${tx.tone}">${PH.esc(tx.text)}</span> · <b>Sale:</b> ${PH.esc(sale.text.split('.')[0])}${x.tv ? ` · appraised ${PH.money(x.tv)}` : ''}</div>
+      </span>
+      <span class="acts"><a class="next" href="${PH.esc(x.next.href)}"${ext ? ' target="_blank" rel="noopener"' : ''}>${PH.esc(x.next.label)} →</a><a class="file" href="lookup.html?county=${PH.esc(x.cf)}&q=${encodeURIComponent(x.pid || x.a || '')}">Open property file</a></span>
+    </article>`;
+  };
+  // ---------- EVIDENCE TIMELINE ----------
+  PH.timelineHtml = (events, cp) => {
+    const ev = (events || []).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    if (cp && cp.open === false) ev.push({ date: (cp.checked_at || '').slice(0, 16), cls: 'SOURCE_CHECK', title: 'Collector source unavailable', detail: `CountyPay has said "${cp.detail || 'unavailable'}" since ${(cp.down_since || '').slice(0, 10)}; this parcel was not checked`, src: 'docs/data/status.json (poller)', ref: 'status:countypay' });
+    if (!ev.length) return '<div class="empty">No dated evidence beyond the county roll for this parcel.</div>';
+    const L = { WORLD_EVENT: 'WORLD EVENT', FIRST_DISCOVERY: 'FIRST DISCOVERED BY PROPERTY HUNTER', INFORMATIONAL: 'INFORMATIONAL RECORD CHANGE', SOURCE_CHECK: 'SOURCE CHECK', MANUAL: 'MANUAL VERIFICATION' };
+    return `<ol class="tl">${ev.map(e => `<li class="${PH.esc(e.cls)}"><time>${PH.esc((e.date || '').replace('T', ' '))}</time><b>${PH.esc(L[e.cls] || e.cls)}</b><span>${PH.esc(e.title)}${e.detail ? ` — ${PH.esc(e.detail)}` : ''}<small>source: ${e.url ? `<a href="${PH.esc(e.url)}" target="_blank" rel="noopener">${PH.esc(e.src || '')}</a>` : PH.esc(e.src || '')}${e.ref ? ' · ' + PH.esc(e.ref) : ''}</small></span></li>`).join('')}</ol>`;
+  };
+  // ---------- WHAT WE KNOW / DON'T KNOW / NEXT ----------
+  PH.knowBlock = (r, cp, tl) => {
+    const sg = PH.signals(r), tx = PH.taxState(r, cp), sale = PH.saleStatus(r), nx = PH.nextAction(r, cp);
+    const dated = (tl || []).filter(e => e.cls === 'WORLD_EVENT');
+    const know = [];
+    if (r.o) know.push(`Owner of record on the county roll: ${PH.title(r.o)} (not a title opinion)`);
+    if (r.tv != null) know.push(`County appraised ${PH.money(r.tv)}${r.iv > 0 ? `, building ${PH.money(r.iv)}` : r.iv === 0 ? ', no building value' : ''} (assessor's figure, not a price)`);
+    for (const x of sg.verified) know.push(x.text + ' (verified)');
+    for (const x of sg.derived) know.push(x.text + ' (derived from the roll; not verified)');
+    if (tx.kind === 'fact') know.push('Taxes: ' + tx.text);
+    if (sale.kind === 'fact') know.push('Sale: ' + sale.text);
+    const dont = [];
+    if (tx.kind !== 'fact') dont.push('Taxes: ' + tx.text + tx.note);
+    if (sale.kind !== 'fact') dont.push('Sale: ' + sale.text);
+    dont.push('Title, liens and judgments at the Circuit Clerk: not read by this site');
+    if (!r.vac && !sg.verified.some(x => x.key === 'vacant_structure')) dont.push('Occupancy and physical condition: no register record; aerials are dated');
+    if (!r.f) dont.push('Flood zone: FEMA not asked for this parcel yet');
+    const next = [nx.label];
+    if (tx.kind !== 'fact' && nx.label !== 'Check Collector / request county list') next.push('Check Collector / request county list');
+    if (sale.state === 'UNKNOWN' && nx.label !== 'Search public listings') next.push('Search public listings');
+    next.push('Work the "Before you buy" checklist below; write the owner only after taxes and title are checked');
+    const li = xs => xs.map(t => `<li>${PH.esc(t)}</li>`).join('');
+    return `<div class="know"><div><h4>What we know</h4><ul>${li(know) || '<li>Only the county roll reading.</li>'}</ul></div>
+      <div><h4>What we don't know</h4><ul>${li(dont)}</ul></div>
+      <div><h4>Next steps</h4><ol>${li(next)}</ol>${dated.length ? `<small>Newest dated event ${PH.esc(dated[dated.length - 1].date)} · oldest ${PH.esc(dated[0].date)} · ${PH.esc(String((tl || []).length))} evidence items</small>` : ''}</div></div>`;
+  };
+
   // ---------- DOM ----------
   PH.pill = (kind, text) => `<span class="pill ${kind}">${PH.esc(text)}</span>`;
   PH.means = (yes, no) => `<div class="means"><div class="yes"><b>What this establishes</b><ul>${yes.map(x => `<li>${PH.esc(x)}</li>`).join('')}</ul></div><div class="no"><b>What it does not</b><ul>${no.map(x => `<li>${PH.esc(x)}</li>`).join('')}</ul></div></div>`;

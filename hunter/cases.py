@@ -32,7 +32,9 @@ STATES = ("FOUND", "NOT_FOUND", "UNKNOWN")
 CATEGORIES = ("IDENTITY", "OWNERSHIP", "TAXES", "SALE_STATUS", "LIENS", "VACANCY", "CODE", "PROPERTY",
               "ACCESS", "MARKET", "PHYSICAL", "LEGAL_RECORD", "OTHER")
 EVENT_CLASSES = ("SIGNAL RECEIVED", "INVESTIGATION OPENED", "SOURCE CHECK", "MANUAL VERIFICATION", "EVIDENCE ADDED",
-                 "QUESTION ANSWERED", "QUESTION REMAINS UNKNOWN", "ACTION COMPLETED", "STATUS CHANGE", "NOTE ADDED")
+                 "QUESTION ANSWERED", "QUESTION REMAINS UNKNOWN", "ACTION COMPLETED", "STATUS CHANGE", "NOTE ADDED",
+                 # P3B outreach preparation (draft only; there is no SENT class because nothing can be sent)
+                 "OUTREACH PREPARATION STARTED", "OUTREACH GATE EVALUATED", "DRAFT GENERATED", "DRAFT EDITED", "DRAFT REVIEWED", "DRAFT DISCARDED")
 MANUAL_SOURCE = "manual_verification"
 MANUAL_SOURCES = store.MANUAL_SOURCES          # P3A: one vocabulary, defined in store
 NOTE_SOURCES = store.NOTE_SOURCES
@@ -43,6 +45,7 @@ QUESTIONS = {
     "identity":        ("IDENTITY",     "Is the parcel identity verified on the county roll (parcel number, county, situs)?", "REVIEW PROPERTY FILE"),
     "owner":           ("OWNERSHIP",    "Who is the recorded owner on the county roll, and as of what date?", "OPEN COUNTY SOURCE"),
     "deed":            ("OWNERSHIP",    "Is there a recorded deed reference, and if so, what does it document?", "OPEN COUNTY SOURCE"),
+    "mailing_address": ("OWNERSHIP",    "Is there a mailing address of record for the owner, and from which source?", "OPEN COUNTY SOURCE"),
     "tax_state":       ("TAXES",        "What is the current tax state, from which source, and as of when?", "CHECK COLLECTOR"),
     "tax_delinquent":  ("TAXES",        "Is there verified delinquent tax evidence, and if so, what amount is documented?", "CHECK COLLECTOR"),
     "collector_asof":  ("TAXES",        "When did the county Collector last answer for this parcel, and what did it say?", "CHECK COLLECTOR"),
@@ -65,7 +68,7 @@ QUESTIONS = {
     "auction":         ("MARKET",       "Is auction or acquisition information publicly documented (bid, sale date, terms)?", "OPEN STATE LANDS RECORD"),
     "other_signals":   ("OTHER",        "Are other public-record signals recorded on this parcel?", "REVIEW PROPERTY FILE"),
 }
-BASE = ["identity", "owner", "tax_state", "tax_delinquent", "state_inventory", "sale_state", "listing", "other_signals"]
+BASE = ["identity", "owner", "mailing_address", "tax_state", "tax_delinquent", "state_inventory", "sale_state", "listing", "other_signals"]
 CHECKLISTS = {
     "NEW_TAX_SALE":         ["state_record", "identity", "state_history", "tax_state", "deed", "listing", "inspection", "auction"],
     "STATE_SOLD":           ["state_history", "state_record", "tax_state", "owner"],
@@ -170,6 +173,9 @@ def evaluate(prop: dict, row: dict, *, cp=None, hunt=None, inv=None) -> dict:
     out["owner"] = _found(f"{prop.get('owner_name')} (owner of record on the county roll, not a title opinion)", [_ref(e)],
                           "Arkansas GIS Office (county assessor roll)", (e or {}).get("source_url"), _when(e)) if e and prop.get("owner_name") else \
         _unknown("Owner of record not found on the roll reading; not a finding about ownership")
+    e = _ev(pid, "owner_mailing_address") or _ev(pid, "manual:mailing_address")
+    out["mailing_address"] = _found(f"{e['value']} (where the tax bill goes; {e['origin_label'].lower()})", [_ref(e)], e.get("source_name") or e["source"], e.get("source_url"), _when(e)) if e else \
+        _unknown("MAILING ADDRESS: UNKNOWN — no mailing address of record has been read; the situs address is never substituted")
     e = _ev(pid, "deed_reference") or _ev(pid, "sourceref")
     out["deed"] = _found(f"Deed reference {e['value']}", [_ref(e)], e.get("source_name") or e["source"], e.get("source_url"), _when(e)) if e else \
         _unknown("No deed reference read; the Circuit Clerk index is the only complete answer")
@@ -293,7 +299,7 @@ def next_action(key: str, prop: dict, row: dict, *, listing=None) -> dict:
     return {"label": "MANUAL ACTION REQUIRED", "href": None, "manual": True}
 
 
-PRIORITY = ["tax_state", "tax_delinquent", "state_record", "state_inventory", "lien_city", "vacancy", "code", "sale_state", "listing", "owner",
+PRIORITY = ["tax_state", "tax_delinquent", "state_record", "state_inventory", "lien_city", "vacancy", "code", "sale_state", "listing", "owner", "mailing_address",
             "deed", "lien_detail", "code_detail", "state_history", "collector_asof", "inspection", "lien_clerk", "title", "access", "flood", "values", "auction", "other_signals", "identity"]
 
 
@@ -577,9 +583,34 @@ def index() -> dict:
 def export_all() -> dict:
     """Public read-only snapshot (docs/data/investigations.json): the index plus every case in full."""
     out = index()
-    out["cases"] = {str(k["id"]): get_case(k["id"]) for k in out["by_property"].values()}
+    from . import outreach
+    out["cases"] = {}
+    for k in out["by_property"].values():
+        c = get_case(k["id"])
+        c["outreach"] = outreach.public_summary(k["id"])          # redacted: no draft text, no addresses
+        out["cases"][str(k["id"])] = _redact_public(c)
     out["by_status"] = {}
     for c in out["cases"].values():
         out["by_status"][c["status"]] = out["by_status"].get(c["status"], 0) + 1
     out["note"] = "Snapshot exported by the local app; to continue an investigation, open it with the app running on this Mac (port 8234)."
     return out
+
+
+REDACT_FIELDS = ("owner_mailing_address", "manual:mailing_address")
+
+
+def _redact_public(c: dict) -> dict:
+    """The public snapshot never carries where the owner receives mail. Origin, source, date and reference
+    stay so provenance is still visible; the value itself is held only in the local app."""
+    if c.get("row"):
+        c["row"] = dict(c["row"], m=None)
+    held = "[mailing address held in the local app]"
+    c["evidence"] = [dict(e, value=held) if e["field"] in REDACT_FIELDS else e for e in c.get("evidence", [])]
+    for q in c.get("questions", []):
+        if q["key"] == "mailing_address" and q["state"] == "FOUND":
+            q["answer"] = held
+    for f in c.get("findings", []):
+        if f["key"] == "mailing_address":
+            f["answer"] = held
+    c["events"] = [dict(e, detail=held) if (e.get("cls") in ("MANUAL VERIFICATION", "QUESTION ANSWERED") and "mailing" in (e.get("title") or "").lower()) else e for e in c.get("events", [])]
+    return c

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Owner outreach preparation · Property Hunter</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="ph.css">
+<style>
+main{max-width:1000px;margin:0 auto;padding:16px 16px 60px;display:grid;gap:18px}
+h2{font-size:26px;text-transform:uppercase;letter-spacing:.02em;margin:0}
+h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;font-family:var(--body);font-weight:600}
+.lead{margin:2px 0 0;font-size:14px;color:var(--muted);max-width:75ch}
+.box{background:var(--surface);border:1px solid var(--rule);padding:10px 12px;font-size:13px}
+.banner{background:var(--warn-soft,#fff4e0);border:1px solid var(--warn);padding:10px 12px;font-size:13px}
+.gate{display:grid;gap:6px}
+.req{display:grid;grid-template-columns:96px 1fr;gap:4px 12px;padding:8px 10px;background:var(--surface2);border-left:3px solid var(--rule);font-size:13px}
+.req.FOUND{border-left-color:var(--good)}.req.NOT_FOUND{border-left-color:var(--warn)}.req.UNKNOWN{border-left-color:var(--muted)}
+.req .st{font-family:var(--mono);font-size:11px;letter-spacing:.06em}.req.FOUND .st{color:var(--good)}.req.NOT_FOUND .st{color:var(--warn)}.req.UNKNOWN .st{color:var(--muted)}
+.req .lvl{font-size:10px;letter-spacing:.08em;font-weight:600}.req .lvl.R{color:var(--accent)}.req .lvl.O{color:var(--muted)}
+.req small{display:block;color:var(--muted);font-size:11.5px;margin-top:2px}
+.verdict{font-family:var(--display);font-size:22px;letter-spacing:.04em;text-transform:uppercase}
+.draft{white-space:pre-wrap;font-family:var(--mono);font-size:12.5px;background:var(--surface2);border:1px solid var(--rule);padding:12px}
+.seg{padding:6px 10px;border-left:3px solid var(--rule);margin:0 0 6px;white-space:pre-wrap;font-size:13px}.seg b{display:block;font-size:10px;letter-spacing:.08em;color:var(--muted);font-family:var(--body)}
+.seg.SYSTEM{border-left-color:var(--good)}.seg.HUMAN_ADDED{border-left-color:var(--accent)}.seg.HUMAN_EDITED{border-left-color:var(--warn)}
+.form{display:grid;gap:6px;background:var(--surface);border:1px solid var(--rule);padding:10px 12px;font-size:13px}.form label{display:grid;gap:2px;font-size:11px;color:var(--muted)}
+.form input,.form select,.form textarea{font:inherit;font-size:13px;padding:6px 8px;background:var(--surface2);color:var(--ink);border:1px solid var(--rule)}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}.msg{font-size:12.5px;color:var(--muted)}.msg.err{color:var(--bad)}
+.nosend{font-size:12px;color:var(--muted);border:1px dashed var(--rule);padding:6px 10px}
+</style>
+</head>
+<body>
+<header class="ph-top"><h1><small>Draft only · nothing is sent · every statement traced to evidence</small>Owner outreach preparation</h1><nav data-nav aria-label="Sections"></nav></header>
+<main id="main"><p class="msg">Loading…</p></main>
+<script src="ph.js"></script>
+<script>
+const $ = id => document.getElementById(id); const esc = PH.esc;
+const when = v => v ? String(v).slice(0,16).replace('T',' ') : '—';
+const q = new URLSearchParams(location.search);
+const CASE_ID = q.get('case'), PREP_ID = q.get('prep');
+let PREP = null, INFO = null;
+async function api(path, body){ const r = await PH.apiFetch(path, body ? {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)} : {}, 5000); if(!r.ok){ let m = r.statusText; try { const j = await r.json(); m = typeof j.detail === 'string' ? j.detail : (j.detail && j.detail.error) || m; } catch(e){} throw new Error(m); } return r.json(); }
+
+function reqHtml(r){
+  return `<div class="req ${r.state}"><span><span class="st">${esc(r.state.replace('_',' '))}</span><br><span class="lvl ${r.level==='REQUIRED TO DRAFT'?'R':'O'}">${esc(r.state==='UNKNOWN' ? r.level + ' · UNKNOWN / NOT AVAILABLE' : r.level)}</span></span>
+    <span><b>${esc(r.label)}</b>${r.text ? ` — ${esc(r.text)}` : ''}<small>source: ${esc(r.source || 'none')} · origin: ${esc(r.origin_label || (r.origin ? PH.originLabel(r.origin) : 'none'))} · date: ${esc(r.date || '—')} · evidence: ${(r.refs||[]).length ? r.refs.map(esc).join(', ') : 'none'}${r.tax_state ? ` · TAX STATE ${esc(r.tax_state)}${r.amount!=null?' · AMOUNT '+PH.money(r.amount):''}${r.as_of?' · AS OF '+esc(r.as_of):''}` : ''}${r.signals && r.signals.length ? ` · originating signals: ${r.signals.map(esc).join('; ')}` : ''}${r.next ? ` · next: ${esc(r.next.label)} (${esc(r.next.note||'')})` : ''}</small></span></div>`;
+}
+function gateHtml(g){
+  return `<div class="box"><div class="verdict">${g.ready ? 'GATE OPEN — draft may be prepared' : 'GATE BLOCKED'}</div><p class="msg" style="margin:4px 0 8px">${esc(g.explanation)} Purpose: ${esc(g.purpose)} — ${esc(g.purpose_text)}. Evaluated ${esc(when(g.evaluated_at))}. This gate reads evidence only, never the signal score.</p>
+    <div class="gate">${g.requirements.map(reqHtml).join('')}</div></div>`;
+}
+function renderList(){
+  const preps = INFO.preparations;
+  $('main').innerHTML = `<section><h2>Outreach preparation · investigation #${esc(CASE_ID)}</h2><p class="lead">Draft only. The system prepares a neutral draft from supported evidence; a person reviews, edits and decides. Nothing here sends, mails, emails or contacts anyone. <a href="investigation.html?id=${esc(CASE_ID)}">Back to the investigation</a></p></section>
+    <section class="form"><h3>Start or open a preparation</h3><div class="row"><label>Purpose<select id="purpose">${Object.entries(INFO.purposes).map(([k,v])=>`<option value="${k}">${esc(k)} — ${esc(v)}</option>`).join('')}</select></label></div>
+      <label>Reason for contact, in your own words (required to draft; shown in the letter as human-entered)<textarea id="reason" rows="2"></textarea></label>
+      <div><button class="btn" type="button" id="open">Open preparation and evaluate the gate</button> <span class="msg" id="msg"></span></div>
+      <div class="nosend">Requirements by purpose: ${Object.entries(INFO.requirements).map(([k,v])=>`<b>${esc(k)}</b>: required ${v.required.map(esc).join(', ')}; recommended ${v.recommended.map(esc).join(', ')}`).join(' · ')}</div></section>
+    <section><h3>Existing preparations (${preps.length})</h3>${preps.map(p=>`<div class="box" style="margin-bottom:6px"><b>#${p.id}</b> · ${esc(p.purpose)} · ${esc(p.status)} · updated ${esc(when(p.updated_at))} · ${p.gate ? (p.gate.ready ? 'gate open' : 'blocked: ' + esc(p.gate.blocking.join('; '))) : 'not evaluated'} · draft v${p.current_version || '—'} · <a href="outreach.html?case=${esc(CASE_ID)}&prep=${p.id}">Open</a></div>`).join('') || '<div class="empty">None yet.</div>'}</section>`;
+  $('open').onclick = async () => { $('msg').textContent = 'evaluating…'; try { const p = await api(`/api/case/${CASE_ID}/outreach`, {purpose: $('purpose').value, reason: $('reason').value}); location.href = `outreach.html?case=${CASE_ID}&prep=${p.id}`; } catch(e){ $('msg').textContent = e.message; $('msg').className = 'msg err'; } };
+}
+function segHtml(s){ const L = {SYSTEM:'SYSTEM-GENERATED TEXT', HUMAN_ADDED:'HUMAN-ADDED TEXT', HUMAN_EDITED:'HUMAN-EDITED TEXT'}; return `<div class="seg ${esc(s.kind)}"><b>${esc(L[s.kind]||s.kind)}${(s.basis||[]).length ? ' · basis: ' + s.basis.map(esc).join(', ') : ''}${s.edited_from ? ' · edited from v' + esc(String(s.edited_from)) : ''}</b>${esc(s.text)}</div>`; }
+function renderPrep(){
+  const p = PREP, g = p.gate, cur = p.current;
+  $('main').innerHTML = `<section><h2>Preparation #${p.id} · ${esc(p.purpose)}</h2><p class="lead">Investigation <a href="investigation.html?id=${p.case_id}">#${p.case_id}</a> · status <b>${esc(p.status)}</b> · updated ${esc(when(p.updated_at))} · <a href="outreach.html?case=${p.case_id}">all preparations</a></p></section>
+    <section class="form"><h3>Reason for contact (human-entered)</h3><textarea id="reason" rows="2">${esc(p.reason||'')}</textarea><div><button class="btn ghost" type="button" id="regate">Save reason and re-evaluate the gate</button> <span class="msg" id="gmsg"></span></div></section>
+    <section><h3>Evidence gate</h3><p class="msg" style="margin:0 0 6px">Levels: <b>REQUIRED TO DRAFT</b> must be FOUND before a draft exists · <b>RECOMMENDED BEFORE DRAFT</b> is shown and never blocks · <b>UNKNOWN / NOT AVAILABLE</b> means no adequate evidence exists, and is never read as no, clear, current, paid, vacant, for sale or not for sale.</p>${g ? gateHtml(g) : '<div class="empty">Not evaluated.</div>'}</section>
+    ${p.status !== 'DISCARDED' ? `<section class="form"><h3>${cur ? 'Regenerate the system draft' : 'Prepare the draft'} ${g && !g.ready ? '(blocked until every REQUIRED item is FOUND)' : ''}</h3>
+      <div class="row"><label>Your name (human-added)<input id="sender" value="${esc((cur&&cur.human.sender_name)||'')}"></label><label>How to reach you (human-added)<input id="contact" value="${esc((cur&&cur.human.contact)||'')}"></label></div>
+      <label>Anything else you want to say, in your words (human-added; labelled as yours)<textarea id="message" rows="2">${esc((cur&&cur.human.message)||'')}</textarea></label>
+      <div><button class="btn" type="button" id="gen" ${g && !g.ready ? 'disabled' : ''}>${cur ? 'Regenerate (your edited version stays current)' : 'PREPARE DRAFT'}</button> <span class="msg" id="dmsg"></span></div></section>` : ''}
+    ${cur ? `<section><h3>Current draft · version ${cur.version} · ${esc(cur.kind === 'HUMAN_EDITED' ? 'HUMAN-EDITED' : 'SYSTEM-GENERATED')} · by ${esc(cur.actor)} · ${esc(when(cur.created_at))}</h3>
+      ${cur.segments.map(segHtml).join('')}
+      <div class="form" style="margin-top:8px"><h3>Edit the draft (saved as a new human-edited version; earlier versions are kept)</h3><textarea id="edit" rows="14">${esc(cur.text)}</textarea><div><button class="btn ghost" type="button" id="save">Save my edit</button> <button class="btn ghost" type="button" id="reviewed">Mark reviewed</button> <button class="btn ghost" type="button" id="discard">Discard preparation</button> <span class="msg" id="emsg"></span></div>
+      <div class="nosend">There is no send button. This draft stays here for you; if you ever mail it, that is your act outside this system.</div></div>
+      <h3 style="margin-top:12px">Evidence basis recorded when this draft was prepared</h3><div class="gate">${cur.evidence_basis.map(b=>`<div class="req ${b.state}"><span class="st">${esc(b.state.replace('_',' '))}</span><span><b>${esc(b.requirement)}</b><small>evidence: ${(b.refs||[]).length ? b.refs.map(esc).join(', ') : 'none'} · origin: ${esc(b.origin ? PH.originLabel(b.origin) : 'none')} · source: ${esc(b.source||'none')} · date: ${esc(b.date||'—')}</small></span></div>`).join('')}</div>
+      <h3 style="margin-top:12px">Versions</h3><div class="msg">${p.drafts.map(d=>`v${d.version} ${esc(d.kind)} by ${esc(d.actor)} ${esc(when(d.created_at))}${d.version===p.current_version?' (current)':''}`).join(' · ')}</div></section>` : ''}`;
+  $('regate').onclick = async () => { try { PREP = await api(`/api/outreach/${p.id}/gate`, {reason: $('reason').value}); renderPrep(); } catch(e){ $('gmsg').textContent = e.message; $('gmsg').className='msg err'; } };
+  const gen = $('gen'); if(gen) gen.onclick = async () => { $('dmsg').textContent = 'preparing…'; try { PREP = await api(`/api/outreach/${p.id}/draft`, {sender_name: $('sender').value, contact: $('contact').value, message: $('message').value}); renderPrep(); } catch(e){ $('dmsg').textContent = e.message; $('dmsg').className='msg err'; } };
+  const save = $('save'); if(save) save.onclick = async () => { try { PREP = await api(`/api/outreach/${p.id}/edit`, {text: $('edit').value}); renderPrep(); } catch(e){ $('emsg').textContent = e.message; $('emsg').className='msg err'; } };
+  const rv = $('reviewed'); if(rv) rv.onclick = async () => { try { PREP = await api(`/api/outreach/${p.id}/status`, {status: 'REVIEWED'}); renderPrep(); } catch(e){ $('emsg').textContent = e.message; } };
+  const dc = $('discard'); if(dc) dc.onclick = async () => { try { PREP = await api(`/api/outreach/${p.id}/status`, {status: 'DISCARDED'}); renderPrep(); } catch(e){ $('emsg').textContent = e.message; } };
+}
+async function init(){
+  if(!CASE_ID && !PREP_ID){ $('main').innerHTML = '<div class="banner">Open this page from an investigation (Prepare owner outreach).</div>'; return; }
+  try {
+    if(PREP_ID){ PREP = await api(`/api/outreach/${PREP_ID}`); renderPrep(); }
+    else { INFO = await api(`/api/case/${CASE_ID}/outreach`); renderList(); }
+  } catch(e){
+    $('main').innerHTML = `<div class="banner"><b>Outreach preparation runs only in the local app</b>, which did not answer (${esc(e.message||'no connection')}). Drafts, owner names and mailing addresses are never published to this site. On this Mac run <code>python3 -m uvicorn hunter.api:app --port 8234</code> and reload.</div>`;
+  }
+}
+init();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

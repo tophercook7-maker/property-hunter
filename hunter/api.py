@@ -1226,6 +1226,87 @@ def api_case_action(case_id: int, payload: dict = Body(...)) -> dict:
     return {"ok": True}
 
 
+# ------------------------------------------------------------ P3B: owner-outreach PREPARATION (draft only)
+# There is deliberately no route that sends, posts, emails, texts or submits a draft anywhere.
+
+def _prep_or_404(prep_id: int) -> dict:
+    from . import outreach
+    p = outreach.get_prep(prep_id)
+    if not p:
+        raise HTTPException(404, "No such outreach preparation")
+    return p
+
+
+@app.get("/api/case/{case_id}/outreach")
+def api_case_outreach(case_id: int, purpose: str | None = None, reason: str | None = None) -> dict:
+    """Preparations on a case, plus a read-only gate preview for a purpose (no record is created)."""
+    from . import outreach, cases
+    c = _case_or_404(case_id)
+    out = {"preparations": outreach.for_case(case_id), "purposes": outreach.PURPOSES, "requirements": {k: {"required": v[0], "recommended": v[1]} for k, v in outreach.REQUIREMENTS.items()}}
+    if purpose:
+        if purpose not in outreach.PURPOSES:
+            raise HTTPException(400, "unknown purpose")
+        out["preview"] = outreach.evaluate_gate(c, purpose, reason)
+    return out
+
+
+@app.post("/api/case/{case_id}/outreach")
+def api_case_outreach_open(case_id: int, payload: dict = Body(...)) -> dict:
+    from . import outreach
+    _case_or_404(case_id)
+    try:
+        return outreach.open_or_get(case_id, str(payload.get("purpose") or ""), payload.get("reason"), actor=str(payload.get("actor") or "user")[:40])
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.get("/api/outreach/{prep_id}")
+def api_outreach(prep_id: int) -> dict:
+    return _prep_or_404(prep_id)
+
+
+@app.post("/api/outreach/{prep_id}/gate")
+def api_outreach_gate(prep_id: int, payload: dict = Body(default={})) -> dict:
+    from . import outreach
+    _prep_or_404(prep_id)
+    if payload.get("reason") is not None:
+        db.ex("UPDATE outreach_preps SET reason=?, updated_at=? WHERE id=?", (str(payload["reason"]).strip() or None, utcnow(), prep_id))
+    return outreach.reevaluate(prep_id, actor=str(payload.get("actor") or "user")[:40])
+
+
+@app.post("/api/outreach/{prep_id}/draft")
+def api_outreach_draft(prep_id: int, payload: dict = Body(default={})) -> dict:
+    from . import outreach
+    _prep_or_404(prep_id)
+    try:
+        return outreach.generate_draft(prep_id, payload, actor=str(payload.get("actor") or "user")[:40])
+    except PermissionError as exc:
+        p = outreach.get_prep(prep_id)
+        raise HTTPException(409, {"error": str(exc), "gate": p["gate"]})
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/outreach/{prep_id}/edit")
+def api_outreach_edit(prep_id: int, payload: dict = Body(...)) -> dict:
+    from . import outreach
+    _prep_or_404(prep_id)
+    try:
+        return outreach.edit_draft(prep_id, str(payload.get("text") or ""), actor=str(payload.get("actor") or "user")[:40])
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/outreach/{prep_id}/status")
+def api_outreach_status(prep_id: int, payload: dict = Body(...)) -> dict:
+    from . import outreach
+    _prep_or_404(prep_id)
+    try:
+        return outreach.set_status(prep_id, str(payload.get("status") or "").upper(), actor=str(payload.get("actor") or "user")[:40])
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
 @app.post("/api/watch/import")
 def api_watch_import(payload: dict = Body(default={})) -> dict:
     """Watch a list of parcels pasted from the public site ("FIPS:PARCEL" or bare Garland ids).

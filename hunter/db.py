@@ -469,6 +469,32 @@ CREATE TABLE IF NOT EXISTS investigation_events (
 );
 CREATE INDEX IF NOT EXISTS idx_case_events ON investigation_events(case_id, at);
 
+-- P3B: evidence-gated owner-outreach PREPARATION. Draft only; nothing here can send anything.
+CREATE TABLE IF NOT EXISTS outreach_preps (
+  id INTEGER PRIMARY KEY,
+  case_id INTEGER NOT NULL REFERENCES investigation_cases(id) ON DELETE CASCADE,
+  property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  purpose TEXT NOT NULL,                  -- OFF_MARKET_INQUIRY|PROPERTY_STATUS_INQUIRY|OWNER_CONTACT_REQUEST|RECORD_FOLLOWUP|OTHER
+  status TEXT NOT NULL DEFAULT 'PREPARING', -- PREPARING|READY|DRAFTED|EDITED|REVIEWED|DISCARDED
+  reason TEXT,                            -- human-entered reason for contact
+  gate_json TEXT,                         -- last gate evaluation
+  current_version INTEGER,                -- the draft version a person would review
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_outreach_active ON outreach_preps(case_id, purpose) WHERE active=1;
+CREATE TABLE IF NOT EXISTS outreach_drafts (
+  id INTEGER PRIMARY KEY,
+  prep_id INTEGER NOT NULL REFERENCES outreach_preps(id) ON DELETE CASCADE,
+  version INTEGER NOT NULL,
+  kind TEXT NOT NULL,                     -- SYSTEM|HUMAN_EDITED
+  text TEXT NOT NULL,
+  segments_json TEXT,                     -- [{kind: SYSTEM|HUMAN_ADDED|HUMAN_EDITED, text, basis:[evidence refs]}]
+  human_json TEXT,                        -- what the person typed (sender name, contact, message)
+  evidence_basis_json TEXT,               -- [{requirement, ref, origin, source, date}] at preparation time
+  actor TEXT NOT NULL, created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT

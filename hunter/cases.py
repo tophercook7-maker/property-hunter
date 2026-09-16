@@ -38,7 +38,10 @@ EVENT_CLASSES = ("SIGNAL RECEIVED", "INVESTIGATION OPENED", "SOURCE CHECK", "MAN
                  # P3C: a person's own record of what they did with a draft. HUMAN-REPORTED; never a system assertion of delivery.
                  "HUMAN OUTREACH ACTION",
                  # P4 Bee: an AI_OPINION analysis was recorded (OK or FAILED); a person decided on a proposal
-                 "BEE ANALYSIS", "BEE PROPOSAL DECISION")
+                 "BEE ANALYSIS", "BEE PROPOSAL DECISION",
+                 # P5: one authorized check per accepted proposal
+                 "INVESTIGATION CHECK STARTED", "INVESTIGATION CHECK SUCCEEDED", "INVESTIGATION CHECK FAILED", "INVESTIGATION CHECK BLOCKED", "INVESTIGATION CHECK STALE",
+                 "INVESTIGATION CHECK PRODUCED EVIDENCE", "QUESTION REFRESHED", "PROPOSAL COMPLETED")
 MANUAL_SOURCE = "manual_verification"
 MANUAL_SOURCES = store.MANUAL_SOURCES          # P3A: one vocabulary, defined in store
 NOTE_SOURCES = store.NOTE_SOURCES

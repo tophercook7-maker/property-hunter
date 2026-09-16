@@ -539,6 +539,21 @@ CREATE TABLE IF NOT EXISTS bee_proposals (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_bee_proposal_active ON bee_proposals(case_id, proposal_id) WHERE active=1;
 
+-- P5: one authorized check per accepted proposal, through an existing adapter. The record, not the runner, is the audit.
+CREATE TABLE IF NOT EXISTS investigation_executions (
+  id INTEGER PRIMARY KEY,
+  proposal_id INTEGER REFERENCES bee_proposals(id) ON DELETE SET NULL,
+  case_id INTEGER REFERENCES investigation_cases(id) ON DELETE CASCADE,
+  property_id INTEGER REFERENCES properties(id) ON DELETE CASCADE,
+  question_key TEXT, check_type TEXT, source TEXT, registry_json TEXT,
+  actor TEXT NOT NULL, authorization_json TEXT,
+  status TEXT NOT NULL,                   -- RUNNING|SUCCEEDED|FAILED|BLOCKED|STALE_REVIEW_REQUIRED|REJECTED|NOT_EXECUTABLE
+  error TEXT, started_at TEXT NOT NULL, finished_at TEXT,
+  result_ref TEXT, evidence_created_json TEXT, evidence_touched_json TEXT,
+  question_before TEXT, question_after TEXT, proposal_before TEXT, proposal_after TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_exec_case ON investigation_executions(case_id, id);
+
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT
@@ -553,6 +568,7 @@ def init_db() -> None:
     _ensure_column(conn, "notes", "investigation_id", "INTEGER")   # P2: notes may belong to a case
     _ensure_column(conn, "evidence", "origin", "TEXT")               # P3A: canonical provenance (AUTOMATED_SOURCE|MANUAL_VERIFICATION|NOTE|DERIVED|AI_OPINION)
     _ensure_column(conn, "evidence", "superseded_by", "INTEGER")     # P3A: a newer row of equal-or-higher precedence replaced this reading; never deleted
+    _ensure_column(conn, "bee_proposals", "accepted_fingerprint", "TEXT")   # P5: the evidence state a person accepted; execution refuses if it changed
     conn.commit()
 
 

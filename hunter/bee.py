@@ -29,7 +29,7 @@ PROVIDER = "ollama"
 PROMPT_VERSION = "bee-p4-1"
 SCHEMA_VERSION = "bee-output-1"
 PROPOSAL_TYPES = ("SOURCE_CHECK", "MANUAL_VERIFICATION", "DOCUMENT_REVIEW", "RECORD_COMPARISON", "FOLLOW_UP_RESEARCH")
-PROPOSAL_STATUSES = ("PROPOSED", "ACCEPTED", "REJECTED", "COMPLETED", "BLOCKED")
+PROPOSAL_STATUSES = ("PROPOSED", "ACCEPTED", "REJECTED", "COMPLETED", "BLOCKED", "EXECUTED_NO_ANSWER")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOCS_DATA = os.path.join(ROOT, "docs", "data")
 PRIVATE_FIELDS = ("owner_mailing_address", "manual:mailing_address")     # the value never reaches the model or the export; only that it exists, its origin and date
@@ -88,6 +88,14 @@ def snapshot(case_id: int) -> dict | None:
     }
     snap["hash"] = hashlib.sha256(json.dumps(snap, sort_keys=True, separators=(",", ":")).encode()).hexdigest()[:16]
     return snap
+
+
+def fingerprint(snap: dict) -> str:
+    """The evidence state a person accepts a proposal against: question states and their references, the
+    evidence references on file, and the tax state. Notes, Bee events and outreach do not change it."""
+    core = {"q": [(q["key"], q["state"], q["checked_at"], q["evidence_refs"]) for q in snap["questions"]],
+            "e": [e["ref"] for e in snap["evidence"]], "tax": snap["tax"]["state"], "conflicts": snap["conflicts"]}
+    return hashlib.sha256(json.dumps(core, sort_keys=True, separators=(",", ":")).encode()).hexdigest()[:16]
 
 
 def _outreach_for(case_id):
@@ -378,12 +386,16 @@ def analysis(aid: int) -> dict | None:
 
 def proposals(case_id: int) -> list[dict]:
     out = []
-    for r in db.q("SELECT * FROM bee_proposals WHERE case_id=? AND active=1 ORDER BY CASE status WHEN 'PROPOSED' THEN 0 WHEN 'ACCEPTED' THEN 1 WHEN 'BLOCKED' THEN 2 WHEN 'COMPLETED' THEN 3 ELSE 4 END, priority, id", (case_id,)):
+    from . import execution as _exec
+    for r in db.q("SELECT * FROM bee_proposals WHERE case_id=? AND active=1 ORDER BY CASE status WHEN 'ACCEPTED' THEN 0 WHEN 'PROPOSED' THEN 1 WHEN 'EXECUTED_NO_ANSWER' THEN 2 WHEN 'BLOCKED' THEN 3 WHEN 'COMPLETED' THEN 4 ELSE 5 END, priority, id", (case_id,)):
         d = dict(r)
         d["where"] = jload(d.pop("where_json"), {}); d["alternate"] = jload(d.pop("alternate_json"), None); d["edited"] = jload(d.pop("edited_json"), None)
         d["requires_human_action"] = bool(d["requires_human_action"]); d["authorization_required"] = bool(d["authorization_required"]); d["changes_case_state"] = bool(d["changes_case_state"])
         d["meaning"] = {"PROPOSED": "Bee proposes this; nothing has been checked.", "ACCEPTED": "A person accepted this proposal for execution or review. Accepting does not make any statement true and records no evidence.",
-                        "REJECTED": "A person declined this proposal.", "COMPLETED": "The question was later answered by recorded evidence; Bee did not complete anything.", "BLOCKED": "The source is not usable right now."}[d["status"]]
+                        "REJECTED": "A person declined this proposal.", "COMPLETED": "The question was answered by recorded evidence; Bee did not complete anything.", "BLOCKED": "The source is not usable right now.",
+                        "EXECUTED_NO_ANSWER": "The authorized check ran and the source answered, but the recorded evidence did not settle the question; it stays UNKNOWN."}.get(d["status"], "")
+        d["execution"] = _exec.plan(d["id"]) if d["status"] in ("ACCEPTED", "PROPOSED", "EXECUTED_NO_ANSWER") else {"state": "REJECTED" if d["status"] == "REJECTED" else "NOT_EXECUTABLE", "ready": False, "reasons": []}
+        d["executions"] = [x for x in _exec.executions_for_case(case_id) if x["proposal_id"] == d["id"]]
         out.append(d)
     return out
 
@@ -425,7 +437,8 @@ def decide(proposal_id: int, decision: str, actor="user", note: str = "", edits:
         cases._event(r["case_id"], "BEE PROPOSAL DECISION", f"Proposal {r['proposal_id']} marked reviewed", note, f"bee_proposal:{proposal_id}", actor)
     else:
         status = {"ACCEPT": "ACCEPTED", "REJECT": "REJECTED", "REOPEN": "PROPOSED"}[decision]
-        db.ex("UPDATE bee_proposals SET status=?, decided_by=?, decided_at=?, human_note=?, updated_at=? WHERE id=?", (status, actor, now, note or r["human_note"], now, proposal_id))
+        fp = fingerprint(snapshot(r["case_id"])) if status == "ACCEPTED" else None
+        db.ex("UPDATE bee_proposals SET status=?, decided_by=?, decided_at=?, human_note=?, accepted_fingerprint=?, updated_at=? WHERE id=?", (status, actor, now, note or r["human_note"], fp, now, proposal_id))
         cases._event(r["case_id"], "BEE PROPOSAL DECISION", f"Proposal {r['proposal_id']} {status} by a person",
                      (note or "") + (" — acceptance means a person will run or review this check; it makes no statement true and records no evidence" if status == "ACCEPTED" else ""), f"bee_proposal:{proposal_id}", actor)
     cases._touch(r["case_id"])
@@ -440,5 +453,6 @@ def public_summary(case_id: int) -> dict:
     by = {}
     for r in db.q("SELECT status, COUNT(*) n FROM bee_proposals WHERE case_id=? AND active=1 GROUP BY status", (case_id,)):
         by[r["status"]] = r["n"]
+    from . import execution as _exec
     return {"last_analysis": ({"status": latest["status"], "model": latest["model"], "prompt_version": latest["prompt_version"], "at": latest["created_at"]} if latest else None),
-            "proposals_by_status": by, "origin": "AI_OPINION", "note": "Bee's text, reasons and proposals are held in the local app; nothing here is evidence"}
+            "proposals_by_status": by, "executions": _exec.public_summary(case_id), "origin": "AI_OPINION", "note": "Bee's text, reasons and proposals are held in the local app; nothing here is evidence"}

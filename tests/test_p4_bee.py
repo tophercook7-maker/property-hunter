@@ -233,10 +233,10 @@ def test_public_export_carries_bee_metadata_only(client):
     b = out["cases"][str(cid)]["bee"]
     assert b["last_analysis"]["status"] == "OK" and b["last_analysis"]["model"] == "fake-model" and b["last_analysis"]["prompt_version"] == bee.PROMPT_VERSION
     assert b["proposals_by_status"]["REJECTED"] == 1 and b["origin"] == "AI_OPINION"
-    assert set(b) == {"last_analysis", "proposals_by_status", "origin", "note"}
+    assert set(b) == {"last_analysis", "proposals_by_status", "executions", "origin", "note"}
     live = json.loads((DOCS / "data" / "investigations.json").read_text())
     for c in live["cases"].values():
-        assert "bee" in c and set(c["bee"]) == {"last_analysis", "proposals_by_status", "origin", "note"}
+        assert "bee" in c and set(c["bee"]) == {"last_analysis", "proposals_by_status", "executions", "origin", "note"}
         for e in c["events"]:
             if e["cls"] in ("BEE ANALYSIS", "BEE PROPOSAL DECISION"):
                 assert e["detail"] == "[Bee text held in the local app]"

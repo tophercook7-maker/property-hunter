@@ -1365,6 +1365,31 @@ def api_bee_decide(proposal_id: int, payload: dict = Body(...)) -> dict:
         raise HTTPException(400, str(exc))
 
 
+# ------------------------------------------------------------ P5: safe investigation execution
+# One accepted proposal -> one existing authorized source check. No URL, command or model text is executed.
+
+@app.get("/api/bee/proposal/{proposal_id}/execution")
+def api_execution_plan(proposal_id: int) -> dict:
+    from . import execution
+    pl = execution.plan(proposal_id)
+    if pl.get("reasons") == ["no such proposal"]:
+        raise HTTPException(404, "No such proposal")
+    pl["history"] = [x for x in execution.executions_for_case(pl["case_id"]) if x["proposal_id"] == proposal_id] if pl.get("case_id") else []
+    pl["checks_available"] = {k: {"label": v["label"], "source": v["source"], "questions": list(v["questions"])} for k, v in execution.CHECKS.items()}
+    return pl
+
+
+@app.post("/api/bee/proposal/{proposal_id}/run")
+def api_execution_run(proposal_id: int, payload: dict = Body(default={})) -> dict:
+    """Run exactly this proposal's check, once. The guard decides; a refused run is recorded too."""
+    from . import execution
+    if not db.q1("SELECT 1 FROM bee_proposals WHERE id=?", (proposal_id,)):
+        raise HTTPException(404, "No such proposal")
+    if payload.get("url") or payload.get("command") or payload.get("check_type"):
+        raise HTTPException(400, "the runner takes no URL, command or check type from the caller; the proposal decides")
+    return execution.run(proposal_id, actor=str(payload.get("actor") or "user")[:40])
+
+
 @app.post("/api/watch/import")
 def api_watch_import(payload: dict = Body(default={})) -> dict:
     """Watch a list of parcels pasted from the public site ("FIPS:PARCEL" or bare Garland ids).

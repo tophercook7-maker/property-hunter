@@ -36,7 +36,9 @@ EVENT_CLASSES = ("SIGNAL RECEIVED", "INVESTIGATION OPENED", "SOURCE CHECK", "MAN
                  # P3B outreach preparation (draft only; there is no SENT class because nothing can be sent)
                  "OUTREACH PREPARATION STARTED", "OUTREACH GATE EVALUATED", "DRAFT GENERATED", "DRAFT EDITED", "DRAFT REVIEWED", "DRAFT DISCARDED",
                  # P3C: a person's own record of what they did with a draft. HUMAN-REPORTED; never a system assertion of delivery.
-                 "HUMAN OUTREACH ACTION")
+                 "HUMAN OUTREACH ACTION",
+                 # P4 Bee: an AI_OPINION analysis was recorded (OK or FAILED); a person decided on a proposal
+                 "BEE ANALYSIS", "BEE PROPOSAL DECISION")
 MANUAL_SOURCE = "manual_verification"
 MANUAL_SOURCES = store.MANUAL_SOURCES          # P3A: one vocabulary, defined in store
 NOTE_SOURCES = store.NOTE_SOURCES
@@ -591,6 +593,8 @@ def export_all() -> dict:
     for k in out["by_property"].values():
         c = get_case(k["id"])
         c["outreach"] = outreach.public_summary(k["id"])          # redacted: no draft text, no addresses
+        from . import bee
+        c["bee"] = bee.public_summary(k["id"])                     # metadata only: no text, no prompts
         out["cases"][str(k["id"])] = _redact_public(c)
     out["by_status"] = {}
     for c in out["cases"].values():
@@ -621,4 +625,5 @@ def _redact_public(c: dict) -> dict:
     c["events"] = [dict(e, detail=hn + " — recorded by a human; not a system assertion that anyone received or answered") if e.get("cls") == "HUMAN OUTREACH ACTION"
                    else dict(e, title=hn, detail="") if e.get("cls") == "NOTE ADDED" else e for e in c["events"]]
     c["notes"] = [dict(n, body=hn) for n in c.get("notes", [])]
+    c["events"] = [dict(e, detail="[Bee text held in the local app]") if e.get("cls") in ("BEE ANALYSIS", "BEE PROPOSAL DECISION") else e for e in c["events"]]
     return c

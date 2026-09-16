@@ -1326,6 +1326,45 @@ def api_outreach_actions(prep_id: int) -> dict:
     return {"actions": outreach.actions_for_prep(prep_id), "action_types": outreach.ACTION_TYPES, "provenance": outreach.HUMAN_PROVENANCE}
 
 
+# ------------------------------------------------------------ P4: Bee investigator (propose only)
+# Bee reads a case, explains what is known and unknown, and proposes checks. It never writes evidence,
+# never answers a question, never contacts anyone and never drafts outreach.
+
+@app.get("/api/case/{case_id}/bee")
+def api_bee(case_id: int) -> dict:
+    from . import bee
+    _case_or_404(case_id)
+    return bee.view(case_id)
+
+
+@app.post("/api/case/{case_id}/bee/run")
+def api_bee_run(case_id: int, payload: dict = Body(default={})) -> dict:
+    """Ask Bee to look at the case now. A model name may be given (must be installed); a failure is
+    recorded as a FAILED analysis and changes nothing else."""
+    from . import bee
+    _case_or_404(case_id)
+    bee.run(case_id, model=(str(payload.get("model")).strip() or None) if payload.get("model") else None, actor=str(payload.get("actor") or "user")[:40])
+    return bee.view(case_id)
+
+
+@app.get("/api/case/{case_id}/bee/snapshot")
+def api_bee_snapshot(case_id: int) -> dict:
+    from . import bee
+    _case_or_404(case_id)
+    return bee.snapshot(case_id)
+
+
+@app.post("/api/bee/proposal/{proposal_id}/decide")
+def api_bee_decide(proposal_id: int, payload: dict = Body(...)) -> dict:
+    from . import bee
+    try:
+        return bee.decide(proposal_id, str(payload.get("decision") or ""), actor=str(payload.get("actor") or "user")[:40], note=str(payload.get("note") or "")[:400], edits=payload.get("edits") or None)
+    except KeyError:
+        raise HTTPException(404, "No such proposal")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
 @app.post("/api/watch/import")
 def api_watch_import(payload: dict = Body(default={})) -> dict:
     """Watch a list of parcels pasted from the public site ("FIPS:PARCEL" or bare Garland ids).

@@ -282,3 +282,38 @@ def fallback_summary(prop: dict) -> str:
     bits.append("No local AI model is running right now, so this is a plain readout "
                 "of the stored evidence rather than an analysis.")
     return " ".join(bits)
+
+def ask_json(prompt: str, *, system: str = SYSTEM, model: str | None = None, temperature: float = 0.1,
+             max_tokens: int = 1400, timeout: float | None = None) -> tuple[dict | None, dict]:
+    """Structured answer through the established Ollama chat call (format=json). Never cached, never
+    guessed: returns (parsed object or None, meta{model, error, raw}). A model that is not installed,
+    an unreachable backend, a timeout, an empty or non-JSON reply all come back as an explicit error."""
+    chosen = model or pick_model()
+    if not chosen:
+        return None, {"model": "", "error": "no local model reachable", "raw": ""}
+    if chosen not in available_models():
+        return None, {"model": chosen, "error": f"model {chosen!r} is not installed locally", "raw": ""}
+    try:
+        r = httpx.post(f"{OLLAMA_URL}/api/chat",
+                       json={"model": chosen, "stream": False, "format": "json",
+                             "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+                             "options": {"temperature": temperature, "num_ctx": AI_NUM_CTX, "num_predict": max_tokens}},
+                       timeout=timeout or AI_TIMEOUT)
+        r.raise_for_status()
+        text = (r.json().get("message") or {}).get("content", "").strip()
+    except Exception as exc:
+        return None, {"model": chosen, "error": f"{type(exc).__name__}: {exc}"[:300], "raw": ""}
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
+    if not text:
+        return None, {"model": chosen, "error": "empty response", "raw": ""}
+    try:
+        obj = json.loads(text)
+    except ValueError:
+        m = re.search(r"\{.*\}", text, re.S)
+        try:
+            obj = json.loads(m.group(0)) if m else None
+        except ValueError:
+            obj = None
+        if obj is None:
+            return None, {"model": chosen, "error": "response was not valid JSON", "raw": text[:2000]}
+    return obj, {"model": chosen, "error": None, "raw": text[:2000]}

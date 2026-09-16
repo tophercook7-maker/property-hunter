@@ -511,6 +511,34 @@ CREATE TABLE IF NOT EXISTS outreach_actions (
 );
 CREATE INDEX IF NOT EXISTS idx_outreach_actions_prep ON outreach_actions(prep_id, action_date);
 
+-- P4: Bee investigator. AI_OPINION / DERIVED records only; never evidence. Proposals are distinct from checks.
+CREATE TABLE IF NOT EXISTS bee_analyses (
+  id INTEGER PRIMARY KEY,
+  case_id INTEGER NOT NULL REFERENCES investigation_cases(id) ON DELETE CASCADE,
+  snapshot_hash TEXT NOT NULL, snapshot_json TEXT,
+  provider TEXT NOT NULL, model TEXT, model_version TEXT, prompt_version TEXT NOT NULL, schema_version TEXT NOT NULL,
+  status TEXT NOT NULL,                   -- OK|FAILED
+  error TEXT, output_json TEXT, raw_excerpt TEXT,
+  origin TEXT NOT NULL DEFAULT 'AI_OPINION',
+  evidence_refs_json TEXT, duration_ms INTEGER, actor TEXT, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS bee_proposals (
+  id INTEGER PRIMARY KEY,
+  analysis_id INTEGER REFERENCES bee_analyses(id) ON DELETE SET NULL,
+  case_id INTEGER NOT NULL REFERENCES investigation_cases(id) ON DELETE CASCADE,
+  proposal_id TEXT NOT NULL,              -- stable per case: <question>:<source>
+  question_key TEXT NOT NULL, type TEXT NOT NULL, purpose TEXT, why TEXT,
+  expected_information TEXT, would_not_answer TEXT, source_candidate TEXT, source_status TEXT,
+  where_json TEXT, alternate_json TEXT, risk TEXT,
+  requires_human_action INTEGER NOT NULL DEFAULT 1, authorization_required INTEGER NOT NULL DEFAULT 0, changes_case_state INTEGER NOT NULL DEFAULT 0,
+  priority INTEGER NOT NULL DEFAULT 50,
+  status TEXT NOT NULL DEFAULT 'PROPOSED', -- PROPOSED|ACCEPTED|REJECTED|COMPLETED|BLOCKED
+  origin TEXT NOT NULL DEFAULT 'AI_OPINION',
+  human_note TEXT, edited_json TEXT, decided_by TEXT, decided_at TEXT, reviewed_at TEXT,
+  active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bee_proposal_active ON bee_proposals(case_id, proposal_id) WHERE active=1;
+
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT

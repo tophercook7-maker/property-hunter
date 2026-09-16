@@ -37,7 +37,7 @@ const STW = {FOUND:'FOUND',NOT_FOUND:'NOT FOUND',UNKNOWN:'UNKNOWN'};
 let CASE = null, LIVE = false, SNAP = null;
 const p = new URLSearchParams(location.search);
 
-async function api(path, body){ const r = await PH.apiFetch(path, body ? {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)} : {}, 4000); if(!r.ok){ let m = r.statusText; try { m = (await r.json()).detail || m; } catch(e){} throw new Error(m); } return r.json(); }
+async function api(path, body, ms){ const r = await PH.apiFetch(path, body ? {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)} : {}, ms || 4000); if(!r.ok){ let m = r.statusText; try { m = (await r.json()).detail || m; } catch(e){} throw new Error(m); } return r.json(); }
 async function snapshot(){ if(SNAP) return SNAP; try { const r = await fetch('data/investigations.json', {cache:'no-store'}); SNAP = r.ok ? await r.json() : {cases:{}}; } catch(e){ SNAP = {cases:{}}; } return SNAP; }
 
 function actionHtml(n, big){
@@ -87,12 +87,14 @@ function render(){
       <div class="row"><label>Notes<input id="l-notes"></label><label>Evidence reference (optional, e.g. evidence:123 or a book/page)<input id="l-ref"></label><label>Document reference (optional)<input id="l-doc" placeholder="file name or record number"></label><label>Source URL (optional, https only)<input id="l-url"></label></div>
       <div><button class="btn" type="button" id="l-save">Record manual verification</button> <span class="msg" id="l-msg"></span></div></section>
     <section class="form"><h3>Note — a NOTE, never a fact</h3><textarea id="n-body" rows="2" placeholder="What you think, what to try next. Notes stay separate from evidence."></textarea><div><button class="btn ghost" type="button" id="n-save">Add note</button> <span class="msg" id="n-msg"></span></div></section>` : ''}
+    ${LIVE ? `<section id="bee"><h3>Bee investigator — AI assistant; proposes and explains, never decides, never records evidence</h3><div id="bee-body" class="msg">Loading Bee…</div></section>` : ''}
     <div class="two">
       <section><h3>Evidence (${c.evidence.length}) — origin on every row: automated source · manual verification · note · derived · AI opinion</h3><div class="ev-panel">${c.evidence.map(evHtml).join('') || '<div class="empty">No evidence rows beyond the roll.</div>'}</div></section>
       <section><h3>Notes (${c.notes.length})</h3><div style="display:grid;gap:6px">${c.notes.map(n=>`<div class="note-item"><b>NOTE · ${esc(n.author)} · ${esc(when(n.created_at))} · ${esc(n.confidence)}</b><div>${esc(n.body)}</div></div>`).join('') || '<div class="empty">No notes.</div>'}</div>
         <h3 style="margin-top:14px">Timeline (${c.events.length})</h3><ol class="tl">${c.events.map(e=>`<li class="${esc(e.cls.replace(/ /g,'_'))}"><time>${esc(when(e.at))}</time><b>${esc(e.cls)}</b><span>${esc(e.title)}${e.detail?` — ${esc(e.detail)}`:''}<small>${esc(e.actor)}${e.ref?` · ${esc(e.ref)}`:''}${e.ref_date?` · record date ${esc(e.ref_date)}`:''}</small></span></li>`).join('')}</ol></section>
     </div>`;
   if(!LIVE) return;
+  loadBee(c.investigation_id);
   $('status').onchange = async () => { try { await api(`/api/case/${c.investigation_id}/status`, {status: $('status').value}); await load(c.investigation_id); } catch(e){ alert(e.message); } };
   $('l-save').onclick = async () => {
     const body = {source: $('l-source').value, date: $('l-date').value, question: $('l-q').value || undefined, state: $('l-state').value || undefined, result: $('l-result').value, notes: $('l-notes').value, evidence_ref: $('l-ref').value, document: $('l-doc').value, source_url: $('l-url').value};
@@ -100,6 +102,51 @@ function render(){
     try { const r = await api(`/api/case/${c.investigation_id}/log`, body); $('l-msg').textContent = `recorded ${r.evidence_ref||''}`; await load(c.investigation_id); } catch(e){ $('l-msg').textContent = e.message; $('l-msg').className = 'msg err'; }
   };
   $('n-save').onclick = async () => { try { await api(`/api/case/${c.investigation_id}/note`, {body: $('n-body').value}); await load(c.investigation_id); } catch(e){ $('n-msg').textContent = e.message; $('n-msg').className = 'msg err'; } };
+}
+/* ---------- P4 Bee: plain-language case understanding, proposals, human review ---------- */
+const STATE_W = {FOUND:'known', NOT_FOUND:'checked, no result', UNKNOWN:'unknown'};
+function beeItem(x, cls){ return `<li>${esc(x.wording || x.question || x.field || '')}${x.text ? ` — ${esc(x.text)}` : ''}${x.source ? ` <small class="msg">(${esc(x.provenance ? PH.originLabel(x.provenance) : '')}${x.source ? ' · ' + esc(x.source) : ''}${x.date ? ' · ' + esc(x.date) : ''}${(x.evidence_refs||[]).length ? ' · ' + x.evidence_refs.map(esc).join(', ') : ''})</small>` : ''}</li>`; }
+function propHtml(p){
+  const w = p.where || {}; const ext = w.href && /^https?:/.test(w.href);
+  const dest = w.manual || !w.href ? '<b>MANUAL ACTION REQUIRED</b>' : `<a href="${esc(w.href)}"${ext?' target="_blank" rel="noopener"':''}>${esc(w.label)}${ext?' ↗':' →'}</a>`;
+  const why = (p.edited && p.edited.why) || p.why;
+  return `<div class="q ${p.status==='PROPOSED'?'UNKNOWN':p.status==='ACCEPTED'?'FOUND':p.status==='COMPLETED'?'FOUND':'NOT_FOUND'}" data-pid="${p.id}"><span class="st">${esc(p.status)}<br><small style="font-family:var(--body)">${esc(p.origin==='AI_OPINION'?'AI OPINION':'DERIVED')}</small></span><span>
+    <span class="cat">${esc(p.type.replace(/_/g,' '))} · priority ${p.priority}</span> <span class="w">${esc((p.edited && p.edited.purpose) || p.purpose)}</span>
+    <div class="a"><b>Why:</b> ${esc(why)}${p.edited && p.edited.why ? ' <small class="manual">HUMAN-EDITED</small>' : ''}</div>
+    <div class="a"><b>Where to check:</b> ${dest} · ${esc(p.source_candidate)} · source ${esc(p.source_status)}${p.alternate ? ` · alternate: ${esc(p.alternate.source||'')} (${esc(p.alternate.status||'')})` : ''}</div>
+    <div class="a"><b>What would prove it:</b> ${esc((p.edited && p.edited.expected_information) || p.expected_information)}</div>
+    <div class="a"><b>What would not prove it:</b> ${esc((p.edited && p.edited.would_not_answer) || p.would_not_answer)}</div>
+    <small>${esc(p.meaning)} · risk: ${esc(p.risk)}${p.requires_human_action?' · needs a person':''}${p.decided_by?` · ${esc(p.status.toLowerCase())} by ${esc(p.decided_by)} ${esc(when(p.decided_at))}`:''}${p.human_note?` · note: ${esc(p.human_note)}`:''}${p.reviewed_at?` · reviewed ${esc(when(p.reviewed_at))}`:''}</small>
+    <div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">${!p.id ? '<small class="msg">Ask Bee to look at the case to turn these into proposals you can accept or reject.</small>' : p.status==='PROPOSED' ? `<button class="btn ghost" type="button" data-decide="ACCEPT" data-id="${p.id}">Accept proposal</button><button class="btn ghost" type="button" data-decide="REJECT" data-id="${p.id}">Reject</button>` : (p.status==='ACCEPTED'||p.status==='REJECTED') ? `<button class="btn ghost" type="button" data-decide="REOPEN" data-id="${p.id}">Reopen</button>` : ''}${p.id ? `<button class="btn ghost" type="button" data-decide="REVIEWED" data-id="${p.id}">Mark as reviewed</button><input data-note="${p.id}" placeholder="note (optional)" style="font:inherit;font-size:12px;padding:3px 6px;background:var(--surface2);color:var(--ink);border:1px solid var(--rule)"><input data-editwhy="${p.id}" placeholder="your own reason (saved as human-edited)" style="font:inherit;font-size:12px;padding:3px 6px;background:var(--surface2);color:var(--ink);border:1px solid var(--rule);min-width:220px"><button class="btn ghost" type="button" data-edit="${p.id}">Save reason</button><span class="msg" data-pmsg="${p.id}"></span>` : ''}</div></span></div>`;
+}
+async function loadBee(cid){
+  const el = $('bee-body'); if(!el) return;
+  let v; try { v = await api(`/api/case/${cid}/bee`); } catch(e){ el.innerHTML = `<span class="msg err">Bee could not load: ${esc(e.message)}</span>`; return; }
+  const u = v.understanding, L = v.latest;
+  const modelLine = v.model && v.model.model ? `local model ${esc(v.model.model)} via Ollama` : 'no local model reachable';
+  el.innerHTML = `<div class="two">
+    <div class="box"><h3>What we know (from evidence)</h3><ul>${u.known.map(x=>beeItem(x)).join('') || '<li>Nothing answered yet.</li>'}</ul>
+      ${u.not_found.length ? `<h3 style="margin-top:8px">Checked, no result</h3><ul>${u.not_found.map(x=>beeItem(x)).join('')}</ul>` : ''}</div>
+    <div class="box"><h3>What we don't know</h3><ul>${u.unknown.map(x=>beeItem(x)).join('') || '<li>No open questions.</li>'}</ul>
+      ${u.conflicts.length ? `<h3 style="margin-top:8px">Conflicts</h3><ul>${u.conflicts.map(x=>beeItem(x)).join('')}</ul>` : ''}
+      ${u.inferences.length ? `<h3 style="margin-top:8px">Things to be careful about (derived, not facts)</h3><ul>${u.inferences.map(x=>`<li><span class="org org-DERIVED">DERIVED</span> ${esc(x.text)} <small class="msg">${(x.evidence_refs||[]).map(esc).join(', ')}</small></li>`).join('')}</ul>` : ''}
+      ${u.outreach_notes.length ? `<h3 style="margin-top:8px">Outreach</h3><ul>${u.outreach_notes.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>` : ''}</div></div>
+    <div class="box" style="margin-top:10px"><h3>Bee's analysis <span class="org org-AI_OPINION">AI OPINION</span></h3>
+      ${L ? (L.status==='OK' ? `<p style="margin:0 0 6px"><b>${esc(L.output.summary)}</b></p>
+        ${L.output.inferences.length ? `<div class="msg"><b>What Bee suspects (not facts):</b><ul>${L.output.inferences.map(x=>`<li>${esc(x.text)} <small>${(x.evidence_refs||[]).map(esc).join(', ')}</small></li>`).join('')}</ul></div>` : ''}
+        ${L.output.warnings.length ? `<div class="msg"><b>Warnings:</b> ${L.output.warnings.map(esc).join(' · ')}</div>` : ''}`
+        : `<p class="msg err" style="margin:0 0 6px"><b>Bee could not produce an analysis.</b> ${esc(L.error||'')} — the case, its evidence and its questions were not changed.</p>${v.latest_ok ? `<p style="margin:0 0 6px"><b>Last analysis that worked (#${v.latest_ok.id}, ${esc(when(v.latest_ok.created_at))}, ${esc(v.latest_ok.model||'')}; the case may have changed since):</b> ${esc(v.latest_ok.output.summary)}</p>${v.latest_ok.output.inferences.length ? `<div class="msg"><b>What Bee suspected then (not facts):</b><ul>${v.latest_ok.output.inferences.map(x=>`<li>${esc(x.text)}</li>`).join('')}</ul></div>` : ''}${v.latest_ok.output.warnings.length ? `<div class="msg"><b>Warnings:</b> ${v.latest_ok.output.warnings.map(esc).join(' · ')}</div>` : ''}` : ''}`)
+        + `<small class="msg">analysis #${L.id} · ${esc(L.status)} · ${esc(L.provider)} / ${esc(L.model||'no model')}${L.model_version && L.model_version.digest ? ' (' + esc(L.model_version.digest) + ', ' + esc(L.model_version.parameter_size||'') + ')' : ''} · prompt ${esc(L.prompt_version)} · schema ${esc(L.schema_version)} · ${esc(when(L.created_at))} · evidence used: ${L.evidence_refs.length ? L.evidence_refs.map(esc).join(', ') : 'none cited'} · ${esc(L.label)}</small>`
+        : `<p class="msg" style="margin:0 0 6px">Bee has not looked at this case yet. The lists above come from the evidence rules alone.</p>`}
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button class="btn ghost" type="button" id="bee-run">Ask Bee to look at this case${L?' again':''}</button> <span class="msg">${modelLine}</span> <label class="msg">model override <input id="bee-model" placeholder="(installed model name)" style="font:inherit;font-size:12px;padding:3px 6px;background:var(--surface2);color:var(--ink);border:1px solid var(--rule)"></label> <span class="msg" id="bee-msg"></span></div>
+      ${v.history.length ? `<details style="margin-top:6px"><summary class="msg" style="cursor:pointer">Earlier analyses (${v.history.length})</summary><div class="msg">${v.history.map(h=>`#${h.id} ${esc(h.status)} · ${esc(h.model||'no model')} · ${esc(h.prompt_version)} · ${esc(when(h.created_at))}${h.error?' · '+esc(h.error.slice(0,120)):''}`).join('<br>')}</div></details>` : ''}</div>
+    <h3 style="margin-top:12px">What Bee thinks we should check next</h3>
+    <p class="msg" style="margin:0 0 6px">Every item is a proposal until a person or an existing source check actually does it. Accepting one means you will run or review it; it does not make anything true and records no evidence. ${esc(v.boundary)}</p>
+    <div class="q3">${v.proposals.length ? v.proposals.map(propHtml).join('') : (u.candidates.length ? `<p class="msg">Bee has not prioritised these yet. Until it does, here are the checks the evidence rules list for the open questions (DERIVED, in question order):</p>` + u.candidates.map(c=>propHtml(Object.assign({id:0, status:'PROPOSED', origin:'DERIVED', priority:'—', why:'Listed by the evidence rules because the question is still UNKNOWN.', meaning:'Not yet proposed by Bee; nothing has been checked.', edited:null, human_note:null, decided_by:null, reviewed_at:null}, c, {question_key:c.question_id}))).join('') : '<div class="empty">No open questions, so nothing to propose.</div>')}</div>`;
+  $('bee-run').onclick = async () => { $('bee-msg').textContent = 'Bee is reading the case…'; $('bee-msg').className='msg'; try { await api(`/api/case/${cid}/bee/run`, {model: $('bee-model').value || undefined}, 600000); await loadBee(cid); await load(cid); } catch(e){ $('bee-msg').textContent = e.message; $('bee-msg').className='msg err'; } };
+  const pmsg = (id, t, err) => { const m = el.querySelector(`[data-pmsg="${id}"]`); if(m){ m.textContent = t; m.className = err ? 'msg err' : 'msg'; } };
+  el.querySelectorAll('[data-decide]').forEach(b => b.onclick = async () => { const n = el.querySelector(`[data-note="${b.dataset.id}"]`); const note = n ? n.value : ''; try { await api(`/api/bee/proposal/${b.dataset.id}/decide`, {decision: b.dataset.decide, note}); await loadBee(cid); await load(cid); } catch(e){ pmsg(b.dataset.id, e.message, true); } });
+  el.querySelectorAll('[data-edit]').forEach(b => b.onclick = async () => { const w = el.querySelector(`[data-editwhy="${b.dataset.edit}"]`); const why = w ? w.value : ''; if(!why.trim()){ pmsg(b.dataset.edit, 'type your reason first', true); return; } try { await api(`/api/bee/proposal/${b.dataset.edit}/decide`, {decision:'EDIT', edits:{why}}); await loadBee(cid); } catch(e){ pmsg(b.dataset.edit, e.message, true); } });
 }
 async function load(id){
   try { CASE = await api(`/api/case/${id}`); LIVE = true; }

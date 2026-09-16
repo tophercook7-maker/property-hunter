@@ -557,6 +557,51 @@ CREATE INDEX IF NOT EXISTS idx_exec_case ON investigation_executions(case_id, id
 -- P5.5: commercial access. Codes are stored as a peppered HMAC only; device public keys, not secrets; sessions hashed.
 -- P6: private address-search history. One row per resolve call, keyed to the license that asked.
 -- Never exported, never public; holds no activation secrets (license_id is an integer row id).
+-- P7: one workup = one orchestrated pass over every applicable domain for one resolved property.
+-- Additive. Historical workups and their source-attempt ledgers are never deleted or rewritten.
+CREATE TABLE IF NOT EXISTS workups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+    investigation_id INTEGER REFERENCES investigation_cases(id) ON DELETE SET NULL,
+    search_id INTEGER,
+    license_id INTEGER NOT NULL DEFAULT 0,
+    session_id INTEGER NOT NULL DEFAULT 0,
+    actor TEXT NOT NULL,
+    status TEXT NOT NULL,              -- NOT_STARTED|RUNNING|COMPLETE|COMPLETE_WITH_UNKNOWN|COMPLETE_WITH_SOURCE_FAILURES|FAILED
+    version TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    completed_at TEXT,
+    identity_json TEXT,
+    evidence_json TEXT,
+    questions_json TEXT,
+    failures_json TEXT,
+    conflicts_json TEXT,
+    next_actions_json TEXT,
+    outreach_json TEXT,
+    timings_json TEXT,
+    error TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_workups_property ON workups(property_id, id);
+CREATE TABLE IF NOT EXISTS workup_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workup_id INTEGER NOT NULL REFERENCES workups(id) ON DELETE CASCADE,
+    domain TEXT NOT NULL,
+    source TEXT,
+    check_type TEXT,
+    execution_id INTEGER,
+    status TEXT NOT NULL,              -- SUCCESS_WITH_EVIDENCE|SUCCESS_NO_ANSWER|NOT_APPLICABLE|MANUAL_ONLY|BLOCKED|SOURCE_UNAVAILABLE|FAILED
+    health_json TEXT,
+    failure_category TEXT,
+    failure_detail TEXT,
+    evidence_count INTEGER NOT NULL DEFAULT 0,
+    questions_json TEXT,
+    manual_required INTEGER NOT NULL DEFAULT 0,
+    reused INTEGER NOT NULL DEFAULT 0,
+    started_at TEXT NOT NULL,
+    completed_at TEXT,
+    ms INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_workup_attempts ON workup_attempts(workup_id, id);
 CREATE TABLE IF NOT EXISTS address_searches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     license_id INTEGER NOT NULL DEFAULT 0,
@@ -630,6 +675,7 @@ def init_db() -> None:
     _ensure_column(conn, "evidence", "origin", "TEXT")               # P3A: canonical provenance (AUTOMATED_SOURCE|MANUAL_VERIFICATION|NOTE|DERIVED|AI_OPINION)
     _ensure_column(conn, "evidence", "superseded_by", "INTEGER")     # P3A: a newer row of equal-or-higher precedence replaced this reading; never deleted
     _ensure_column(conn, "bee_proposals", "accepted_fingerprint", "TEXT")   # P5: the evidence state a person accepted; execution refuses if it changed
+    _ensure_column(conn, "investigation_executions", "workup_id", "INTEGER")
     conn.commit()
 
 

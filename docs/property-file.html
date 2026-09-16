@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Property File · Property Hunter</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="ph.css">
+<style>
+main{max-width:1100px;margin:0 auto;padding:16px 16px 70px;display:grid;gap:18px}
+h2{font-size:22px;text-transform:uppercase;letter-spacing:.03em;margin:0;font-family:var(--display)}
+h3{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;font-family:var(--body);font-weight:600}
+.fine{font-size:12px;color:var(--muted)}
+.status{display:grid;gap:8px;background:var(--surface);border:1px solid var(--rule);border-left:6px solid var(--rule);padding:12px 14px}
+.status .k{font-family:var(--display);font-size:24px;text-transform:uppercase;letter-spacing:.03em;font-weight:600;line-height:1}
+.status.RUNNING,.status.NOT_STARTED{border-left-color:var(--info)} .status.RUNNING .k{color:var(--info)}
+.status.COMPLETE{border-left-color:var(--good)} .status.COMPLETE .k{color:var(--good)}
+.status.COMPLETE_WITH_UNKNOWN{border-left-color:var(--warn)} .status.COMPLETE_WITH_UNKNOWN .k{color:var(--warn)}
+.status.COMPLETE_WITH_SOURCE_FAILURES,.status.FAILED{border-left-color:var(--bad)} .status.COMPLETE_WITH_SOURCE_FAILURES .k,.status.FAILED .k{color:var(--bad)}
+.progress{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px}
+.progress div{font-size:12px;padding:6px 8px;border:1px solid var(--rule);background:var(--surface2);display:flex;justify-content:space-between;gap:6px}
+.prop{background:var(--paper);color:var(--paper-ink);border:1px solid var(--rule);padding:14px 16px;display:grid;gap:8px}
+.prop .addr{font-family:var(--display);font-size:30px;line-height:1.05;text-transform:uppercase;font-weight:600}
+.prop dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px 14px;margin:0;font-size:13px}
+.prop dt{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;opacity:.75}.prop dd{margin:0;font-family:var(--mono);font-size:12.5px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+.box{background:var(--surface);border:1px solid var(--rule);padding:12px 14px;display:grid;gap:8px;align-content:start}
+.item{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:13px;padding:6px 0;border-top:1px solid var(--rule)}
+.item:first-of-type{border-top:0}
+.item .st{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.06em;padding:2px 6px;border:1px solid;align-self:start;white-space:nowrap}
+.st.FOUND{color:var(--good);border-color:var(--good)} .st.NOT_FOUND{color:var(--info);border-color:var(--info)} .st.UNKNOWN{color:var(--muted);border-color:var(--rule)}
+.st.SOURCE_UNAVAILABLE,.st.FAILED,.st.BLOCKED{color:var(--bad);border-color:var(--bad)} .st.MANUAL_ONLY{color:var(--accent);border-color:var(--accent)} .st.NOT_APPLICABLE{color:var(--muted);border-color:var(--rule)}
+.st.SUCCESS_WITH_EVIDENCE{color:var(--good);border-color:var(--good)} .st.SUCCESS_NO_ANSWER{color:var(--info);border-color:var(--info)} .st.CONFLICTING{color:var(--warn);border-color:var(--warn)}
+.item .v{font-weight:500}.item .prov{font-family:var(--mono);font-size:11px;color:var(--muted);grid-column:2}
+.hist{color:var(--warn);font-weight:600;font-size:11px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--rule);vertical-align:top}th{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tablewrap{overflow-x:auto}
+.act{border-top:1px solid var(--rule);padding:8px 0;font-size:13px;display:grid;gap:2px}.act:first-of-type{border-top:0}.act b{font-size:14px}
+.act .m{font-size:12px;color:var(--muted)}
+.gate{border-left:6px solid var(--rule)} .gate.READY{border-left-color:var(--good)} .gate.BLOCKED{border-left-color:var(--bad)} .gate.REVIEW{border-left-color:var(--warn)}
+.ev{font-size:12px;display:grid;grid-template-columns:auto 1fr;gap:2px 8px;padding:4px 0;border-top:1px solid var(--rule)}
+.tl{font-size:12px;display:grid;grid-template-columns:auto auto 1fr;gap:2px 8px;padding:4px 0;border-top:1px solid var(--rule)}.tl .c{font-family:var(--mono);font-size:10.5px}
+details summary{cursor:pointer;color:var(--accent);font-size:13px}
+.msg{font-size:13px}.msg.err{color:var(--bad)}
+</style>
+</head>
+<body>
+<header class="ph-top"><h1><small>What is known · what was checked and not found · what is unknown · what failed · what a person does next</small>Property File</h1><nav data-nav aria-label="Sections"></nav></header>
+<main>
+  <section class="status NOT_STARTED" id="status"><div class="k">Loading…</div><div class="fine" id="stfine"></div><div class="progress" id="progress"></div></section>
+  <section id="identity"></section>
+  <section id="body" hidden>
+    <div class="grid2">
+      <div class="box" id="know"><h2>What we know</h2><p class="fine">Deterministic rendering of qualifying evidence: value, source, record date, read date, origin, verification. Nothing here is a summary.</p><div id="know-list"></div></div>
+      <div class="box" id="dont"><h2>What we don't know</h2><p class="fine">Open questions. Unknown is unknown; it is never "nothing found".</p><div id="dont-list"></div></div>
+    </div>
+    <div class="box" id="tax"><h2>Tax / State Lands</h2><div id="tax-body"></div></div>
+    <div class="grid2" id="sections"></div>
+    <div class="box"><h2>Source failures</h2><p class="fine">A source that did not answer is a fact about the source, never about the parcel.</p><div id="failures"></div></div>
+    <div class="box"><h2>Conflicts</h2><p class="fine">Sources that disagree stay on file side by side. The precedence rule is shown; nothing is deleted.</p><div id="conflicts"></div></div>
+    <div class="box"><h2>Checks performed</h2><p class="fine">The source-attempt ledger: what the system actually did, per domain.</p><div class="tablewrap"><table><thead><tr><th>Domain</th><th>Source</th><th>Result</th><th>Detail</th><th>Evidence</th><th>Questions</th><th>Manual?</th><th>ms</th></tr></thead><tbody id="ledger"></tbody></table></div></div>
+    <div class="box"><h2>Next actions</h2><div id="actions"></div></div>
+    <div class="box gate" id="gate"><h2>Outreach gate</h2><div id="gate-body"></div></div>
+    <div class="box" id="inv"><h2>Investigation</h2><div id="inv-body"></div></div>
+    <div class="box"><h2>Timeline</h2><details><summary id="tl-sum">Show events</summary><div id="timeline"></div></details></div>
+    <div class="box"><h2>Evidence</h2><details><summary id="ev-sum">Show evidence rows</summary><div id="evidence"></div></details></div>
+  </section>
+</main>
+<script src="ph-auth.js"></script>
+<script src="ph.js"></script>
+<script>
+const $ = id => document.getElementById(id); const esc = PH.esc;
+const p = new URLSearchParams(location.search);
+const WID = p.get('workup');
+async function api(path, body, ms){
+  const r = await PH.apiFetch(path, body ? {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)} : {}, ms || 20000);
+  if(PH.needsActivation(r)){ location.href = PH.activateHref(); throw new Error('Activation required.'); }
+  const j = await r.json().catch(() => ({}));
+  if(!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
+  return j;
+}
+const st = (s, t) => `<span class="st ${esc(s)}">${esc(t || String(s||'').replace(/_/g,' '))}</span>`;
+const d10 = v => v ? String(v).slice(0,10) : '—', d16 = v => v ? String(v).slice(0,16).replace('T',' ') : '—';
+function prov(i){ return `${esc(i.source_name || i.source || 'source not named')} · record ${esc(d10(i.source_date))} · read ${esc(d16(i.read_date))} · ${esc(i.origin_label || i.origin || '')} · ${esc(i.verification || '')} ${esc(i.confidence || '')}${i.ref ? ' · ' + esc(i.ref) : ''}`; }
+function itemHtml(i){
+  return `<div class="item">${st(i.conflict ? 'CONFLICTING' : i.state)}<div><div class="v">${esc(i.label)}: ${i.state === 'UNKNOWN' ? '<i>UNKNOWN</i>' : esc(i.value)}${i.qualifier ? ` <span class="hist">${esc(i.qualifier)}</span>` : i.historical && i.state !== 'UNKNOWN' ? ` <span class="hist">HISTORICAL RECORD — record date ${esc(d10(i.source_date))}</span>` : ''}</div>${i.state !== 'UNKNOWN' ? `<div class="prov">${prov(i)}</div>` : ''}</div></div>`;
+}
+function renderStatus(w){
+  const el = $('status'); el.className = `status ${w.status}`;
+  el.querySelector('.k').textContent = w.status_label;
+  $('stfine').textContent = `Workup #${w.workup_id} · version ${w.version} · started ${d16(w.started_at)}${w.completed_at ? ' · completed ' + d16(w.completed_at) : ''} · by ${w.actor}${w.timings && w.timings.total_ms != null ? ' · ' + w.timings.total_ms + ' ms' : ''}${w.error ? ' · ' + w.error : ''}`;
+  $('progress').innerHTML = w.progress.map(x => `<div><span>${esc(x.label)}</span>${x.done ? st(x.status) : '<span class="fine">…</span>'}</div>`).join('');
+}
+function renderIdentity(id, links){
+  $('identity').innerHTML = `<div class="prop"><div class="addr">${esc(id.situs || '')}${id.city ? ', ' + esc(id.city) : ''}${id.zip ? ' ' + esc(id.zip) : ''}</div>
+  <dl><div><dt>County</dt><dd>${esc(id.county || '')} (${esc(id.county_fips || '')})</dd></div><div><dt>Parcel</dt><dd>${esc(id.parcel_id || '—')}</dd></div><div><dt>RPID</dt><dd>${esc(id.rpid || '—')}</dd></div>
+  <div><dt>Identity</dt><dd>${esc(id.verification_state)} · ${esc(id.verified_by === 'MANUAL_VERIFICATION' ? 'human property selection' : 'State roll')}</dd></div><div><dt>Identity source</dt><dd>${esc(id.identity_source || '')}</dd></div>
+  <div><dt>Source date</dt><dd>${esc(id.source_date || '—')}</dd></div><div><dt>Read</dt><dd>${esc(id.read_date || '—')}</dd></div><div><dt>Evidence</dt><dd>${esc(id.evidence_ref || '—')}</dd></div>
+  <div><dt>Lat / lon</dt><dd>${id.lat != null ? esc(Number(id.lat).toFixed(5)) + ', ' + esc(Number(id.lon).toFixed(5)) : '—'}</dd></div><div><dt>Acreage</dt><dd>${id.acreage != null ? esc(id.acreage) : 'UNKNOWN'}</dd></div><div><dt>Property id</dt><dd>#${id.property_id}</dd></div></dl>
+  <div class="btnrow">${links.investigation ? `<a class="btn" href="${esc(links.investigation)}">Open investigation · Bee</a>` : ''}<a class="btn ghost" href="${esc(links.roll_file)}">Roll / map file</a><a class="btn ghost" href="${esc(links.search)}">Back to search</a></div></div>`;
+}
+function renderFile(f){
+  renderIdentity(f.identity, f.links);
+  $('body').hidden = false;
+  $('know-list').innerHTML = f.what_we_know.map(itemHtml).join('') + (f.checked_not_found.length ? `<h3 style="margin-top:10px">Checked, not found</h3>` + f.checked_not_found.map(itemHtml).join('') : '') || '<div class="fine">No qualifying evidence on file.</div>';
+  $('dont-list').innerHTML = f.what_we_dont_know.map(q => `<div class="item">${st('UNKNOWN')}<div><div class="v">${esc(q.wording)}</div><div class="prov">${esc(q.answer || '')}</div></div></div>`).join('') || '<div class="fine">Every workup question has an answer from a source or a person.</div>';
+  const t = f.tax;
+  $('tax-body').innerHTML = `<div class="item">${st(t.tax_state)}<div><div class="v">Tax state: ${esc(t.tax_state.replace(/_/g,' '))}${t.amount != null ? ' · $' + Number(t.amount).toLocaleString() : ''}</div><div class="prov">${esc(t.meaning)} Source: ${esc(t.source || 'none')} · as of ${esc(t.as_of || '—')}</div></div></div>
+    <div class="item">${st(t.delinquency === 'DELINQUENT' ? 'FOUND' : t.delinquency === 'UNKNOWN' ? 'UNKNOWN' : 'NOT_FOUND', t.delinquency)}<div><div class="v">Delinquency: ${esc(t.delinquency)}</div><div class="prov">Absence from State Lands is not proof taxes are current. A missing Collector answer is not delinquency. A source outage is not NOT FOUND.</div></div></div>
+    <div class="item">${st(t.collector.status === 'UNAVAILABLE' ? 'SOURCE_UNAVAILABLE' : 'FOUND', 'COLLECTOR ' + t.collector.status)}<div><div class="v">County Collector source: ${esc(t.collector.status)}</div><div class="prov">${esc(t.collector.detail || '')} ${t.collector.down_since ? '· down since ' + esc(d16(t.collector.down_since)) : ''} · checked ${esc(d16(t.collector.checked_at))}</div></div></div>
+    ${f.sections.STATE_LANDS.items.map(itemHtml).join('')}${f.sections.STATE_LANDS.questions.map(q => `<div class="item">${st(q.state)}<div><div class="v">${esc(q.wording)}</div><div class="prov">${esc(q.answer || '')} ${q.source ? '· ' + esc(q.source) : ''} ${q.checked_at ? '· ' + esc(d10(q.checked_at)) : ''}</div></div></div>`).join('')}`;
+  const order = ['ROLL_RECORD','FLOOD','ROAD_ACCESS','MUNICIPAL_VACANCY','MUNICIPAL_LIEN','MUNICIPAL_CODE','OWNER_MAILING','TITLE_DEED','LISTING','PHYSICAL'];
+  $('sections').innerHTML = order.map(k => { const s = f.sections[k]; if(!s) return ''; const a = s.attempt || {};
+    let extra = '';
+    if(k === 'ROAD_ACCESS') extra = `<div class="item">${st(s.legal_access.state)}<div><div class="v">Legal access: ${esc(s.legal_access.state)}</div><div class="prov">${esc(s.legal_access.text)}</div></div></div>`;
+    if(k === 'TITLE_DEED') extra = `<div class="item">${st(s.status.startsWith('TITLE STATUS: UNKNOWN') ? 'MANUAL_ONLY' : 'FOUND', s.status.startsWith('TITLE STATUS: UNKNOWN') ? 'MANUAL ONLY' : 'ON FILE')}<div><div class="v">${esc(s.status)}</div></div></div>`;
+    if(k === 'PHYSICAL') extra = `<div class="item">${st(s.status.startsWith('UNKNOWN') ? 'UNKNOWN' : 'FOUND')}<div><div class="v">${esc(s.status)}</div></div></div>`;
+    if(k === 'LISTING') extra = `<div class="item">${st(f.listing.sale_state === 'UNKNOWN' ? 'UNKNOWN' : 'FOUND', f.listing.sale_state.replace(/_/g,' '))}<div><div class="v">${esc(f.listing.text)}</div><div class="prov">${esc(f.listing.note)}</div></div></div>`;
+    return `<div class="box"><h2>${esc(s.label)}</h2><div class="fine">Source attempt: ${st(a.status || 'NOT_APPLICABLE')} ${a.source ? '· ' + esc(a.source) : ''} ${a.failure_detail ? '· ' + esc(a.failure_detail) : ''}</div>${extra}${s.items.filter(i => i.state !== 'UNKNOWN').map(itemHtml).join('')}${s.questions.map(q => `<div class="item">${st(q.state)}<div><div class="v">${esc(q.wording)}</div><div class="prov">${esc(q.answer || '')} ${q.source ? '· ' + esc(q.source) : ''} ${q.checked_at ? '· ' + esc(d10(q.checked_at)) : ''} ${q.checked_by === 'manual' ? '· MANUAL VERIFICATION' : ''}</div></div></div>`).join('')}</div>`; }).join('');
+  $('failures').innerHTML = f.source_failures.map(x => `<div class="item">${st(x.status)}<div><div class="v">${esc(x.domain.replace(/_/g,' '))} · ${esc(x.source || '')}</div><div class="prov">${esc(x.category || '')} · ${esc(x.detail || '')} · ${esc(d16(x.at))}</div></div></div>`).join('') || '<div class="fine">Every attempted source answered.</div>';
+  $('conflicts').innerHTML = f.conflicts.map(c => `<div class="item">${st('CONFLICTING')}<div><div class="v">${esc(c.field.replace(/_/g,' '))}</div><div class="prov">A: ${esc(c.value_a)} — ${esc(c.source_a)} ${esc(c.date_a || '')} · B: ${esc(c.value_b)} — ${esc(c.source_b)} ${esc(c.date_b || '')}${c.precedence ? ` · precedence: ${esc(c.precedence.ref)} (${esc(c.precedence.origin)}, ${esc(c.precedence.date || 'undated')}; ${esc(c.precedence.rule)})` : ''} · ${esc(c.unresolved)}</div></div></div>`).join('') || '<div class="fine">No open conflicts on this property.</div>';
+  $('ledger').innerHTML = f.checks_performed.map(a => `<tr><td>${esc(a.label)}</td><td>${esc(a.source || '—')}${a.check_type ? '<br><span class="fine">' + esc(a.check_type) + '</span>' : ''}</td><td>${st(a.status)}${a.reused ? '<br><span class="fine">reused fresh read</span>' : ''}</td><td>${esc(a.failure_category || '')} ${esc(a.failure_detail || '')}</td><td>${a.evidence_count}</td><td class="fine">${a.questions ? Object.entries(a.questions.after || {}).map(([k,v]) => `${k}: ${(a.questions.before||{})[k]||'?'}→${v}`).join('<br>') : ''}</td><td>${a.manual_required ? 'yes' : ''}</td><td>${a.ms ?? ''}</td></tr>`).join('');
+  $('actions').innerHTML = f.next_actions.map(a => `<div class="act"><b>${esc(a.what)}</b><div class="m">Why: ${esc(a.why)}</div><div class="m">Resolves it: ${esc(a.resolves)}</div><div class="m">Where: ${a.where && a.where.href ? `<a href="${esc(a.where.href)}" ${/^http/.test(a.where.href) ? 'target="_blank" rel="noopener"' : ''}>${esc(a.where.label)}</a>` : esc((a.where||{}).label || 'in person')}${a.where && a.where.note ? ' · ' + esc(a.where.note) : ''} · question: ${esc(a.question)} · source: ${st(a.source_status || 'UNKNOWN')}</div></div>`).join('') || '<div class="fine">Nothing open.</div>';
+  const g = f.outreach_gate; const gate = $('gate'); gate.className = 'box gate ' + (g.verdict === 'OUTREACH READY' ? 'READY' : g.verdict === 'OUTREACH BLOCKED' ? 'BLOCKED' : 'REVIEW');
+  $('gate-body').innerHTML = `<div class="status ${g.verdict === 'OUTREACH READY' ? 'COMPLETE' : g.verdict === 'OUTREACH BLOCKED' ? 'FAILED' : 'COMPLETE_WITH_UNKNOWN'}" style="border-left-width:0;padding:0;background:none;border:0"><div class="k">${esc(g.verdict)}</div></div><div class="fine">${esc(g.explanation)}</div>${g.requirements.map(r => `<div class="item">${st(r.state)}<div><div class="v">${esc(r.label)} <span class="fine">· ${esc(r.level)}</span></div><div class="prov">${esc(r.text || '')} ${r.origin_label ? '· ' + esc(r.origin_label) : ''} ${r.date ? '· ' + esc(d10(r.date)) : ''}</div></div></div>`).join('')}<div class="fine">${esc(g.note)}</div>`;
+  const inv = f.investigation;
+  $('inv-body').innerHTML = inv ? `<div class="fine">Case #${inv.id} · ${esc(inv.status)} · FOUND ${inv.counts.found} / NOT FOUND ${inv.counts.not_found} / UNKNOWN ${inv.counts.unknown} · ${inv.signals.map(s => esc(s.label)).join(', ') || 'no signals'}</div><div class="btnrow" style="margin-top:6px"><a class="btn" href="${esc(inv.bee)}">Open investigation · ask Bee</a></div><div class="fine">Bee reasons over this file after the deterministic workup. It may explain, find gaps and propose checks; it cannot change identity, create evidence or mark a question answered.</div>` : '<div class="fine">No investigation.</div>';
+  $('tl-sum').textContent = `Show ${f.timeline.length} events`;
+  $('timeline').innerHTML = f.timeline.slice().reverse().map(e => `<div class="tl"><span class="c">${esc(d16(e.at))}</span><span class="c">${esc(e.cls)}</span><span>${esc(e.title)}${e.detail ? ' — <span class="fine">' + esc(e.detail) + '</span>' : ''}</span></div>`).join('');
+  $('ev-sum').textContent = `Show ${f.evidence.length} evidence rows`;
+  $('evidence').innerHTML = f.evidence.map(e => `<div class="ev">${st(e.superseded ? 'UNKNOWN' : e.state, e.superseded ? 'SUPERSEDED' : e.state)}<div><b>${esc(e.field)}</b>: ${esc(e.value)}<div class="prov fine">${esc(e.source_name || e.source)} · ${esc(e.verification)} · ${esc(e.etype)} ${esc(e.conf)} · record ${esc(e.date || '—')} · recorded ${esc(e.recorded_at)} · ${esc(e.ref)}${e.conflict ? ' · CONFLICT' : ''}</div></div></div>`).join('');
+}
+async function poll(){
+  try {
+    const w = await api(`/api/property/workup/${encodeURIComponent(WID)}`);
+    renderStatus(w);
+    if(w.status === 'RUNNING' || w.status === 'NOT_STARTED'){ setTimeout(poll, 1500); return; }
+    renderFile(await api(`/api/property/workup/${encodeURIComponent(WID)}/file`, null, 30000));
+  } catch(e){ $('status').className = 'status FAILED'; $('status').querySelector('.k').textContent = 'Could not load the workup'; $('stfine').textContent = e.message; }
+}
+if(WID) poll(); else { $('status').querySelector('.k').textContent = 'No workup selected'; $('stfine').innerHTML = 'Start from <a href="find.html">Find a property</a>.'; }
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

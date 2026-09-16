@@ -39,6 +39,8 @@ EVENT_CLASSES = ("SIGNAL RECEIVED", "INVESTIGATION OPENED", "SOURCE CHECK", "MAN
                  "HUMAN OUTREACH ACTION",
                  # P6: the case was opened or attached from an address search (identity by AUTOMATED_SOURCE or HUMAN PROPERTY SELECTION)
                  "INVESTIGATION OPENED FROM ADDRESS SEARCH",
+                 # P7: one orchestrated workup over every applicable domain
+                 "WORKUP STARTED", "WORKUP COMPLETED",
                  # P4 Bee: an AI_OPINION analysis was recorded (OK or FAILED); a person decided on a proposal
                  "BEE ANALYSIS", "BEE PROPOSAL DECISION",
                  # P5: one authorized check per accepted proposal
@@ -228,6 +230,11 @@ def evaluate(prop: dict, row: dict, *, cp=None, hunt=None, inv=None) -> dict:
         out["state_record"] = _found(f"Listing: starting bid ${listing.get('starting_bid') or 0:,.2f}; delinquent year {listing.get('delinquent_year') or 'not stated'}; sale type {listing.get('sale_type_text') or 'not stated'}",
                                      [_ref(cert)], "Commissioner of State Lands", listing.get("listing_url"), (inv.get("built_at") or "")[:10]) if listing else \
             _found("Certified per State evidence; listing detail not in today's export", [_ref(cert)], "Commissioner of State Lands", (cert or {}).get("source_url"), taxs.get("as_of"))
+    elif (_ev(pid, "tax_status_check") or {}).get("source") == "cosl_listings" and not inv.get("built_at"):
+        # P7: the State Lands per-parcel search answered "not held" for this parcel (dated), and there is no inventory export to read
+        sc = _ev(pid, "tax_status_check")
+        out["state_inventory"] = _not_found(f"{sc['value'][:140]} (State Lands per-parcel search, {_when(sc)}). Says nothing about the county bill", "Commissioner of State Lands", sc.get("source_url"), _when(sc), [_ref(sc)])
+        out["state_record"] = out["state_inventory"]
     elif inv.get("built_at"):
         rem = _ev(pid, "tax_delinquent_removed")
         out["state_inventory"] = _not_found(f"Not in the State's inventory as of {inv['built_at'][:10]}. Says nothing about the county bill",
@@ -250,11 +257,15 @@ def evaluate(prop: dict, row: dict, *, cp=None, hunt=None, inv=None) -> dict:
         _found("The seller is the State (tax sale), not a private listing", [_ref(cert)], "Commissioner of State Lands", None, sale.get("as_of"))
     # City registers (Garland only): FOUND from evidence; NOT_FOUND only when the scan read the registers
     city_ok = prop.get("county_fips") == "05051" and (hunt.get("sources") or {}).get("city_registers") and hunt.get("finished_at")
-    for key, field, name in (("lien_city", "cleanup_lien_amount", "City of Hot Springs lien layer"), ("vacancy", "vacant_structure", "City of Hot Springs vacant-structure register"),
-                             ("code", "code_case_open", "City of Hot Springs code-case layer")):
+    for key, field, name, check_field in (("lien_city", "cleanup_lien_amount", "City of Hot Springs lien layer", "cleanup_lien_check"), ("vacancy", "vacant_structure", "City of Hot Springs vacant-structure register", "vacant_structure_check"),
+                                          ("code", "code_case_open", "City of Hot Springs code-case layer", "code_case_check")):
         e = _ev(pid, field)
-        if e:
+        chk_e = _ev(pid, check_field)
+        if e and not (chk_e and (chk_e.get("effective_date") or chk_e.get("created_at") or "") > (e.get("effective_date") or e.get("created_at") or "")):
             out[key] = _found(str(e["value"])[:160], [_ref(e)], e.get("source_name") or name, e.get("source_url"), _when(e))
+        elif chk_e:
+            # P7: the City layer was asked for THIS parcel and answered "no record" (a dated reading from the adapter)
+            out[key] = _not_found(f"{chk_e['value']} (the {name} answered for this parcel on {_when(chk_e)})", chk_e.get("source_name") or name, chk_e.get("source_url"), _when(chk_e), [_ref(chk_e)])
         elif city_ok:
             out[key] = _not_found(f"No record in the {name} when the hunt read it on {hunt['finished_at'][:10]}", name, None, hunt["finished_at"][:10])
         else:

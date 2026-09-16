@@ -1432,6 +1432,76 @@ def api_property_resolve_investigate(request: Request, search_id: int, payload: 
         raise HTTPException(400, str(exc))
 
 
+# --- P7: FULL PROPERTY WORKUP ----------------------------------------------------------------------------
+# Licensed. The only input is a search id this license owns whose identity P6 resolved (or a person selected),
+# plus an actor name. No url / source / adapter / command / property_id is accepted.
+WORKUP_KEYS = {"search_id", "actor"}
+
+
+def _workup_limited(request: Request) -> None:
+    from . import licensing as _l
+    w = _who(request)
+    key = f"lic:{w['license_id']}" if w["license_id"] else f"ip:{_ip(request)}"
+    if _l.rate_limited("workup", key):
+        raise HTTPException(429, "Too many workups started. Wait a few minutes and try again.")
+
+
+@app.post("/api/property/workup")
+def api_property_workup(request: Request, payload: dict = Body(...)) -> dict:
+    """RESOLVED IDENTITY → FULL WORKUP. Creates the workup, then runs it in the background; poll the id."""
+    import os as _os
+    import threading
+    from . import workup
+    if not isinstance(payload, dict):
+        raise HTTPException(400, "Send a JSON object with a search_id.")
+    extra = set(payload) - WORKUP_KEYS
+    if extra:
+        raise HTTPException(400, f"Only search_id and actor are accepted here (unexpected: {', '.join(sorted(extra))[:80]}).")
+    try:
+        sid = int(payload.get("search_id"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "search_id must be the number of a search on this license.")
+    _workup_limited(request)
+    w = _who(request)
+    try:
+        created = workup.start(sid, actor=str(payload.get("actor") or "user")[:40], license_id=w["license_id"], session_id=w["session_id"])
+    except KeyError:
+        raise HTTPException(404, "No such search on this license.")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    if _os.environ.get("PH_WORKUP_SYNC") == "1":
+        return workup.run(created["workup_id"])
+    threading.Thread(target=workup.run, args=(created["workup_id"],), daemon=True, name=f"workup-{created['workup_id']}").start()
+    return created
+
+
+@app.get("/api/property/workup/{workup_id}")
+def api_property_workup_view(request: Request, workup_id: int) -> dict:
+    from . import workup
+    out = workup.view(workup_id, license_id=_who(request)["license_id"])
+    if not out:
+        raise HTTPException(404, "No such workup on this license.")
+    return out
+
+
+@app.get("/api/property/workup/{workup_id}/file")
+def api_property_workup_file(request: Request, workup_id: int) -> dict:
+    from . import workup
+    out = workup.property_file(workup_id, license_id=_who(request)["license_id"])
+    if not out:
+        raise HTTPException(404, "No such workup on this license.")
+    return out
+
+
+@app.get("/api/property/{prop_id}/workup")
+def api_property_workup_latest(request: Request, prop_id: int) -> dict:
+    from . import workup
+    out = workup.latest_for_property(prop_id, license_id=_who(request)["license_id"])
+    if not out:
+        raise HTTPException(404, "No workup for this property on this license.")
+    return out
+
+
 @app.post("/api/case/{case_id}/log")
 def api_case_log(case_id: int, payload: dict = Body(...)) -> dict:
     """MANUAL RESEARCH LOG: source checked, date, result, notes, optional evidence/document reference,

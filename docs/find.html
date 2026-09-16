@@ -100,7 +100,7 @@ function propHeader(id, r){
     <dl><div><dt>County</dt><dd>${esc(id.county || id.county_fips || '—')}</dd></div><div><dt>Parcel</dt><dd>${esc(id.parcel_id || '—')}</dd></div><div><dt>RPID</dt><dd>${esc(id.rpid || '—')}</dd></div>
     <div><dt>Identity</dt><dd><span class="ver ${by?'human':'auto'}">${by ? '✓ Verified · human property selection' : '✓ Verified · State roll'}</span></dd></div>
     <div><dt>Source</dt><dd>${esc(id.source_label || id.source)}</dd></div><div><dt>Source date</dt><dd>${esc((id.source_date||'').slice(0,10) || '—')}</dd></div><div><dt>Read</dt><dd>${esc((id.read_at||'').slice(0,16).replace('T',' '))}</dd></div>${by ? `<div><dt>Chosen by</dt><dd>${esc(id.actor)} · ${esc((id.selected_at||'').slice(0,10))}</dd></div><div><dt>Reason</dt><dd>${esc(id.reason||'')}</dd></div>` : ''}</dl>
-    <div class="btnrow"><a class="btn ghost" href="${file}">Open property file</a>${caseBtn}<span class="msg" id="invmsg"></span></div></div>`;
+    <div class="btnrow">${r.workup ? `<a class="btn" href="property-file.html?workup=${r.workup.id}">Open property file · ${esc(String(r.workup.status).replace(/_/g,' ').toLowerCase())}</a><button class="btn ghost" type="button" id="wk">Run full workup again</button>` : `<button class="btn" type="button" id="wk">Run full workup</button>`}<a class="btn ghost" href="${file}">Roll / map file</a>${caseBtn}<span class="msg" id="invmsg"></span></div></div>`;
 }
 function candCard(c, r, pickable){
   const situs = `${c.situs || c.normalized_situs || ''}${c.city ? ', ' + c.city : ''}${c.zip ? ' ' + c.zip : ''}`;
@@ -138,6 +138,7 @@ function render(r){
     $('srcsec').hidden = false;
   } else $('srcsec').hidden = true;
   const inv = $('inv'); if(inv) inv.onclick = investigate;
+  const wk = $('wk'); if(wk) wk.onclick = runWorkup;
   document.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => pick(+b.dataset.pick));
   history.replaceState(null, '', `?search=${r.search_id}`);
 }
@@ -152,6 +153,11 @@ async function pick(pid){
   const reason = (document.querySelector(`[data-reason="${pid}"]`)||{}).value || '', ref = (document.querySelector(`[data-ref="${pid}"]`)||{}).value || '';
   try { render(await api(`/api/property/resolve/${CUR.search_id}/select`, {property_id: pid, actor: 'Topher', reason, reference: ref})); loadHistory(); }
   catch(e){ const b = document.querySelector(`[data-pick="${pid}"]`); if(b){ b.textContent = e.message; b.style.color = 'var(--bad)'; setTimeout(() => { b.textContent = 'This is the property'; b.style.color = ''; }, 3500); } }
+}
+async function runWorkup(){
+  const m = $('invmsg'); m.textContent = 'Starting the full workup…'; m.className = 'msg'; const b = $('wk'); if(b) b.disabled = true;
+  try { const w = await api('/api/property/workup', {search_id: CUR.search_id, actor: 'Topher'}); location.href = `property-file.html?workup=${w.workup_id}`; }
+  catch(e){ m.textContent = e.message; m.className = 'msg err'; if(b) b.disabled = false; }
 }
 async function investigate(){
   const m = $('invmsg'); m.textContent = 'Opening…'; m.className = 'msg';

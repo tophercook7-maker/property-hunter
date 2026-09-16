@@ -551,7 +551,8 @@ def view(search_id: int, license_id: int | None = None) -> dict | None:
     if r["selected_property_id"]:
         c = cases.case_for_property(r["selected_property_id"])
         case = {"id": c["id"], "status": c["status"], "attached": bool(r["case_id"]) and r["case_id"] == c["id"]} if c else None
-    return {"search_id": r["id"], "state": st, "state_label": st.replace("_", " "), "input": {"original": r["input_original"], "normalized": r["input_normalized"]},
+    wk = db.q1("SELECT id, status FROM workups WHERE search_id=? ORDER BY id DESC LIMIT 1", (r["id"],))
+    return {"search_id": r["id"], "state": st, "workup": ({"id": wk["id"], "status": wk["status"]} if wk else None), "state_label": st.replace("_", " "), "input": {"original": r["input_original"], "normalized": r["input_normalized"]},
             "normalized": n, "candidates": cands, "candidate_count": len(cands), "qualifying": len(qualifying),
             "identity": jload(r["identity_json"], None), "selected_property_id": r["selected_property_id"], "selected_by": r["selected_by"],
             "explanation": ex, "sources": sources, "latency_ms": r["latency_ms"], "created_at": r["created_at"], "actor": r["actor"],

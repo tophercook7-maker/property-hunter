@@ -104,31 +104,41 @@ def plan(proposal_id: int) -> dict:
     live = {x["proposal_id"] for x in bee.rules(snap)["candidates"]}
     if p["proposal_id"] not in live:
         return dict(out, state="STALE_REVIEW_REQUIRED", ready=False, fingerprint=fp, reasons=["the evidence rules no longer list this check for the case"])
+    g = check_guard(check, prop)
+    return dict(out, **g, fingerprint=fp)
+
+
+def check_guard(check: str, prop: dict) -> dict:
+    """The source-side guard, shared by P5 (accepted proposal) and P7 (workup): adapter registered and enabled,
+    the property carries what the check needs, the P1 registry does not say the source is off-limits, and a
+    source last seen unavailable is probed first. Never touches a source. Returns state/ready/reasons/category."""
     spec = CHECKS[check]
+    out = {"check_type": check, "source": spec["source"], "label": spec["label"]}
     src = get_source(spec["source"])
     if not src:
         register_all()
         src = get_source(spec["source"])
     if not src:
-        return dict(out, state="NOT_EXECUTABLE", ready=False, reasons=[f"adapter {spec['source']} is not registered"])
+        return dict(out, state="NOT_EXECUTABLE", ready=False, category="FAILED", reasons=[f"adapter {spec['source']} is not registered"])
     if not src.enabled():
-        return dict(out, state="BLOCKED", ready=False, reasons=[f"source {spec['source']} is disabled in the app"])
+        return dict(out, state="BLOCKED", ready=False, category="BLOCKED", reasons=[f"source {spec['source']} is disabled in the app"])
     need = spec["needs"]
     if need == "parcel_id" and not prop.get("parcel_id"):
-        return dict(out, state="BLOCKED", ready=False, reasons=["no parcel number on file"])
+        return dict(out, state="BLOCKED", ready=False, category="BLOCKED", reasons=["no parcel number on file"])
     if need == "rpid" and not prop.get("rpid"):
-        return dict(out, state="BLOCKED", ready=False, reasons=["no State RPID on file for this parcel; the State search needs it"])
+        return dict(out, state="BLOCKED", ready=False, category="BLOCKED", reasons=["no State RPID on file for this parcel; the State search needs it"])
     if need == "latlon" and (prop.get("lat") is None or prop.get("lon") is None):
-        return dict(out, state="BLOCKED", ready=False, reasons=["no coordinates on file"])
+        return dict(out, state="BLOCKED", ready=False, category="BLOCKED", reasons=["no coordinates on file"])
     if need == "garland" and prop.get("county_fips") != "05051":
-        return dict(out, state="BLOCKED", ready=False, reasons=["the City layers cover Hot Springs (Garland County) only"])
+        return dict(out, state="BLOCKED", ready=False, category="NOT_APPLICABLE", reasons=["the City layers cover Hot Springs (Garland County) only"])
     reg = _registry(prop.get("county_fips") or "", spec["registry"])
     rstatus = reg.get("status")
     if rstatus in ("BLOCKED", "MANUAL_ONLY", "NOT_FOUND", "NOT_APPLICABLE"):
-        return dict(out, state="BLOCKED", ready=False, registry=reg, reasons=[f"source registry says {rstatus}: {reg.get('failure_reason') or 'not usable by the automated runner'}; MANUAL ACTION REQUIRED"])
+        cat = "MANUAL_ONLY" if rstatus in ("MANUAL_ONLY", "NOT_FOUND") else "BLOCKED" if rstatus == "BLOCKED" else "NOT_APPLICABLE"
+        return dict(out, state="BLOCKED", ready=False, category=cat, registry=reg, reasons=[f"source registry says {rstatus}: {reg.get('failure_reason') or 'not usable by the automated runner'}; MANUAL ACTION REQUIRED"])
     srow = db.q1("SELECT status, status_detail, last_attempt FROM sources WHERE name=?", (spec["source"],))
     probe = rstatus == "TEMPORARILY_UNAVAILABLE" or (srow and srow["status"] == "unavailable")
-    return dict(out, state="READY", ready=True, fingerprint=fp, registry=reg, source_health={"status": srow["status"] if srow else None, "detail": srow["status_detail"] if srow else None, "last_attempt": srow["last_attempt"] if srow else None},
+    return dict(out, state="READY", ready=True, category="READY", registry=reg, source_health={"status": srow["status"] if srow else None, "detail": srow["status_detail"] if srow else None, "last_attempt": srow["last_attempt"] if srow else None},
                 probe_first=bool(probe), reasons=(["the source was last seen unavailable; the adapter's own health check runs first and the check stops if it still does not answer"] if probe else []))
 
 
@@ -157,11 +167,35 @@ def run(proposal_id: int, actor: str = "user") -> dict:
                 db.ex("UPDATE investigation_executions SET proposal_after='PROPOSED' WHERE id=?", (eid,))
             cases._touch(p["case_id"])
         return execution(eid)
-    spec = CHECKS[pl["check_type"]]
+    return execute(pl["check_type"], p["case_id"], pl["property_id"], actor=actor, authorization=pl["authorization"], base=base, proposal=dict(p), plan_=pl)
+
+
+def execute(check: str, case_id: int, property_id: int, *, actor: str, authorization: dict, base: dict | None = None,
+            proposal: dict | None = None, plan_: dict | None = None, workup_id: int | None = None) -> dict:
+    """THE one path that runs an adapter check. P5 reaches it through an accepted proposal (run); P7 reaches it
+    through a licensed workup on a resolved identity. Both go through check_guard first; neither can name a URL,
+    a command or an adapter outside CHECKS. Results only enter through the canonical evidence pipeline."""
+    pl = plan_ or check_guard(check, store.get_property(property_id) or {})
+    spec = CHECKS[check]
     src = get_source(spec["source"])
-    prop = store.get_property(pl["property_id"])
+    prop = store.get_property(property_id)
+    now = utcnow()
+    p = proposal
+    qkey = (p or {}).get("question_key") or spec["questions"][0]
+    if base is None:
+        q_before = db.q1("SELECT state FROM investigation_questions WHERE case_id=? AND key=?", (case_id, qkey))
+        base = {"proposal_id": None, "case_id": case_id, "property_id": property_id, "question_key": qkey, "check_type": check, "source": spec["source"],
+                "registry_json": jdump(pl.get("registry") or {}), "actor": actor, "authorization_json": jdump(authorization or {}),
+                "question_before": q_before["state"] if q_before else None, "proposal_before": None, "workup_id": workup_id}
+    if not pl.get("ready"):
+        eid = _record(dict(base, status=pl["state"], error="; ".join(pl["reasons"]), started_at=now, finished_at=now, question_after=base["question_before"], proposal_after=base["proposal_before"]))
+        cases._event(case_id, "INVESTIGATION CHECK BLOCKED", f"{spec['label']}: {pl['state']}", "; ".join(pl["reasons"]), f"execution:{eid}", actor)
+        cases._touch(case_id)
+        return execution(eid)
     eid = _record(dict(base, status="RUNNING", started_at=now))
-    cases._event(p["case_id"], "INVESTIGATION CHECK STARTED", f"{spec['label']} for {p['question_key']}", f"authorized by {pl['authorization']['accepted_by']} on {(pl['authorization']['accepted_at'] or '')[:16]}", f"execution:{eid}", actor)
+    auth_text = (f"authorized by {authorization.get('accepted_by')} on {(authorization.get('accepted_at') or '')[:16]}" if p else
+                 f"authorized by workup {workup_id} requested by {authorization.get('requested_by')} on a resolved identity (search {authorization.get('search_id')})")
+    cases._event(case_id, "INVESTIGATION CHECK STARTED", f"{spec['label']} for {qkey}", auth_text, f"execution:{eid}", actor)
     # a source last seen unavailable is probed with its own health check first; the probe is the adapter's, not ours
     if pl.get("probe_first"):
         try:
@@ -170,8 +204,8 @@ def run(proposal_id: int, actor: str = "user") -> dict:
             h = type("H", (), {"status": "unavailable", "detail": f"{type(exc).__name__}: {exc}", "error": str(exc)})()
         if h.status != OK:
             src.record_attempt(h)
-            return _finish(eid, p, "BLOCKED", error=f"source still unavailable: {h.detail or h.error}", actor=actor, label=spec["label"])
-    max_ev = (db.q1("SELECT MAX(id) m FROM evidence WHERE property_id=?", (pl["property_id"],)) or {"m": 0})["m"] or 0
+            return _finish(eid, case_id, "BLOCKED", error=f"source still unavailable: {h.detail or h.error}", actor=actor, label=spec["label"])
+    max_ev = (db.q1("SELECT MAX(id) m FROM evidence WHERE property_id=?", (property_id,)) or {"m": 0})["m"] or 0
     try:
         res = src.enrich(prop)
     except Exception as exc:
@@ -182,54 +216,57 @@ def run(proposal_id: int, actor: str = "user") -> dict:
             src.record_attempt(type("R", (), {"status": "unavailable", "detail": err, "error": err, "records": []})())
         except Exception:
             pass
-        return _finish(eid, p, "FAILED", error=err, actor=actor, label=spec["label"])
+        return _finish(eid, case_id, "FAILED", error=err, actor=actor, label=spec["label"])
     try:
         src.record_attempt(res)
     except Exception:
         pass
     if res.status != OK:
-        return _finish(eid, p, "FAILED", error=f"source {res.status}: {res.detail or res.error or 'no detail'}"[:300], actor=actor, label=spec["label"], result_ref=res.detail)
+        return _finish(eid, case_id, "FAILED", error=f"source {res.status}: {res.detail or res.error or 'no detail'}"[:300], actor=actor, label=spec["label"], result_ref=res.detail)
     items = [e for rec in (res.records or []) for e in (getattr(rec, "evidence", None) or []) if isinstance(e, dict) and e.get("field")]
     if not items:
-        return _finish(eid, p, "FAILED", error="malformed source result: answered OK but carried no usable reading", actor=actor, label=spec["label"], result_ref=res.detail)
+        return _finish(eid, case_id, "FAILED", error="malformed source result: answered OK but carried no usable reading", actor=actor, label=spec["label"], result_ref=res.detail)
     # the canonical pipeline, exactly as the investigator uses it
     for rec in res.records:
-        store.store_evidence(pl["property_id"], rec.evidence)
+        store.store_evidence(property_id, rec.evidence)
         if getattr(rec, "fields", None):
-            store.set_fields(pl["property_id"], rec.fields, src.name)
+            store.set_fields(property_id, rec.fields, src.name)
         if getattr(rec, "timeline", None):
-            store.store_timeline(pl["property_id"], rec.timeline)
-    created = _new_evidence_ids(pl["property_id"], max_ev)
-    touched = [f"evidence:{r['id']}" for r in db.q("SELECT id FROM evidence WHERE property_id=? AND id<=? AND retrieved_at>=? ORDER BY id", (pl["property_id"], max_ev, now))]
+            store.store_timeline(property_id, rec.timeline)
+    created = _new_evidence_ids(property_id, max_ev)
+    touched = [f"evidence:{r['id']}" for r in db.q("SELECT id FROM evidence WHERE property_id=? AND id<=? AND retrieved_at>=? ORDER BY id", (property_id, max_ev, now))]
     if created:
-        cases._event(p["case_id"], "INVESTIGATION CHECK PRODUCED EVIDENCE", f"{len(created)} reading{'s' if len(created) != 1 else ''} from {src.label}", ", ".join(created), f"execution:{eid}", src.name)
-    cases.refresh(p["case_id"])
-    q_after = db.q1("SELECT state, checked_by FROM investigation_questions WHERE case_id=? AND key=?", (p["case_id"], p["question_key"]))
-    cases._event(p["case_id"], "QUESTION REFRESHED", f"{p['question_key']}: {base['question_before']} → {q_after['state']}", "from recorded evidence through the case refresh, never from the runner", f"question:{p['question_key']}", "property_hunter")
-    if q_after["state"] in ("FOUND", "NOT_FOUND"):
-        db.ex("UPDATE bee_proposals SET status='COMPLETED', decided_by='evidence', decided_at=?, updated_at=?, human_note=IFNULL(human_note,'') || ' | answered by execution ' || ? WHERE id=?", (utcnow(), utcnow(), str(eid), proposal_id))
-        cases._event(p["case_id"], "PROPOSAL COMPLETED", f"{p['proposal_id']}: the question is now {q_after['state']} from recorded evidence", ", ".join(created) or "existing readings re-confirmed", f"bee_proposal:{proposal_id}", "evidence")
-        p_after = "COMPLETED"
-    else:
-        db.ex("UPDATE bee_proposals SET status='EXECUTED_NO_ANSWER', updated_at=? WHERE id=?", (utcnow(), proposal_id))
-        p_after = "EXECUTED_NO_ANSWER"
-    return _finish(eid, p, "SUCCEEDED", actor=actor, label=spec["label"], result_ref=res.detail, evidence_created=created, evidence_touched=touched, question_after=q_after["state"], proposal_after=p_after)
+        cases._event(case_id, "INVESTIGATION CHECK PRODUCED EVIDENCE", f"{len(created)} reading{'s' if len(created) != 1 else ''} from {src.label}", ", ".join(created), f"execution:{eid}", src.name)
+    cases.refresh(case_id)
+    q_after = db.q1("SELECT state, checked_by FROM investigation_questions WHERE case_id=? AND key=?", (case_id, qkey))
+    q_after_state = q_after["state"] if q_after else None
+    cases._event(case_id, "QUESTION REFRESHED", f"{qkey}: {base['question_before']} → {q_after_state}", "from recorded evidence through the case refresh, never from the runner", f"question:{qkey}", "property_hunter")
+    p_after = None
+    if p:
+        if q_after_state in ("FOUND", "NOT_FOUND"):
+            db.ex("UPDATE bee_proposals SET status='COMPLETED', decided_by='evidence', decided_at=?, updated_at=?, human_note=IFNULL(human_note,'') || ' | answered by execution ' || ? WHERE id=?", (utcnow(), utcnow(), str(eid), p["id"]))
+            cases._event(case_id, "PROPOSAL COMPLETED", f"{p['proposal_id']}: the question is now {q_after_state} from recorded evidence", ", ".join(created) or "existing readings re-confirmed", f"bee_proposal:{p['id']}", "evidence")
+            p_after = "COMPLETED"
+        else:
+            db.ex("UPDATE bee_proposals SET status='EXECUTED_NO_ANSWER', updated_at=? WHERE id=?", (utcnow(), p["id"]))
+            p_after = "EXECUTED_NO_ANSWER"
+    return _finish(eid, case_id, "SUCCEEDED", actor=actor, label=spec["label"], result_ref=res.detail, evidence_created=created, evidence_touched=touched, question_after=q_after_state, proposal_after=p_after)
 
 
 def _record(d: dict) -> int:
     cols = ("proposal_id", "case_id", "property_id", "question_key", "check_type", "source", "registry_json", "actor", "authorization_json", "status", "error", "started_at", "finished_at",
-            "result_ref", "evidence_created_json", "evidence_touched_json", "question_before", "question_after", "proposal_before", "proposal_after")
+            "result_ref", "evidence_created_json", "evidence_touched_json", "question_before", "question_after", "proposal_before", "proposal_after", "workup_id")
     cur = db.ex(f"INSERT INTO investigation_executions({','.join(cols)}) VALUES({','.join('?' * len(cols))})", tuple(d.get(k) for k in cols))
     return cur.lastrowid
 
 
-def _finish(eid: int, p, status: str, *, error: str | None = None, actor="user", label="", result_ref=None, evidence_created=(), evidence_touched=(), question_after=None, proposal_after=None) -> dict:
+def _finish(eid: int, case_id: int, status: str, *, error: str | None = None, actor="user", label="", result_ref=None, evidence_created=(), evidence_touched=(), question_after=None, proposal_after=None) -> dict:
     row = db.q1("SELECT question_before, proposal_before FROM investigation_executions WHERE id=?", (eid,))
     db.ex("""UPDATE investigation_executions SET status=?, error=?, finished_at=?, result_ref=?, evidence_created_json=?, evidence_touched_json=?, question_after=?, proposal_after=? WHERE id=?""",
           (status, error, utcnow(), (result_ref or "")[:300] or None, jdump(list(evidence_created)), jdump(list(evidence_touched)), question_after or row["question_before"], proposal_after or row["proposal_before"], eid))
     cls = {"SUCCEEDED": "INVESTIGATION CHECK SUCCEEDED", "FAILED": "INVESTIGATION CHECK FAILED", "BLOCKED": "INVESTIGATION CHECK BLOCKED"}[status]
-    cases._event(p["case_id"], cls, f"{label}: {status}", error or (result_ref or ""), f"execution:{eid}", actor)
-    cases._touch(p["case_id"])
+    cases._event(case_id, cls, f"{label}: {status}", error or (result_ref or ""), f"execution:{eid}", actor)
+    cases._touch(case_id)
     return execution(eid)
 
 
@@ -243,6 +280,7 @@ def execution(eid: int) -> dict | None:
     d["registry"] = jload(d.pop("registry_json"), {}); d["authorization"] = jload(d.pop("authorization_json"), {})
     d["evidence_created"] = jload(d.pop("evidence_created_json"), []) or []; d["evidence_touched"] = jload(d.pop("evidence_touched_json"), []) or []
     d["label"] = CHECKS.get(d["check_type"], {}).get("label") if d["check_type"] else None
+    d["trigger"] = "WORKUP" if d.get("workup_id") else "PROPOSAL"
     d["meaning"] = {"SUCCEEDED": "The source answered. What it established is in the evidence; the question state below is the only verdict.",
                     "FAILED": "The attempted check did not establish the fact. Nothing was recorded as evidence; the question stays as it was.",
                     "BLOCKED": "The check was not attempted: the source is not usable by the automated runner right now.",

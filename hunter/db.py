@@ -554,6 +554,43 @@ CREATE TABLE IF NOT EXISTS investigation_executions (
 );
 CREATE INDEX IF NOT EXISTS idx_exec_case ON investigation_executions(case_id, id);
 
+-- P5.5: commercial access. Codes are stored as a peppered HMAC only; device public keys, not secrets; sessions hashed.
+CREATE TABLE IF NOT EXISTS licenses (
+  id INTEGER PRIMARY KEY,
+  code_hash TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'UNUSED',   -- UNUSED|ACTIVE|REVOKED|EXPIRED|REBIND_PENDING
+  license_type TEXT NOT NULL DEFAULT 'SINGLE_USER',
+  created_at TEXT NOT NULL, activated_at TEXT, revoked_at TEXT, expires_at TEXT, last_seen_at TEXT,
+  activation_count INTEGER NOT NULL DEFAULT 0,
+  device_id_hash TEXT,
+  metadata_json TEXT, created_by TEXT
+);
+CREATE TABLE IF NOT EXISTS license_devices (
+  id INTEGER PRIMARY KEY,
+  license_id INTEGER NOT NULL REFERENCES licenses(id) ON DELETE CASCADE,
+  fingerprint TEXT NOT NULL,               -- SHA-256 of the public JWK
+  public_jwk TEXT NOT NULL,                -- public key only
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL, last_seen_at TEXT, unbound_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_license_device_active ON license_devices(license_id) WHERE active=1;
+CREATE TABLE IF NOT EXISTS license_sessions (
+  id INTEGER PRIMARY KEY,
+  license_id INTEGER NOT NULL REFERENCES licenses(id) ON DELETE CASCADE,
+  device_id INTEGER NOT NULL REFERENCES license_devices(id) ON DELETE CASCADE,
+  access_hash TEXT NOT NULL UNIQUE, access_expires_at TEXT NOT NULL,
+  refresh_hash TEXT NOT NULL UNIQUE, refresh_expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL, last_used_at TEXT, revoked_at TEXT, ip TEXT
+);
+CREATE TABLE IF NOT EXISTS license_challenges (
+  id INTEGER PRIMARY KEY,
+  nonce_hash TEXT NOT NULL UNIQUE, purpose TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL, used_at TEXT
+);
+CREATE TABLE IF NOT EXISTS license_events (
+  id INTEGER PRIMARY KEY,
+  at TEXT NOT NULL, event TEXT NOT NULL, license_id INTEGER, device_fp TEXT, actor TEXT, ok INTEGER NOT NULL, reason TEXT, ip TEXT
+);
+
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT

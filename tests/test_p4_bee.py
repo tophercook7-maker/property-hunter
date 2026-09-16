@@ -234,7 +234,7 @@ def test_public_export_carries_bee_metadata_only(client):
     assert b["last_analysis"]["status"] == "OK" and b["last_analysis"]["model"] == "fake-model" and b["last_analysis"]["prompt_version"] == bee.PROMPT_VERSION
     assert b["proposals_by_status"]["REJECTED"] == 1 and b["origin"] == "AI_OPINION"
     assert set(b) == {"last_analysis", "proposals_by_status", "executions", "origin", "note"}
-    live = json.loads((DOCS / "data" / "investigations.json").read_text())
+    live = __import__("hunter.cases", fromlist=["export_all"]).export_all()
     for c in live["cases"].values():
         assert "bee" in c and set(c["bee"]) == {"last_analysis", "proposals_by_status", "executions", "origin", "note"}
         for e in c["events"]:

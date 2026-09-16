@@ -33,6 +33,7 @@ h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute
 <body>
 <header class="ph-top"><h1><small>Draft only · nothing is sent · every statement traced to evidence</small>Owner outreach preparation</h1><nav data-nav aria-label="Sections"></nav></header>
 <main id="main"><p class="msg">Loading…</p></main>
+<script src="ph-auth.js"></script>
 <script src="ph.js"></script>
 <script>
 const $ = id => document.getElementById(id); const esc = PH.esc;
@@ -40,7 +41,7 @@ const when = v => v ? String(v).slice(0,16).replace('T',' ') : '—';
 const q = new URLSearchParams(location.search);
 const CASE_ID = q.get('case'), PREP_ID = q.get('prep');
 let PREP = null, INFO = null;
-async function api(path, body){ const r = await PH.apiFetch(path, body ? {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)} : {}, 5000); if(!r.ok){ let m = r.statusText; try { const j = await r.json(); m = typeof j.detail === 'string' ? j.detail : (j.detail && j.detail.error) || m; } catch(e){} throw new Error(m); } return r.json(); }
+async function api(path, body){ const r = await PH.apiFetch(path, body ? {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)} : {}, 5000); if(r.status === 401){ location.href = PH.activateHref(); throw new Error('Activation required.'); } if(!r.ok){ let m = r.statusText; try { const j = await r.json(); m = typeof j.detail === 'string' ? j.detail : (j.detail && j.detail.error) || m; } catch(e){} throw new Error(m); } return r.json(); }
 
 function reqHtml(r){
   return `<div class="req ${r.state}"><span><span class="st">${esc(r.state.replace('_',' '))}</span><br><span class="lvl ${r.level==='REQUIRED TO DRAFT'?'R':'O'}">${esc(r.state==='UNKNOWN' ? r.level + ' · UNKNOWN / NOT AVAILABLE' : r.level)}</span></span>

@@ -274,7 +274,7 @@ def test_state_lands_negative_is_not_paid_and_outreach_and_privacy_untouched(mon
     for e in out["cases"][str(cid)]["events"]:
         if e["cls"].startswith("INVESTIGATION CHECK") or e["cls"] in ("QUESTION REFRESHED", "PROPOSAL COMPLETED"):
             assert "RAVEN" not in (e.get("detail") or "")
-    live = json.loads((DOCS / "data" / "investigations.json").read_text())
+    live = __import__("hunter.cases", fromlist=["export_all"]).export_all()
     for cc in live["cases"].values():
         assert "executions" in cc["bee"]
     page = (DOCS / "investigation.html").read_text()

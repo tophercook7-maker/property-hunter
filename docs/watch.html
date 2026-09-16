@@ -77,6 +77,7 @@ textarea{width:100%;font:inherit;font-size:12px;color:var(--ink);background:var(
   <div class="note">What "check" compares, per parcel: owner of record, county appraised value and the last deed reference from the State roll; for Hot Springs parcels, the City liens total, vacant-register and open code-case status from the City's GIS; and whether it is in the State's tax-sale inventory (from the daily file) and any bid on it. A change shows in red until you check again. The morning email with the same changes comes from the app on your Mac, which watches the same list once you paste the ids into it.</div>
 </main>
 
+<script src="ph-auth.js"></script>
 <script src="ph.js"></script>
 <script>
 const $ = id => document.getElementById(id);
@@ -167,7 +168,7 @@ $('check').addEventListener('click', checkAll);
 $('toapp').addEventListener('click', async () => {
   const ids = LIST.map(w=>`${w.fips}:${w.parcel_id}`);
   try {
-    const r = await fetch('http://127.0.0.1:8234/api/watch/import', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ids})});
+    const r = await PH.apiFetch('/api/watch/import', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ids})}, 8000); if(r.status === 401){ location.href = PH.activateHref(); return; }
     const j = await r.json();
     $('status').textContent = `app: added ${j.added.length}, already watched ${j.already.length}${j.unknown.length?`, not in the app yet ${j.unknown.length}`:''}`;
   } catch(e) { $('status').textContent = 'The app is not running on this Mac (or you are away from it). Open "OPEN PROPERTY HUNTER.command" on the Desktop, then try again - or use Copy parcel ids.'; }

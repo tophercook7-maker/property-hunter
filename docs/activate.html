@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Activate · Property Hunter</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="ph.css">
+<style>
+main{max-width:520px;margin:8vh auto;padding:0 16px;display:grid;gap:14px}
+h1.big{font-size:38px;text-transform:uppercase;letter-spacing:.02em;margin:0}
+.box{background:var(--surface);border:1px solid var(--rule);padding:16px}
+label{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+input{font:inherit;font-family:var(--mono);font-size:18px;letter-spacing:.08em;padding:10px 12px;background:var(--surface2);color:var(--ink);border:1px solid var(--rule);text-transform:uppercase}
+.msg{font-size:13px;min-height:1.4em}.msg.err{color:var(--bad)}.msg.ok{color:var(--good)}
+.fine{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+  <h1 class="big">Property Hunter</h1>
+  <div class="box" id="gate">
+    <p style="margin:0 0 10px">Enter your access code to continue.</p>
+    <form id="f"><label>Access code<input id="code" placeholder="PH-XXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" required></label>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:center"><button class="btn" type="submit" id="go">Activate</button><span class="msg" id="msg"></span></div></form>
+    <p class="fine">One code activates one device. This browser registers a key that stays on this device; the code itself is never stored here. Clearing this browser's site data will require the license owner to re-enable the device.</p>
+  </div>
+  <div class="box" id="done" hidden><p style="margin:0"><b>✓ Access activated</b></p><p class="fine" id="done-txt">Device registered.</p><p style="margin:10px 0 0"><a class="btn" id="enter" href="index.html">Enter Property Hunter</a></p></div>
+  <div class="box" id="already" hidden><p style="margin:0"><b>✓ This device is already activated</b></p><p class="fine" id="already-txt"></p><p style="margin:10px 0 0"><a class="btn" id="enter2" href="index.html">Enter Property Hunter</a> <button class="btn ghost" type="button" id="signout">Sign out of this device</button></p></div>
+</main>
+<script src="ph-auth.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const next = new URLSearchParams(location.search).get('next');
+const dest = (next && !/^https?:|^\/\//.test(next)) ? next : (location.port === '8234' ? '/' : 'index.html');
+$('enter').href = dest; $('enter2').href = dest;
+(async () => {
+  const me = await PHAuth.status();
+  if(me){ const li = PHAuth.licenseInfo() || {}; $('already-txt').textContent = `License ${me.license_type}${li.expires_at ? ', valid until ' + li.expires_at.slice(0,10) : ''}.`; $('gate').hidden = true; $('already').hidden = false; }
+})();
+$('f').onsubmit = async (ev) => {
+  ev.preventDefault(); const m = $('msg'); m.textContent = 'Checking…'; m.className = 'msg'; $('go').disabled = true;
+  try {
+    if(!window.crypto || !crypto.subtle || !window.indexedDB) throw new Error('This browser cannot register a device key.');
+    const r = await PHAuth.activate($('code').value.trim());
+    $('code').value = '';
+    $('done-txt').textContent = r.reactivated ? 'This device was already registered; you are signed in.' : `Device registered. License ${r.license_type}${r.expires_at ? ', valid until ' + r.expires_at.slice(0,10) : ''}.`;
+    $('gate').hidden = true; $('done').hidden = false;
+  } catch(e){ m.textContent = /Failed to fetch|NetworkError|load/i.test(e.message) ? 'Connection required to verify your access.' : e.message; m.className = 'msg err'; }
+  finally { $('go').disabled = false; }
+};
+$('signout').onclick = async () => { await PHAuth.signOut(); location.reload(); };
+</script>
+</body>
+</html>

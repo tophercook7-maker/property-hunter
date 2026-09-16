@@ -47,12 +47,161 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title=APP_NAME, version=VERSION, lifespan=lifespan,
               description="Personal real-estate acquisition intelligence. "
                           "Research assistant, not a lawyer.")
-# The public site (GitHub Pages) may talk to this app when it is open on the same Mac:
-# watchlist import, status, a scan kick. Local only, nothing secret, GET and POST.
+
+
+# ------------------------------------------------------------ P5.5: the access gate
+# Every /api/* request except the public allow-list needs a live licensed session (Authorization: Bearer).
+# The decision is made here, on the server, on every request; the UI only reflects it.
+from . import licensing as _lic
+
+PUBLIC_API = {"/api/health", "/api/status", "/api/license/challenge", "/api/license/activate", "/api/license/refresh", "/api/license/logout", "/api/license/me", "/api/license/state"}
+
+
+def _bearer(request: Request) -> str | None:
+    h = request.headers.get("authorization") or ""
+    return h[7:].strip() if h.lower().startswith("bearer ") else None
+
+
+@app.middleware("http")
+async def license_gate(request: Request, call_next):
+    path = request.url.path
+    if path.startswith("/api/") and path not in PUBLIC_API and request.method != "OPTIONS":
+        if path.startswith("/api/admin/"):
+            if _lic.rate_limited("admin", request.client.host if request.client else "?"):
+                return JSONResponse({"detail": "Too many requests."}, status_code=429)
+            if not _lic.is_admin(request.headers.get("x-admin-token")):
+                return JSONResponse({"detail": "Admin authorization required."}, status_code=403)
+        elif _lic.ENFORCED:
+            who = _lic.authenticate(_bearer(request))
+            if not who:
+                return JSONResponse({"detail": "Activation required.", "code": "LICENSE_REQUIRED"}, status_code=401,
+                                    headers={"WWW-Authenticate": "Bearer"})
+            request.state.license = who
+    return await call_next(request)
+
+
+# CORS is added AFTER the gate so it wraps the gate's own 401 / 403 / 429 responses; the public site
+# (GitHub Pages) reads those as answers instead of opaque network failures.
 app.add_middleware(CORSMiddleware,
-                   allow_origins=["https://tophercook7-maker.github.io", "http://localhost:8765",
-                                  "http://127.0.0.1:8765"],
-                   allow_methods=["GET", "POST"], allow_headers=["content-type"])
+                   allow_origins=["https://tophercook7-maker.github.io", "http://localhost:8765", "http://127.0.0.1:8765"],
+                   allow_methods=["GET", "POST", "DELETE"], allow_headers=["content-type", "authorization", "x-admin-token"])
+
+
+def _ip(request: Request) -> str:
+    return request.client.host if request.client else "?"
+
+
+@app.get("/api/license/state")
+def api_license_state() -> dict:
+    return {"enforced": _lic.ENFORCED, "env": _lic.ENV, "access_ttl_seconds": _lic.ACCESS_TTL}
+
+
+@app.get("/api/license/challenge")
+def api_license_challenge(request: Request, purpose: str = "activate") -> dict:
+    if purpose not in ("activate", "refresh"):
+        raise HTTPException(400, "purpose must be activate or refresh")
+    if _lic.rate_limited("auth", _ip(request)):
+        raise HTTPException(429, "Too many requests. Try again in a few minutes.")
+    return _lic.new_challenge(purpose)
+
+
+@app.post("/api/license/activate")
+def api_license_activate(request: Request, payload: dict = Body(...)) -> dict:
+    """One-time activation: code + device public key + signed challenge. Generic failures on purpose."""
+    ip = _ip(request)
+    if _lic.rate_limited("activate", ip):
+        _lic.audit("RATE_LIMITED", ok=False, reason="activate", ip=ip)
+        raise HTTPException(429, "Too many attempts. Try again in a few minutes.")
+    try:
+        out = _lic.activate(str(payload.get("code") or ""), payload.get("device_key") or {}, str(payload.get("nonce") or ""), str(payload.get("signature") or ""), ip=ip)
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc))
+    return out
+
+
+@app.post("/api/license/refresh")
+def api_license_refresh(request: Request, payload: dict = Body(...)) -> dict:
+    ip = _ip(request)
+    if _lic.rate_limited("auth", ip):
+        raise HTTPException(429, "Too many requests. Try again in a few minutes.")
+    try:
+        return _lic.refresh(str(payload.get("refresh_token") or ""), str(payload.get("nonce") or ""), str(payload.get("signature") or ""), ip=ip)
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc))
+
+
+@app.post("/api/license/logout")
+def api_license_logout(request: Request) -> dict:
+    _lic.logout(_bearer(request))
+    return {"ok": True}
+
+
+@app.get("/api/license/me")
+def api_license_me(request: Request) -> dict:
+    who = _lic.authenticate(_bearer(request))
+    if not who:
+        raise HTTPException(401, "Activation required.")
+    return {"license_id": who["license_id"], "license_type": who["license_type"]}
+
+
+# ---- admin (X-Admin-Token; never reachable with a customer session)
+
+@app.post("/api/admin/licenses")
+def api_admin_create(payload: dict = Body(default={})) -> dict:
+    try:
+        return {"issued": _lic.create(int(payload.get("count") or 1), str(payload.get("license_type") or "SINGLE_USER"), payload.get("days"), created_by="admin-api", metadata=payload.get("metadata")),
+                "note": "CODE ISSUED — STORE SECURELY; codes are not retrievable later"}
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.get("/api/admin/licenses")
+def api_admin_list(status: str | None = None) -> dict:
+    return {"licenses": _lic.list_all(status)}
+
+
+@app.get("/api/admin/licenses/{license_id}")
+def api_admin_view(license_id: int) -> dict:
+    v = _lic.view(license_id)
+    if not v:
+        raise HTTPException(404, "No such license")
+    return v
+
+
+@app.post("/api/admin/licenses/{license_id}/revoke")
+def api_admin_revoke(license_id: int, payload: dict = Body(default={})) -> dict:
+    try:
+        return _lic.revoke(license_id, actor="admin-api", reason=str(payload.get("reason") or "")[:200])
+    except KeyError:
+        raise HTTPException(404, "No such license")
+
+
+@app.post("/api/admin/licenses/{license_id}/rebind")
+def api_admin_rebind(license_id: int, payload: dict = Body(default={})) -> dict:
+    try:
+        return _lic.rebind(license_id, actor="admin-api", reason=str(payload.get("reason") or "")[:200])
+    except KeyError:
+        raise HTTPException(404, "No such license")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.get("/api/admin/licenses/{license_id}/events")
+def api_admin_events(license_id: int) -> dict:
+    return {"events": db.rows_to_dicts(db.q("SELECT at, event, device_fp, actor, ok, reason FROM license_events WHERE license_id=? ORDER BY id DESC LIMIT 200", (license_id,)))}
+
+
+DOCS = Path(__file__).parent.parent / "docs"
+
+
+@app.get("/activate", response_class=HTMLResponse)
+def page_activate() -> HTMLResponse:
+    return HTMLResponse((DOCS / "activate.html").read_text())
+
+
+@app.get("/static/ph-auth.js")
+def static_ph_auth():
+    return FileResponse(str(DOCS / "ph-auth.js"), media_type="application/javascript")
 
 
 # ------------------------------------------------------------------- helpers

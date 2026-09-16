@@ -194,7 +194,7 @@ def test_provenance_survives_export_and_ui(client):
     assert d["provenance"] and all("origin" in e for e in d["evidence"]) and isinstance(d["notes"], list)
     html = reports.dossier_html(a)
     assert "MANUAL VERIFICATION" in html and "AUTOMATED SOURCE" in html and "<th>Origin</th>" in html
-    pub = json.loads((DOCS / "data" / "investigations.json").read_text())
+    pub = __import__("hunter.cases", fromlist=["export_all"]).export_all()
     for c in pub["cases"].values():
         for e in c["evidence"]:
             assert e.get("origin") in store.ORIGINS, e

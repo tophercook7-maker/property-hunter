@@ -286,13 +286,19 @@
   PH.apiFetch = async (path, opts, ms) => {
     const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const t = ctl ? setTimeout(() => ctl.abort(), ms || 1500) : null;
-    try { return await fetch(PH.API + path, Object.assign({ signal: ctl && ctl.signal }, opts || {})); }
+    try {
+      const o = Object.assign({ signal: ctl && ctl.signal }, opts || {});
+      // P5.5: the local app is licensed; PHAuth (docs/ph-auth.js) holds the device-bound session and never the code
+      return typeof PHAuth !== 'undefined' ? await PHAuth.fetch(PH.API + path, o) : await fetch(PH.API + path, o);
+    }
     finally { if (t) clearTimeout(t); }
   };
+  PH.needsActivation = r => r && r.status === 401;
+  PH.activateHref = () => 'activate.html?next=' + encodeURIComponent(location.pathname.split('/').pop() + location.search);
   PH.loadCaseIndex = async () => {
     if (PH.CASES) return PH.CASES;
-    try { const r = await PH.apiFetch('/api/cases/index'); if (r.ok) { PH.CASES = Object.assign(await r.json(), { live: true }); return PH.CASES; } } catch (e) {}
-    try { const r = await fetch('data/investigations.json', { cache: 'no-store' }); if (r.ok) { const d = await r.json(); PH.CASES = { by_property: d.by_property || {}, by_parcel: d.by_parcel || {}, built_at: d.built_at, live: false }; return PH.CASES; } } catch (e) {}
+    try { const r = await PH.apiFetch('/api/cases/index'); if (r.ok) { PH.CASES = Object.assign(await r.json(), { live: true }); return PH.CASES; } if (r.status === 401) { PH.CASES = { by_property: {}, by_parcel: {}, live: false, locked: true }; return PH.CASES; } } catch (e) {}
+    // P5.5: investigation data is licensed application data and is no longer published as a public snapshot
     PH.CASES = { by_property: {}, by_parcel: {}, live: false, unavailable: true };
     return PH.CASES;
   };

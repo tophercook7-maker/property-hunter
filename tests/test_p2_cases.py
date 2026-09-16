@@ -279,7 +279,7 @@ def test_export_and_public_snapshot(client):
     json.dumps(out)
     listing = client.get("/api/cases").json()
     assert listing["count"] == 1 and listing["cases"][0]["next_action"]["label"]
-    pub = json.loads((DOCS / "data" / "investigations.json").read_text())
+    pub = __import__("hunter.cases", fromlist=["export_all"]).export_all()
     assert {"built_at", "count", "by_property", "by_parcel", "cases", "by_status"} <= set(pub)
     for c in pub["cases"].values():
         assert c["status"] in cases.STATUSES
@@ -302,7 +302,7 @@ def test_pages_offer_investigate_and_show_active_cases():
     assert "PH.investigateBtn" in idx
     inv = (DOCS / "investigation.html").read_text()
     for k in ("INVESTIGATION STATUS", "LAST UPDATED", "Why it surfaced", "What we know", "What we don't know", "Evidence", "Questions", "Next action", "Timeline", "Note", "MANUAL ACTION REQUIRED",
-              "MANUAL VERIFICATION", "READ-ONLY SNAPSHOT", "/api/case/", "data/investigations.json", "NOT FOUND", "UNKNOWN"):
+              "MANUAL VERIFICATION", "local app is not answering", "/api/case/", "NOT FOUND", "UNKNOWN"):
         assert k in inv, k
     for bad in ("good investment", "great deal", "guaranteed", "buy now"):
         assert bad not in inv.lower()

@@ -26,7 +26,8 @@ const ago = t => { if(!t) return 'never';
   if(s<172800) return Math.round(s/3600)+' hr ago'; return Math.round(s/86400)+' days ago'; };
 
 async function api(path, opts){
-  const r = await fetch(path, Object.assign({headers:{'Content-Type':'application/json'}}, opts));
+  const r = window.PHAuth ? await PHAuth.fetch(path, Object.assign({headers:{'Content-Type':'application/json'}}, opts)) : await fetch(path, Object.assign({headers:{'Content-Type':'application/json'}}, opts));
+  if(r.status === 401){ location.href = '/activate?next=' + encodeURIComponent(location.pathname + location.hash); throw new Error('Activation required.'); }
   if(!r.ok){ const t = await r.text(); throw new Error(t.slice(0,300) || r.statusText); }
   return r.headers.get('content-type')?.includes('json') ? r.json() : r.text();
 }

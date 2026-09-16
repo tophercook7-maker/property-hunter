@@ -13,6 +13,8 @@ _tmp = tempfile.mkdtemp(prefix="ph-test-")
 os.environ["PH_DATA_DIR"] = _tmp
 os.environ["PH_DB_PATH"] = str(Path(_tmp) / "test.db")
 os.environ["PH_AI_ENABLED"] = "0"          # tests never depend on a model
+os.environ["PH_ENV"] = "development"          # P5.5: feature tests run with the gate off; the license tests turn it on explicitly
+os.environ["PH_LICENSE_ENFORCED"] = "0"
 
 
 @pytest.fixture(autouse=True)

@@ -167,7 +167,7 @@ def test_public_export_redacts_actions_and_gate_and_provenance_remain(client):
     # P3A provenance intact on every evidence row of the case
     for e in cases.get_case(cid)["evidence"]:
         assert e["origin"] in store.ORIGINS and e["verification"] == store.ORIGIN_LABEL[e["origin"]]
-    live = json.loads((DOCS / "data" / "investigations.json").read_text())
+    live = __import__("hunter.cases", fromlist=["export_all"]).export_all()
     for c in live["cases"].values():
         for o in c.get("outreach", []):
             assert "human_actions" in o and set(o["human_actions"]) == {"counts_by_type", "provenance", "note"}

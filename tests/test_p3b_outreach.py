@@ -199,7 +199,7 @@ def test_public_snapshot_is_redacted_and_nothing_can_send(client):
     assert "SYSTEM-GENERATED TEXT" in page and "HUMAN-ADDED TEXT" in page and "HUMAN-EDITED TEXT" in page
     inv = (DOCS / "investigation.html").read_text()
     assert "outreach.html?case=" in inv
-    live = json.loads((DOCS / "data" / "investigations.json").read_text())
+    live = __import__("hunter.cases", fromlist=["export_all"]).export_all()
     for c in live["cases"].values():
         for o in c.get("outreach", []):
             assert "text" not in o and "drafts" not in o

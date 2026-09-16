@@ -486,8 +486,8 @@ def build():
         byfield = Counter(r["f"] for r in real)
         json.dump(build_signals({r["i"]: r for r in slim}, county_name),
                   open(os.path.join(ROOT, "docs", "data", "signals.json"), "w"), separators=(",", ":"))
-        from hunter import cases as _cases
-        json.dump(_cases.export_all(), open(os.path.join(ROOT, "docs", "data", "investigations.json"), "w"), separators=(",", ":"))
+        # P5.5: investigation cases, evidence panels, Bee and outreach metadata are LICENSED application data.
+        # They are served only by the licensed local app and are no longer written to the public site.
         tdir = os.path.join(ROOT, "docs", "data", "timeline"); os.makedirs(tdir, exist_ok=True)
         for cf, per in build_timelines({r["i"]: r for r in slim}).items():
             json.dump({"built_at": built, "county": cf, "properties": per}, open(os.path.join(tdir, f"{cf}.json"), "w"), separators=(",", ":"))

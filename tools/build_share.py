@@ -393,7 +393,11 @@ def export_rows(only=None):
         rows.append({
             "i": pid, "a": p["address"], "c": (p["city"] or "").title() or "Unknown", "pid": p["parcel_id"],
             "cf": p["county_fips"], "cn": county_name.get(p["county_fips"], p["county_fips"]),
-            "o": p["owner_name"], "m": mail[pid]["value"] if pid in mail else None, "ab": int("absentee_owner" in d),
+            "o": p["owner_name"], "ab": int("absentee_owner" in d),
+            # Owner MAILING ADDRESS is deliberately not published. The absentee
+            # signal above is the derived fact the UI needs; the raw address turned
+            # this snapshot into a distress-ranked mailing list of 592 named people.
+            # Look up still resolves one address live, per parcel, on demand.
             "lv": p["land_value"], "iv": p["imp_value"], "tv": p["total_value"], "ac": p["acreage"],
             "z": (p["zoning"] or "").split(" - ")[0] or None, "zf": p["zoning"],
             "f": (p["flood_zone"] or "").split(" (")[0] or None,

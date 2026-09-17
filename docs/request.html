@@ -85,6 +85,21 @@ code{font-family:var(--mono);font-size:12.5px;background:var(--surface2);padding
     <p style="font-size:12.5px;color:var(--muted);margin-top:10px">Garland County Collector, 200 Woodbine St, Hot Springs, AR 71901. For other counties, search "<i>county name</i> Collector" for the office; the request wording is the same.</p>
   </div>
 
+  <div class="card" id="cama">
+    <span class="eyebrow">The other public record worth asking for</span>
+    <h2>The Assessor's parcel file: mailing addresses, buildings, last sale, for every parcel in the county</h2>
+    <p>Every county Assessor keeps a computer-assisted mass appraisal (CAMA) file: owner of record, <b>owner mailing address</b>, legal description, land and improvement values, building characteristics (square feet, year built), and the last recorded sale. The public viewer shows it one parcel at a time and blocks automated reading; the file itself is a public record under the Arkansas Freedom of Information Act. Ask for a copy in a plain data format. A copying fee may apply; ask before agreeing to one.</p>
+    <label>County</label><select id="cama-county"></select>
+    <label>Your name</label><input id="cama-name" placeholder="First Last">
+    <label>How they can reach you</label><input id="cama-contact" placeholder="email or phone">
+    <label>Request</label><textarea id="cama-req" readonly rows="14"></textarea>
+    <div class="row">
+      <button class="btn" id="cama-copy" type="button">Copy the request</button>
+      <a class="btn ghost" href="https://garlandcountyar.nextrequest.com/" target="_blank" rel="noopener">Garland County records portal</a>
+    </div>
+    <p style="font-size:12.5px;color:var(--muted);margin-top:10px">Garland County Assessor, 200 Woodbine St, Room 123, Hot Springs, AR 71901. Other counties: search "<i>county name</i> Assessor" for the office. When the file arrives, tell Property Hunter and an import path is built for its layout; every parcel it already holds then gets its mailing address of record with the file's date, as an AUTOMATED SOURCE reading.</p>
+  </div>
+
   <div class="card">
     <span class="eyebrow">When it arrives</span>
     <h2>Drop the spreadsheet in and every card updates</h2>
@@ -101,6 +116,15 @@ const $ = id => document.getElementById(id);
 const COUNTIES = ["Arkansas","Ashley","Baxter","Benton","Boone","Bradley","Calhoun","Carroll","Chicot","Clark","Clay","Cleburne","Cleveland","Columbia","Conway","Craighead","Crawford","Crittenden","Cross","Dallas","Desha","Drew","Faulkner","Franklin","Fulton","Garland","Grant","Greene","Hempstead","Hot Spring","Howard","Independence","Izard","Jackson","Jefferson","Johnson","Lafayette","Lawrence","Lee","Lincoln","Little River","Logan","Lonoke","Madison","Marion","Miller","Mississippi","Monroe","Montgomery","Nevada","Newton","Ouachita","Perry","Phillips","Pike","Poinsett","Polk","Pope","Prairie","Pulaski","Randolph","St. Francis","Saline","Scott","Searcy","Sebastian","Sevier","Sharp","Stone","Union","Van Buren","Washington","White","Woodruff","Yell"];
 const want = new URLSearchParams(location.search).get('county') || 'Garland';
 $('county').innerHTML = COUNTIES.map(c=>`<option ${c.toLowerCase()===want.toLowerCase()?'selected':''}>${c}</option>`).join('');
+$('cama-county').innerHTML = COUNTIES.map(c=>`<option ${c.toLowerCase()===want.toLowerCase()?'selected':''}>${c}</option>`).join('');
+function camaLetter(){
+  const c = $('cama-county').value, n = $('cama-name').value.trim() || '[your name]', k = $('cama-contact').value.trim() || '[email or phone]';
+  const today = new Date().toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric'});
+  return `${today}\n\n${c} County Assessor\nRe: Arkansas Freedom of Information Act request — parcel assessment (CAMA) data file\n\nUnder the Arkansas Freedom of Information Act (A.C.A. § 25-19-101 et seq.), I request a copy of the county's current real property assessment data file (the CAMA export or equivalent) for all parcels in ${c} County, in an electronic, machine-readable format (CSV, Excel, or a database export), containing for each parcel:\n\n  - parcel number\n  - owner of record and owner mailing address\n  - situs (property) address\n  - legal description and subdivision\n  - land, improvement and total assessed values\n  - property class / use code\n  - building characteristics as maintained (square footage, year built, structure type)\n  - last recorded sale date, price and instrument reference, if maintained\n  - the date the record was last updated\n\nI do not need images, sketches or photographs. If a copying fee applies, please tell me the amount before preparing the file. If any part of the file is withheld, please cite the exemption for that part and release the remainder.\n\nPlease respond within the three business days the Act provides. You can reach me at ${k}.\n\nThank you,\n${n}`;
+}
+['cama-county','cama-name','cama-contact'].forEach(id => $(id).addEventListener('input', () => { $('cama-req').value = camaLetter(); }));
+$('cama-req').value = camaLetter();
+$('cama-copy').onclick = async () => { try { await navigator.clipboard.writeText($('cama-req').value); $('cama-copy').textContent = 'Copied'; setTimeout(() => $('cama-copy').textContent = 'Copy the request', 1800); } catch(e) { $('cama-req').select(); } };
 function build(){
   const c = $('county').value, n = $('name').value || '[your name]', k = $('contact').value || '[your email or phone]';
   const yr = new Date().getFullYear() - 1;

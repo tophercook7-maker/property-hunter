@@ -134,7 +134,7 @@ def _parse_street(text: str) -> dict:
 def normalize(raw: Any) -> dict:
     """Deterministic. Records the original, the normalized components, the rules version, and any reason
     the input is unusable or outside Arkansas. Nothing is dropped that could tell two parcels apart."""
-    n: dict[str, Any] = {"original": raw if isinstance(raw, str) else "", "rules_version": RULES_VERSION,
+    n: dict[str, Any] = {"original": raw if isinstance(raw, str) else "", "rules_version": RULES_VERSION, "mode": "ADDRESS", "parcel_id": None,
                          "valid": True, "reason": None, "in_scope": True, "state": None, "zip": None,
                          "city": None, "county_fips": None, "county": None}
     if not isinstance(raw, str):
@@ -151,6 +151,16 @@ def normalize(raw: Any) -> dict:
         n.update(valid=False, reason="That is not a street address.")
         return n
     up = text.upper()
+    # a parcel number with its county: "300-06244-000, Garland County". Parcel numbers are county-local, so the county is required.
+    pm = re.match(r"^\s*(?:PARCEL\s*#?\s*)?([0-9][0-9\-\.]{5,}[0-9A-Z]?)\s*,\s*([A-Z][A-Z\s]+?)(?:\s+(?:COUNTY|CO))?\s*(?:,\s*(?:AR|ARKANSAS))?\s*$", up)
+    if pm and pm.group(2).strip() in _COUNTY_BY_NAME:
+        t = _COUNTY_BY_NAME[pm.group(2).strip()]
+        n.update(mode="PARCEL_ID", parcel_id=pm.group(1), county=t["county"], county_fips=t["county_fips"], normalized=f"PARCEL {pm.group(1)}, {t['county'].upper()} COUNTY",
+                 number=None, fraction=None, predir=None, name=None, suffix=None, postdir=None, unit=None, unit_word=None)
+        return n
+    if re.match(r"^\s*(?:PARCEL\s*#?\s*)?[0-9][0-9\-\.]{5,}[0-9A-Z]?\s*$", up):
+        n.update(valid=False, reason="That looks like a parcel number. Parcel numbers are county-local: add the county, e.g. '300-06244-000, Garland County'.")
+        return n
     m = re.search(r"(?:^|[\s,])(\d{5})(?:-\d{4})?\s*$", up)
     if m:
         n["zip"] = m.group(1)
@@ -242,6 +252,10 @@ def _candidate_from_row(row: dict) -> dict:
 
 
 def _local_candidates(n: dict) -> list[dict]:
+    if n.get("mode") == "PARCEL_ID":
+        rows = db.q("SELECT id, county_fips, parcel_id, rpid, address, city, zip, lat, lon, acreage, last_seen, territory FROM properties WHERE county_fips=? AND parcel_id=? LIMIT 20",
+                    (n["county_fips"], n["parcel_id"]))
+        return [_candidate_from_row(dict(r)) for r in rows]
     first = n["name"].split()[0]
     rows = db.q("SELECT id, county_fips, parcel_id, rpid, address, city, zip, lat, lon, acreage, last_seen, territory "
                 "FROM properties WHERE address_norm LIKE ? AND address IS NOT NULL LIMIT 200",
@@ -253,6 +267,10 @@ def _live_query(n: dict) -> dict:
     """The only network call. Same layer, fields and client as the ar_gis_parcels adapter."""
     from .sources.ar_parcels import FIELDS, LAYER, SERVICE
     service = os.environ.get("PH_RESOLVER_LIVE_SERVICE") or SERVICE     # outage drills only; same client, same layer
+    if n.get("mode") == "PARCEL_ID":
+        pid_sql = n["parcel_id"].replace("'", "")
+        return arcgis_query(service, LAYER, where=f"parcelid='{pid_sql}' AND countyfips='{n['county_fips']}'", out_fields=FIELDS, geometry=True,
+                            result_record_count=LIVE_LIMIT, timeout=LIVE_TIMEOUT)
     first = re.sub(r"[^A-Z0-9]", "", n["name"].split()[0])
     variants = {first} | {k.upper() for k, v in ORDINALS.items() if v == first}     # FIRST is spelled 1ST on the roll
     name_clause = " OR ".join(f"UPPER(pstrnam) LIKE '{v}%'" for v in sorted(variants) if v)
@@ -316,7 +334,10 @@ def _live_candidates(n: dict) -> tuple[list[dict], dict]:
                 "suffix": _suffix(a.get("pstrtype")),
                 "postdir": DIRECTIONS.get((a.get("psufdir") or "").lower()) or ((a.get("psufdir") or "").upper() or None),
                 "unit": None, "unit_word": None}
-        if comp["number"] != n["number"] or comp["name"] != n["name"]:
+        if n.get("mode") == "PARCEL_ID":
+            if (a.get("parcelid") or "").strip() != n["parcel_id"]:
+                continue
+        elif comp["number"] != n["number"] or comp["name"] != n["name"]:
             continue
         rec = src._to_record(f, terr)
         if not rec:
@@ -358,6 +379,9 @@ def _rule(rule, a, b, *, required=False):
 
 def apply_rules(n: dict, c: dict) -> list[dict]:
     comp = c["components"]
+    if n.get("mode") == "PARCEL_ID":
+        return [_rule("PARCEL_IDENTITY", n["parcel_id"], c.get("parcel_id"), required=True), _rule("COUNTY", n["county_fips"], c.get("county_fips"), required=True),
+                {"rule": "SOURCE_AGREEMENT", "result": AGREE if len(c.get("sources") or []) > 1 else NOT_STATED, "input": None, "candidate": ",".join(c.get("sources") or [])}]
     dir_in = " ".join(x for x in (n.get("predir"), n.get("postdir")) if x) or None
     dir_c = " ".join(x for x in (comp.get("predir"), comp.get("postdir")) if x) or None
     checks = [_rule("HOUSE_NUMBER", n["number"], comp.get("number"), required=True),
@@ -374,7 +398,7 @@ def apply_rules(n: dict, c: dict) -> list[dict]:
 
 
 def _classify(checks: list[dict]) -> str:
-    req = [k for k in checks if k["rule"] in ("HOUSE_NUMBER", "STREET_NAME")]
+    req = [k for k in checks if k["rule"] in ("HOUSE_NUMBER", "STREET_NAME", "PARCEL_IDENTITY")] or checks
     if any(k["result"] != AGREE for k in req):
         return "REJECTED"
     if any(k["result"] == MISMATCH for k in checks):
@@ -423,7 +447,7 @@ def _record_automated(search_id: int, n: dict, c: dict, state: str) -> int | Non
     """AUTOMATED_SOURCE evidence: the State roll (live, or its dated local copy) places this normalized address
     on this parcel. One row per distinct resolution value; a repeat of the same answer reuses the row."""
     pid = c["property_id"]
-    value = f"{n['normalized']} = parcel {c.get('parcel_id') or '?'} ({c.get('county') or c.get('county_fips')} County)"
+    value = f"{n['normalized']} = parcel {c.get('parcel_id') or '?'} ({c.get('county') or c.get('county_fips')} County)" + (" — resolved by parcel number" if n.get("mode") == "PARCEL_ID" else "")
     prev = db.q1("SELECT id FROM evidence WHERE property_id=? AND field=? AND value=? AND superseded_by IS NULL ORDER BY id DESC LIMIT 1",
                  (pid, EVIDENCE_FIELD, value))
     if prev:
@@ -508,7 +532,7 @@ def resolve(address: Any, *, license_id: int = 0, session_id: int = 0, actor: st
         near = [c for c in cands if c not in qualifying]
         if len(qualifying) == 1:
             c = qualifying[0]
-            locality = any(k["rule"] in ("CITY", "ZIP") and k["result"] == AGREE for k in c["checks"])
+            locality = any(k["rule"] in ("CITY", "ZIP") and k["result"] == AGREE for k in c["checks"]) or n.get("mode") == "PARCEL_ID"
             state = "EXACT_MATCH" if (SOURCE_LIVE in c["sources"] and locality) else "STRONG_MATCH"
         elif len(qualifying) > 1:
             state = "AMBIGUOUS"

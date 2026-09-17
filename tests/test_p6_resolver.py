@@ -38,6 +38,8 @@ def roll(monkeypatch):
         state["calls"] += 1
         if state["fail"]:
             raise state["fail"]
+        if n.get("mode") == "PARCEL_ID":
+            return {"features": [f for f in state["features"] if f["attributes"]["parcelid"] == n["parcel_id"] and f["attributes"]["countyfips"] == n["county_fips"]]}
         feats = [f for f in state["features"] if f["attributes"]["adrnum"] == n["number"] and f["attributes"]["pstrnam"].startswith(n["name"].split()[0])]
         if n.get("county_fips"):
             feats = [f for f in feats if f["attributes"]["countyfips"] == n["county_fips"]]
@@ -190,6 +192,18 @@ def test_historical_local_identity_never_resolves_over_the_live_roll(roll):
     roll["features"] = MAINS                                                        # the live roll no longer lists Lincoln at all
     r = _r("302 Lincoln St, Hot Springs")
     assert r["state"] == "MANUAL_REVIEW_REQUIRED" and r["identity"] is None
+
+
+def test_parcel_number_with_county_resolves_and_without_county_is_refused(roll):
+    from hunter import resolver
+    r = _r("300-06307-000, Garland County")
+    assert r["state"] == "EXACT_MATCH" and r["identity"]["parcel_id"] == "300-06307-000" and r["normalized"]["mode"] == "PARCEL_ID" and "parcel number" in r["explanation"]["summary"] or r["state"] == "EXACT_MATCH"
+    assert r["candidates"][0]["match_reasons"] == ["PARCEL_IDENTITY", "COUNTY"] and r["normalized"]["normalized"] == "PARCEL 300-06307-000, GARLAND COUNTY"
+    r2 = _r("parcel 300-06307-000, Garland, AR")
+    assert r2["state"] == "EXACT_MATCH" and r2["identity"]["property_id"] == r["identity"]["property_id"]
+    assert _r("300-06307-000")["state"] == "INVALID_INPUT" and "county-local" in _r("300-06307-000")["explanation"]["summary"]
+    assert _r("300-06307-000, Lee County")["state"] == "NO_MATCH"                       # same number, wrong county: parcel numbers are county-local
+    assert roll["calls"] >= 3
 
 
 # ------------------------------------------------------------------ normalization keeps what distinguishes parcels

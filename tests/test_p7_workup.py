@@ -22,7 +22,9 @@ COSL_EV = [{"field": "tax_status_check", "value": "not held by the Commissioner 
 VAC_EV = [{"field": "vacant_structure_check", "value": "not on the City's vacant-structure register", "evidence_type": "OBSERVATION", "confidence": "MEDIUM", "source": "hs_gis_vacant", "source_name": "City vacancy register", "source_url": "https://gis.cityhs.net/v", "effective_date": "2026-09-16"}]
 LIEN_EV = [{"field": "cleanup_lien_check", "value": "no City lien recorded", "evidence_type": "OBSERVATION", "confidence": "MEDIUM", "source": "hs_gis_liens", "source_name": "City liens", "source_url": "https://gis.cityhs.net/l", "effective_date": "2026-09-16"}]
 CODE_EV = [{"field": "code_case_check", "value": "no 2025 code case at this address", "evidence_type": "OBSERVATION", "confidence": "MEDIUM", "source": "hs_gis_code_cases", "source_name": "City code cases", "source_url": "https://gis.cityhs.net/c", "effective_date": "2026-09-16"}]
-SOURCES = {"county_tax_collector": CP_EV, "cosl_listings": COSL_EV, "fema_nfhl": FEMA_EV, "ar_gis_roads": ROAD_EV, "hs_gis_vacant": VAC_EV, "hs_gis_liens": LIEN_EV, "hs_gis_code_cases": CODE_EV}
+MAIL_EV = [{"field": "owner_mailing_address", "value": "PO BOX 77 LITTLE ROCK AR 72201", "evidence_type": "FACT", "confidence": "HIGH", "source": "hs_gis_owner_mailing", "source_name": "City roll copy", "source_url": "https://gis.cityhs.net/m", "effective_date": "2026-03-01"}]
+NO_MAIL_EV = [{"field": "owner_mailing_check", "value": "no mailing address on the City's roll copy for this parcel", "evidence_type": "OBSERVATION", "confidence": "MEDIUM", "source": "hs_gis_owner_mailing", "source_name": "City roll copy", "source_url": "https://gis.cityhs.net/m", "effective_date": "2026-03-01"}]
+SOURCES = {"county_tax_collector": CP_EV, "cosl_listings": COSL_EV, "fema_nfhl": FEMA_EV, "ar_gis_roads": ROAD_EV, "hs_gis_vacant": VAC_EV, "hs_gis_liens": LIEN_EV, "hs_gis_code_cases": CODE_EV, "hs_gis_owner_mailing": MAIL_EV}
 
 
 @pytest.fixture
@@ -65,20 +67,20 @@ def test_resolved_identity_runs_the_full_workup(roll, stubs):
     assert [a["domain"] for a in w["attempts"]] == [d for d, *_ in workup.DOMAINS] and len(w["attempts"]) == 13
     by = {a["domain"]: a for a in w["attempts"]}
     assert by["IDENTITY"]["status"] == "SUCCESS_WITH_EVIDENCE" and by["ROLL_RECORD"]["status"] == "SUCCESS_WITH_EVIDENCE"
-    for d in ("TAX_COLLECTOR", "STATE_LANDS", "FLOOD", "ROAD_ACCESS", "MUNICIPAL_VACANCY", "MUNICIPAL_LIEN", "MUNICIPAL_CODE"):
+    for d in ("TAX_COLLECTOR", "STATE_LANDS", "FLOOD", "ROAD_ACCESS", "MUNICIPAL_VACANCY", "MUNICIPAL_LIEN", "MUNICIPAL_CODE", "OWNER_MAILING"):
         assert by[d]["status"] == "SUCCESS_WITH_EVIDENCE" and by[d]["execution_id"] and by[d]["check_type"], d
     for d in ("TITLE_DEED", "LISTING", "PHYSICAL"):
         assert by[d]["status"] == "MANUAL_ONLY" and by[d]["manual_required"] == 1 and by[d]["execution_id"] is None, d
-    assert by["OWNER_MAILING"]["status"] == "MANUAL_ONLY" and "Assessor" in by["OWNER_MAILING"]["failure_detail"]
+    assert w["questions"]["mailing_address"]["state"] == "FOUND" and w["questions"]["owner"]["state"] == "FOUND"
     for a in w["attempts"]:
         assert a["status"] in workup.ATTEMPT_STATUSES and a["started_at"] and a["completed_at"] and a["ms"] is not None and a["questions"]["after"] is not None
     # evidence entered through the canonical model, AUTOMATED_SOURCE, with dates
-    assert db.q1("SELECT count(*) c FROM evidence")["c"] == before + 7 and len(w["evidence_produced"]) == 7
+    assert db.q1("SELECT count(*) c FROM evidence")["c"] == before + 8 and len(w["evidence_produced"]) == 8
     for ref in w["evidence_produced"]:
         e = db.q1("SELECT * FROM evidence WHERE id=?", (int(ref.split(":")[1]),))
         assert e["origin"] == "AUTOMATED_SOURCE" and e["source"] in SOURCES and e["effective_date"]
     ex = db.q("SELECT * FROM investigation_executions WHERE workup_id=?", (w["workup_id"],))
-    assert len(ex) == 7 and all(x["proposal_id"] is None and x["status"] == "SUCCEEDED" and "requested_by" in x["authorization_json"] for x in ex)
+    assert len(ex) == 8 and all(x["proposal_id"] is None and x["status"] == "SUCCEEDED" and "requested_by" in x["authorization_json"] for x in ex)
     q = w["questions"]
     assert q["flood"]["state"] == "FOUND" and q["access"]["state"] == "FOUND" and q["vacancy"]["state"] == "NOT_FOUND" and q["lien_city"]["state"] == "NOT_FOUND" and q["code"]["state"] == "NOT_FOUND"
     assert q["state_inventory"]["state"] == "NOT_FOUND" and q["title"]["state"] == "UNKNOWN" and q["inspection"]["state"] == "UNKNOWN" and q["listing"]["state"] == "UNKNOWN"
@@ -124,7 +126,10 @@ def test_property_file_structure_and_honesty(roll, stubs):
     assert "never says an owner wants to sell" in blob and "not saying this is for sale or not for sale" in blob     # the only sale-language present is the disclaimer
     # 15: the mailing record is labelled HISTORICAL with its record date
     mail = next(i for i in f["sections"]["OWNER_MAILING"]["items"] if i["field"] == "owner_mailing_address")
-    assert mail["state"] == "FOUND" and mail["historical"] is True and mail["qualifier"].startswith("HISTORICAL RECORD — record date 2004-01-15")
+    assert mail["state"] == "FOUND" and mail["historical"] is False and mail["source_date"] == "2026-03-01"          # the live City read supersedes the 2004 copy; the old row stays on file
+    assert db.q1("SELECT count(*) c FROM evidence WHERE property_id=? AND field='owner_mailing_address'", (pid,))["c"] == 2
+    hist = workup.item(pid, "owner_mailing_address", roll_date="2027-01-01")                                           # a record older than the roll reading is labelled
+    assert hist["historical"] is True
     # 14: a road nearby is not legal access
     acc = f["sections"]["ROAD_ACCESS"]
     assert any(i["field"] == "road_access" and i["state"] == "FOUND" for i in acc["items"]) and acc["legal_access"]["state"] == "UNKNOWN" and "deed or plat" in acc["legal_access"]["text"]
@@ -141,7 +146,7 @@ def test_property_file_structure_and_honesty(roll, stubs):
     assert next(i for i in f2["sections"]["ROAD_ACCESS"]["items"] if i["field"] == "road_access")["historical"] is False
     # what we don't know lists the open questions; next actions cover them with what / why / where / resolves
     unknown_keys = {q["key"] for q in f["what_we_dont_know"]}
-    assert {"title", "deed", "lien_clerk", "inspection", "listing"} <= unknown_keys and "mailing_address" not in unknown_keys     # the historical record answers it, labelled
+    assert {"title", "deed", "lien_clerk", "inspection", "listing"} <= unknown_keys and "mailing_address" not in unknown_keys     # the City read answers it
     acts = {a["question"]: a for a in f["next_actions"]}
     assert {"title", "deed", "inspection", "listing"} <= set(acts)
     for a in acts.values():
@@ -239,7 +244,7 @@ def test_rerun_is_idempotent(roll, stubs):
     assert {n: s.calls for n, s in stubs.items() if not n.startswith("_")} == calls1                  # fresh reads reused, sources not hammered
     assert all(a["reused"] == 1 for a in w2["attempts"] if a["check_type"]) and w2["questions"] == w1["questions"] and w2["next_actions"] == w1["next_actions"]
     ev = [e["cls"] for e in db.q("SELECT cls FROM investigation_events WHERE case_id=?", (w1["investigation_id"],))]
-    assert ev.count("INVESTIGATION OPENED FROM ADDRESS SEARCH") == 1 and ev.count("INVESTIGATION CHECK STARTED") == 7
+    assert ev.count("INVESTIGATION OPENED FROM ADDRESS SEARCH") == 1 and ev.count("INVESTIGATION CHECK STARTED") == 8
     assert workup.latest_for_property(r["identity"]["property_id"])["workup_id"] == w2["workup_id"] and workup.view(w1["workup_id"])["status"] == w1["status"]
 
 
@@ -251,7 +256,7 @@ def test_outreach_gate_evaluated_without_contact_and_bee_cannot_mutate(roll, stu
     snap_before = bee.snapshot(1) if db.q1("SELECT 1 FROM investigation_cases WHERE id=1") else None
     w = _run(r["search_id"])
     g = w["outreach"]
-    assert g["verdict"] == "OUTREACH BLOCKED" and "MAILING ADDRESS" in g["evidence_blocking"] and g["purpose"] == "PROPERTY_STATUS_INQUIRY"
+    assert g["verdict"] in ("OUTREACH NEEDS REVIEW", "OUTREACH READY") and g["evidence_blocking"] == [] and g["purpose"] == "PROPERTY_STATUS_INQUIRY"     # the City read supplied the mailing address; only the person's reason is missing
     assert db.q1("SELECT count(*) c FROM outreach_preps")["c"] == 0 and db.q1("SELECT count(*) c FROM outreach_drafts")["c"] == 0 and db.q1("SELECT count(*) c FROM outreach_actions")["c"] == 0
     assert "No draft was generated" in g["note"]
     # Bee sees the workup's evidence; a model answer that tries to change identity or assert facts is dropped
@@ -311,7 +316,7 @@ def test_no_second_network_path_and_nothing_public():
     assert "arcgis_query" not in src and "http." not in src.replace("https://", "") and "def enrich" not in src and "p7_fetch" not in src
     assert "execution.execute(" in src and "execution.check_guard(" in src and "from .sources" not in src           # P5's path is the only executable path
     ex = (ROOT / "hunter" / "execution.py").read_text()
-    assert set(re.findall(r'^    "([A-Z_]+_RECHECK)":', ex, re.M)) == {"COLLECTOR_RECHECK", "STATE_LANDS_RECHECK", "FEMA_RECHECK", "ROAD_RECORD_RECHECK", "CITY_VACANCY_RECHECK", "CITY_LIEN_RECHECK", "CITY_CODE_RECHECK"}
+    assert set(re.findall(r'^    "([A-Z_]+_RECHECK)":', ex, re.M)) == {"COLLECTOR_RECHECK", "STATE_LANDS_RECHECK", "FEMA_RECHECK", "ROAD_RECORD_RECHECK", "CITY_VACANCY_RECHECK", "CITY_LIEN_RECHECK", "CITY_CODE_RECHECK", "OWNER_MAILING_RECHECK"}
     api = (ROOT / "hunter" / "api.py").read_text()
     assert "/api/property/workup" not in api.split("PUBLIC_API = ")[1].split("\n")[0]
     share = (ROOT / "tools" / "build_share.py").read_text() + (ROOT / "tools" / "publish_scan.py").read_text()

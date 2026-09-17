@@ -857,9 +857,12 @@ class HotSpringsOwnerMailing(_City):
             if fields.get("owner_name"):
                 ev.append(self.fact("owner_name", fields["owner_name"], eff=eff))
         if not mail["raw"] or mail["raw"] in ("AR 00000",):
+            # a dated "no mailing address" reading, so a re-check can say the source answered (P8.1); never an address
+            ev.append(self.fact("owner_mailing_check", "no mailing address on the City's roll copy for this parcel",
+                                conf="MEDIUM", etype="OBSERVATION", eff=eff))
             return SourceResult(status=OK, detail="no mailing address on the roll",
                                 records=[Record(source=self.name, identity={"id": prop["id"]},
-                                                fields=fields, evidence=ev)] if fields else [])
+                                                fields=fields, evidence=ev)])
         ev.append(self.fact("owner_mailing_address", mail["raw"], eff=eff,
                             note="where the county sends the tax bill, per the roll copy "
                                  "the City holds"))

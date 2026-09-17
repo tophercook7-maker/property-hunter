@@ -145,7 +145,7 @@ def test_guard_refuses_everything_that_is_not_an_accepted_registered_check(clien
     src = Path(execution.__file__).read_text()
     for bad in ("subprocess", "os.system", "webbrowser", "httpx", "requests", "urllib", "eval(", "exec(", "importlib"):
         assert bad not in src, bad
-    assert set(execution.CHECKS) == {"COLLECTOR_RECHECK", "STATE_LANDS_RECHECK", "FEMA_RECHECK", "ROAD_RECORD_RECHECK", "CITY_VACANCY_RECHECK", "CITY_LIEN_RECHECK", "CITY_CODE_RECHECK"}
+    assert set(execution.CHECKS) == {"COLLECTOR_RECHECK", "STATE_LANDS_RECHECK", "FEMA_RECHECK", "ROAD_RECORD_RECHECK", "CITY_VACANCY_RECHECK", "CITY_LIEN_RECHECK", "CITY_CODE_RECHECK", "OWNER_MAILING_RECHECK"}
     # Bee's text is never the authorization: a proposal with a made-up where/url still maps only through its question
     from hunter import db
     db.ex("UPDATE bee_proposals SET where_json=? WHERE id=?", (json.dumps({"label": "GO HERE", "href": "https://evil.example/run", "manual": False}), props["flood"]["id"]))

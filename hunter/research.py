@@ -96,6 +96,13 @@ def ensure_tasks(workup_id: int) -> list[dict]:
         return []
     actions = jload(w["next_actions_json"], []) or []
     qs = jload(w["questions_json"], {}) or {}
+    # an OPEN task whose question a source has since answered is closed as SKIPPED by the system, never COMPLETED (nobody did it)
+    for t in db.q("SELECT id, question_key, title FROM research_tasks WHERE property_id=? AND status IN ('OPEN','BLOCKED')", (w["property_id"],)):
+        st = (qs.get(t["question_key"]) or {}).get("state")
+        if st in ("FOUND", "NOT_FOUND"):
+            db.ex("UPDATE research_tasks SET status='SKIPPED', actor='property_hunter', notes=?, completed_at=?, updated_at=? WHERE id=?",
+                  (f"answered {st} by an automated source read during workup {workup_id}; no person did this task", utcnow(), utcnow(), t["id"]))
+            cases._event(w["investigation_id"], "RESEARCH TASK SKIPPED", f"{t['title']} ({t['question_key']})", f"the question is now {st} from a recorded source; task closed by the system, not completed by a person", f"research_task:{t['id']}", "property_hunter")
     made = []
     for a in actions:
         key = a["question"]

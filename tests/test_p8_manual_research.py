@@ -15,6 +15,15 @@ from test_p7_workup import SOURCES, stubs, _resolved, _run  # noqa: F401
 from test_p55_license import Device, _code, admin, client, enforced  # noqa: F401
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+@pytest.fixture(autouse=True)
+def _no_mailing_on_city_copy(stubs):
+    """P8 tests exercise the manual mailing-address path: the City copy answers 'no mailing address' (a dated reading)."""
+    from test_p7_workup import NO_MAIL_EV
+    stubs["hs_gis_owner_mailing"] = Stub("hs_gis_owner_mailing", result=_ok("hs_gis_owner_mailing", NO_MAIL_EV))
+
+
 DEED = {"record_source": "TEST RECORD — Garland County Circuit Clerk (walkthrough)", "instrument_number": "TEST-2026-000001", "book_page": "TEST 1/1", "record_date": "2026-01-15",
         "grantor": "TEST GRANTOR", "grantee": "TEST GRANTEE LLC", "legal_reference": "PT SW SE (test)", "observations": "TEST RECORD only; not a real deed"}
 
@@ -45,6 +54,17 @@ def test_tasks_come_from_real_gaps_and_never_duplicate(roll, stubs):
     n = len(mr["tasks"])
     _run(r["search_id"])                                                                                                       # 2: a second workup adds nothing
     assert db.q1("SELECT count(*) c FROM research_tasks")["c"] == n
+    # a source that later answers the question closes the open task as SKIPPED by the system, never COMPLETED
+    from test_p7_workup import MAIL_EV
+    stubs["hs_gis_owner_mailing"] = Stub("hs_gis_owner_mailing", result=_ok("hs_gis_owner_mailing", MAIL_EV))
+    import hunter.workup as _wk; _orig = _wk._fresh_execution; _wk._fresh_execution = lambda pid, check: None       # force a re-read (the earlier read is seconds old)
+    try:
+        w3 = _run(r["search_id"])
+    finally:
+        _wk._fresh_execution = _orig
+    mt = db.q1("SELECT status, actor, notes FROM research_tasks WHERE property_id=? AND question_key='mailing_address'", (r["identity"]["property_id"],))
+    assert w3["questions"]["mailing_address"]["state"] == "FOUND" and mt["status"] == "SKIPPED" and mt["actor"] == "property_hunter" and "no person did this task" in mt["notes"]
+    assert db.q1("SELECT count(*) c FROM research_tasks")["c"] == n
     t = _task(mr, "title")
     assert research.open_for_question(t["case_id"], "title", actor="Topher")["task_id"] == t["task_id"]                     # CLOSE THIS GAP reuses the active task
     with pytest.raises(ValueError):
@@ -61,7 +81,7 @@ def test_tasks_come_from_real_gaps_and_never_duplicate(roll, stubs):
     assert cls.count("RESEARCH TASK OPENED") == n + 1 and "RESEARCH TASK SKIPPED" in cls and "RESEARCH TASK BLOCKED" in cls
     # a file rendered after the tasks exist links each next action to its task
     f = workup.property_file(w["workup_id"])
-    assert all(a.get("task_id") for a in f["next_actions"] if a["question"] not in ("title", "deed")) and f["manual_research"]["counts"]["open"] >= 1
+    assert all(a.get("task_id") for a in f["next_actions"] if a["question"] not in ("title", "deed", "mailing_address")) and f["manual_research"]["counts"]["open"] >= 1
 
 
 # ------------------------------------------------------------------ 4, 5, 9, 10, 14, 15, 16, 17, 23: the deed intake

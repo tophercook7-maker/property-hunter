@@ -38,9 +38,10 @@ CHECKS = {
     "CITY_VACANCY_RECHECK":  {"source": "hs_gis_vacant", "questions": ("vacancy",), "registry": None, "label": "City of Hot Springs vacant-structure register re-read", "needs": "garland"},
     "CITY_LIEN_RECHECK":     {"source": "hs_gis_liens", "questions": ("lien_city", "lien_detail"), "registry": None, "label": "City of Hot Springs lien layer re-read", "needs": "garland"},
     "CITY_CODE_RECHECK":     {"source": "hs_gis_code_cases", "questions": ("code", "code_detail"), "registry": None, "label": "City of Hot Springs code-case layer re-read", "needs": "garland"},
+    # P8.1: the City's copy of the county roll is the one automated source that carries the owner's mailing address (Hot Springs only)
+    "OWNER_MAILING_RECHECK": {"source": "hs_gis_owner_mailing", "questions": ("mailing_address", "owner"), "registry": None, "label": "City of Hot Springs roll copy: owner mailing address re-read", "needs": "garland"},
 }
 NOT_AUTOMATED = {"title": "Circuit Clerk index: no automated source; a person reads it", "lien_clerk": "Circuit Clerk index: no automated source", "deed": "Assessor / Clerk: automated reading is blocked by the operator",
-                 "owner": "Assessor: automated reading is blocked by the operator; the roll is re-read by the daily hunt", "mailing_address": "Assessor: automated reading is blocked by the operator",
                  "inspection": "only a person can inspect", "listing": "no listing source is connected", "sale_state": "no listing source is connected", "auction": "no per-parcel auction adapter",
                  "state_history": "monthly State reports are imported by a tool, not re-read per parcel", "values": "the roll is re-read by the daily hunt", "identity": "the roll is re-read by the daily hunt", "other_signals": "not a source check"}
 

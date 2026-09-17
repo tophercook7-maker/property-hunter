@@ -33,7 +33,18 @@ def ms(v):
 
 def build(counties=None, details=False, detail_counties=("GARLAND",)):
     init_db()
-    exclusions.refresh_cache()          # the real HSV / Diamondhead polygons, if cached locally
+    exclusions.refresh_cache()
+    # The polygons are the ONLY signal that catches Hot Springs Village: COSL gives
+    # city="Rural" and Spanish villa subdivisions (DOMICILIO, SAN CRISTOBAL), so the
+    # city/subdivision/zip fallbacks all miss. Building without them silently publishes
+    # ~460 Village lots as huntable. Fail loudly instead.
+    _have = {b["key"] for b in exclusions._boundaries()}
+    _need = {"hot_springs_village", "diamondhead"}
+    if not _need <= _have:
+        raise SystemExit(
+            f"refusing to build: exclusion polygons missing {sorted(_need - _have)}. "
+            "Without them every Hot Springs Village lot publishes as huntable. "
+            "Cache the boundaries first, then re-run.")
     counts = cosl.county_counts()
     todo = [c for c in counts if not counties or c in counties]
     prev = {}

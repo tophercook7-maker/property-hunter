@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Feedback · Property Hunter</title>
+<meta name="description" content="Tell Property Hunter what would make a Property File worth your time. Two minutes, no account.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="ph.css">
+<style>
+main{max-width:720px;margin:0 auto;padding:16px 16px 70px;display:grid;gap:18px}
+h2{font-size:30px;text-transform:uppercase;letter-spacing:.02em;margin:0;text-wrap:balance}
+.lead{margin:4px 0 0;font-size:15px;line-height:1.5;max-width:66ch}
+form{background:var(--surface);border:1px solid var(--rule);padding:16px;display:grid;gap:12px}
+label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+input,select,textarea{font:inherit;font-size:14px;padding:9px 11px;background:var(--surface2);color:var(--ink);border:1px solid var(--rule)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:520px){.two{grid-template-columns:1fr}}
+.fine{font-size:12px;color:var(--muted)}
+.opts{display:grid;gap:6px;font-size:14px;color:var(--ink)}
+.opts label{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--ink)}
+.hp{position:absolute;left:-9999px;opacity:0;height:0;width:0}
+.thanks{background:var(--paper);color:var(--paper-ink);border:1px solid var(--rule);padding:16px;display:grid;gap:8px}
+</style>
+</head>
+<body>
+<header class="ph-top"><h1><small>Two minutes · no account · goes straight to the person who built this</small>Feedback</h1><nav data-nav aria-label="Sections"></nav></header>
+<main>
+  <section>
+    <h2>Would a Property File save you time? Tell me straight.</h2>
+    <p class="lead">You have seen the <a href="samples.html">samples</a>. I want to know whether this is worth your time before an offer, a bid or a letter, and what is missing if it isn't. Every answer goes to one inbox and I read all of them.</p>
+  </section>
+  <section class="thanks" id="thanks" hidden><b>Thank you.</b><div>Your note is on its way. If you left an email, you will hear back from a person, not a system.</div><div><a href="samples.html">Back to the samples</a></div></section>
+  <form id="f" action="https://formsubmit.co/topher@mixedmakershop.com" method="POST">
+    <input type="hidden" name="_subject" value="Property Hunter feedback">
+    <input type="hidden" name="_template" value="table">
+    <input type="hidden" name="_next" value="https://tophercook7-maker.github.io/property-hunter/feedback.html?sent=1">
+    <input type="hidden" name="page" id="page" value="">
+    <input class="hp" type="text" name="_honey" tabindex="-1" autocomplete="off">
+    <div class="opts"><span class="fine">Which is closest to you?</span>
+      <label><input type="radio" name="role" value="investor" required> I buy property (tax sale, rentals, flips)</label>
+      <label><input type="radio" name="role" value="agent"> I am an agent or broker</label>
+      <label><input type="radio" name="role" value="owner"> I own or am dealing with a specific property</label>
+      <label><input type="radio" name="role" value="curious"> Just looking</label>
+    </div>
+    <div class="opts"><span class="fine">Would a file like the samples save you time before an offer, a bid or a letter?</span>
+      <label><input type="radio" name="useful" value="yes" required> Yes, clearly</label>
+      <label><input type="radio" name="useful" value="maybe"> Maybe, if it had more</label>
+      <label><input type="radio" name="useful" value="no"> No</label>
+    </div>
+    <label>What is missing, wrong, or confusing? What would you pay for, if anything?<textarea name="message" rows="5" required maxlength="4000" placeholder="Say it plainly."></textarea></label>
+    <div class="two">
+      <label>Which county or area do you work?<input name="area" maxlength="120" placeholder="e.g. Garland, Saline, Pulaski"></label>
+      <label>Which sample did you look at? (optional)<select name="sample"><option value="">—</option><option>302 Lincoln St, Hot Springs</option><option>Darby Aly lot, Hot Springs</option><option>255 Garland St, Conway</option><option>1205 W 24th St, Little Rock</option><option>193 Ponce de Leon Dr, Hot Springs Village</option><option>Something else</option></select></label>
+    </div>
+    <div class="two">
+      <label>Your name (optional)<input name="name" maxlength="80" autocomplete="name"></label>
+      <label>Email, if you want a reply (optional)<input name="email" type="email" maxlength="120" autocomplete="email"></label>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn" type="submit">Send it</button><span class="fine">Delivered by FormSubmit to one inbox. Nothing is posted publicly. No newsletter, no list.</span></div>
+  </form>
+  <p class="fine">Prefer email? <a href="mailto:topher@mixedmakershop.com?subject=Property%20Hunter%20feedback">topher@mixedmakershop.com</a></p>
+</main>
+<script>
+(function(){
+  var p = new URLSearchParams(location.search);
+  document.getElementById('page').value = document.referrer || location.href;
+  if(p.get('sent') === '1'){ document.getElementById('thanks').hidden = false; document.getElementById('f').hidden = true; }
+})();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

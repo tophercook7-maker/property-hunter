@@ -67,3 +67,11 @@ def test_sample_pages_are_static_and_publisher_is_opt_in():
     assert not re.search(r"^\s*(import|from)\s+(requests|urllib|httpx|subprocess)\b", pub, re.M)
     # the publish loop never stages samples on its own; a person publishes each one
     assert "docs/samples" not in (ROOT / "tools" / "publish_scan.py").read_text() and "publish_sample" not in (ROOT / "tools" / "build_share.py").read_text()
+
+
+def test_feedback_page_is_static_and_routes_to_one_inbox():
+    t = (ROOT / "docs" / "feedback.html").read_text()
+    assert 'action="https://formsubmit.co/topher@mixedmakershop.com"' in t and 'name="_honey"' in t and 'name="_subject"' in t
+    assert "PH.apiFetch" not in t and "ph-auth.js" not in t and "8234" not in t
+    for page in ("samples.html", "sample.html", "get-a-file.html", "index.html"):
+        assert "feedback.html" in (ROOT / "docs" / page).read_text(), page

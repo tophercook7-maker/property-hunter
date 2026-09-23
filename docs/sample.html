@@ -81,7 +81,7 @@ const params = new URLSearchParams(location.search); const FILE = (params.get('f
     const f = await (await fetch(`samples/${FILE}.json`, {cache: 'no-store'})).json();
     f.sample = true;
     const main = document.querySelector('main');
-    main.insertAdjacentHTML('afterbegin', `<div class="sample-note"><b>Published sample.</b> ${esc(f.sample_note || '')} Published ${esc(String(f.published_at || '').slice(0,10))}. <a href="samples.html">All samples</a> · <a href="index.html">What Property Hunter is</a></div>`);
+    main.insertAdjacentHTML('afterbegin', `<div class="sample-note"><b>Published sample.</b> ${esc(f.sample_note || '')} Published ${esc(String(f.published_at || '').slice(0,10))}. <a href="samples.html">All samples</a> · <a href="get-a-file.html">Get one for your parcel</a> · <a href="feedback.html">Would this save you time? Tell me</a></div>`);
     renderStatus(f.workup_view); renderFile(f);
   } catch(e) { $('status').className = 'status FAILED'; $('status').querySelector('.k').textContent = 'Sample not found'; $('stfine').innerHTML = 'See <a href="samples.html">all samples</a>.'; }
 })();

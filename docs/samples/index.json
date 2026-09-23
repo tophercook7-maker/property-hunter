@@ -27,7 +27,49 @@
    "not_found": 3,
    "unknown": 10,
    "headline": "Tax state SOURCE UNAVAILABLE \u00b7 UNKNOWN \u00b7 1 source failure \u00b7 10 open actions"
+  },
+  {
+   "slug": "255-garland-st-conway",
+   "title": "255 Garland St, CONWAY",
+   "county": "Faulkner",
+   "parcel_id": "710-02796-000",
+   "rpid": "710-02796-000",
+   "status": "COMPLETE_WITH_SOURCE_FAILURES",
+   "workup_completed_at": "2026-09-23T21:29:35+00:00",
+   "published_at": "2026-09-23T21:29:35+00:00",
+   "found": 13,
+   "not_found": 0,
+   "unknown": 10,
+   "headline": "Tax state TAX SALE VERIFIED \u00b7 FOR SALE BY STATE \u00b7 1 source failure \u00b7 9 open actions"
+  },
+  {
+   "slug": "1205-w-24th-st-little-rock",
+   "title": "1205 W 24th St, LITTLE ROCK",
+   "county": "Pulaski",
+   "parcel_id": "34L-203.00-137.00",
+   "rpid": "34L2030013700",
+   "status": "COMPLETE_WITH_UNKNOWN",
+   "workup_completed_at": "2026-09-23T21:29:40+00:00",
+   "published_at": "2026-09-23T21:29:40+00:00",
+   "found": 13,
+   "not_found": 0,
+   "unknown": 10,
+   "headline": "Tax state TAX SALE VERIFIED \u00b7 FOR SALE BY STATE \u00b7 0 source failures \u00b7 9 open actions"
+  },
+  {
+   "slug": "193-ponce-de-leon-dr-hsv",
+   "title": "193 Ponce De Leon Dr, HOT SPRINGS VILLAGE",
+   "county": "Saline",
+   "parcel_id": "764-00096-000",
+   "rpid": "764-00096-000",
+   "status": "COMPLETE_WITH_SOURCE_FAILURES",
+   "workup_completed_at": "2026-09-23T21:32:12+00:00",
+   "published_at": "2026-09-23T21:33:00+00:00",
+   "found": 13,
+   "not_found": 0,
+   "unknown": 10,
+   "headline": "Tax state TAX SALE VERIFIED \u00b7 FOR SALE BY STATE \u00b7 1 source failure \u00b7 9 open actions"
   }
  ],
- "built_at": "2026-09-23T21:22:53+00:00"
+ "built_at": "2026-09-23T21:33:00+00:00"
 }

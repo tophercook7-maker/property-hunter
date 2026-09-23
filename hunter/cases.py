@@ -238,6 +238,11 @@ def evaluate(prop: dict, row: dict, *, cp=None, hunt=None, inv=None) -> dict:
         sc = _ev(pid, "tax_status_check")
         out["state_inventory"] = _not_found(f"{sc['value'][:140]} (State Lands per-parcel search, {_when(sc)}). Says nothing about the county bill", "Commissioner of State Lands", sc.get("source_url"), _when(sc), [_ref(sc)])
         out["state_record"] = out["state_inventory"]
+    elif listing:
+        # the State's inventory export lists it even though the shared tax model did not call it verified (e.g. no dated certification row)
+        out["state_inventory"] = _found(f"Yes — in the State's inventory export of {(inv.get('built_at') or '')[:10]} ({listing.get('sale_type_text') or 'listed'})", [_ref(cert)], "Commissioner of State Lands inventory", listing.get("listing_url"), (inv.get("built_at") or "")[:10])
+        out["state_record"] = _found(f"Listing: starting bid ${listing.get('starting_bid') or 0:,.2f}; delinquent year {listing.get('delinquent_year') or 'not stated'}; sale type {listing.get('sale_type_text') or 'not stated'}",
+                                     [_ref(cert)], "Commissioner of State Lands", listing.get("listing_url"), (inv.get("built_at") or "")[:10])
     elif inv.get("built_at"):
         rem = _ev(pid, "tax_delinquent_removed")
         out["state_inventory"] = _not_found(f"Not in the State's inventory as of {inv['built_at'][:10]}. Says nothing about the county bill",

@@ -1,0 +1,2495 @@
+{
+ "sample": true,
+ "sample_note": "193 Ponce de Leon Dr, Hot Springs Village (Saline County): a Village lot certified to the State and offered as a negotiated post-auction sale. Hot Springs Village is outside the public hunt's area, so this file is the only place the site shows it.",
+ "published_at": "2026-09-23T21:33:00+00:00",
+ "workup_view": {
+  "workup_id": "sample",
+  "status": "COMPLETE_WITH_SOURCE_FAILURES",
+  "status_label": "WORKUP COMPLETE \u2014 SOURCE FAILURES",
+  "version": "p7.1",
+  "started_at": "2026-09-23T21:32:11+00:00",
+  "completed_at": "2026-09-23T21:32:12+00:00",
+  "actor": "license holder",
+  "timings": {
+   "total_ms": 492
+  },
+  "error": null,
+  "progress": [
+   {
+    "domain": "IDENTITY",
+    "label": "Property identity",
+    "done": true,
+    "status": "SUCCESS_WITH_EVIDENCE"
+   },
+   {
+    "domain": "ROLL_RECORD",
+    "label": "State parcel / roll record",
+    "done": true,
+    "status": "SUCCESS_WITH_EVIDENCE"
+   },
+   {
+    "domain": "TAX_COLLECTOR",
+    "label": "County Collector tax state",
+    "done": true,
+    "status": "SOURCE_UNAVAILABLE"
+   },
+   {
+    "domain": "STATE_LANDS",
+    "label": "State Lands / tax-sale history",
+    "done": true,
+    "status": "SUCCESS_WITH_EVIDENCE"
+   },
+   {
+    "domain": "FLOOD",
+    "label": "FEMA flood zone",
+    "done": true,
+    "status": "SUCCESS_WITH_EVIDENCE"
+   },
+   {
+    "domain": "ROAD_ACCESS",
+    "label": "Road / access",
+    "done": true,
+    "status": "SUCCESS_WITH_EVIDENCE"
+   },
+   {
+    "domain": "MUNICIPAL_VACANCY",
+    "label": "Municipal vacancy register",
+    "done": true,
+    "status": "NOT_APPLICABLE"
+   },
+   {
+    "domain": "MUNICIPAL_LIEN",
+    "label": "Municipal lien layer",
+    "done": true,
+    "status": "NOT_APPLICABLE"
+   },
+   {
+    "domain": "MUNICIPAL_CODE",
+    "label": "Municipal code cases",
+    "done": true,
+    "status": "NOT_APPLICABLE"
+   },
+   {
+    "domain": "OWNER_MAILING",
+    "label": "Owner / mailing address",
+    "done": true,
+    "status": "PRIVATE"
+   },
+   {
+    "domain": "TITLE_DEED",
+    "label": "Title / deed / Circuit Clerk",
+    "done": true,
+    "status": "MANUAL_ONLY"
+   },
+   {
+    "domain": "LISTING",
+    "label": "Listing / sale status",
+    "done": true,
+    "status": "SUCCESS_WITH_EVIDENCE"
+   },
+   {
+    "domain": "PHYSICAL",
+    "label": "Physical / occupancy",
+    "done": true,
+    "status": "MANUAL_ONLY"
+   }
+  ]
+ },
+ "workup": {
+  "status": "COMPLETE_WITH_SOURCE_FAILURES",
+  "status_label": "WORKUP COMPLETE \u2014 SOURCE FAILURES",
+  "version": "p7.1",
+  "started_at": "2026-09-23T21:32:11+00:00",
+  "completed_at": "2026-09-23T21:32:12+00:00",
+  "actor": "license holder",
+  "timings": {
+   "total_ms": 492
+  },
+  "error": null
+ },
+ "identity": {
+  "property_id": 6149,
+  "parcel_id": "764-00096-000",
+  "rpid": "764-00096-000",
+  "county": "Saline",
+  "county_fips": "05125",
+  "situs": "193 Ponce De Leon Dr",
+  "city": "HOT SPRINGS VILLAGE",
+  "zip": "71909",
+  "lat": 34.661818352153695,
+  "lon": -92.89483194386817,
+  "acreage": 0.291,
+  "verification_state": "VERIFIED",
+  "verified_by": "AUTOMATED_SOURCE",
+  "identity_source": "Arkansas GIS Office parcel layer (live State roll)",
+  "source_date": "1990-10-01",
+  "read_date": "2026-09-23T21:29",
+  "evidence_ref": "evidence:2240492"
+ },
+ "what_we_know": [
+  {
+   "field": "parcel_id",
+   "label": "Parcel number",
+   "value": "764-00096-000",
+   "state": "FOUND",
+   "source": "ar_gis_parcels",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+   "source_date": "1990-10-01",
+   "read_date": "2026-09-23T21:29",
+   "ref": "evidence:2240477",
+   "origin": "AUTOMATED_SOURCE",
+   "origin_label": "AUTOMATED SOURCE",
+   "confidence": "HIGH",
+   "verification": "FACT",
+   "historical": true,
+   "conflict": false,
+   "raw_ref": null,
+   "domain": "ROLL_RECORD"
+  },
+  {
+   "field": "address",
+   "label": "Situs address",
+   "value": "193 Ponce De Leon Dr",
+   "state": "FOUND",
+   "source": "ar_gis_parcels",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+   "source_date": "1990-10-01",
+   "read_date": "2026-09-23T21:29",
+   "ref": "evidence:2240479",
+   "origin": "AUTOMATED_SOURCE",
+   "origin_label": "AUTOMATED SOURCE",
+   "confidence": "HIGH",
+   "verification": "FACT",
+   "historical": true,
+   "conflict": false,
+   "raw_ref": null,
+   "domain": "ROLL_RECORD"
+  },
+  {
+   "field": "legal_description",
+   "label": "Legal description",
+   "value": "336-644",
+   "state": "FOUND",
+   "source": "ar_gis_parcels",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+   "source_date": "1990-10-01",
+   "read_date": "2026-09-23T21:29",
+   "ref": "evidence:2240480",
+   "origin": "AUTOMATED_SOURCE",
+   "origin_label": "AUTOMATED SOURCE",
+   "confidence": "HIGH",
+   "verification": "FACT",
+   "historical": true,
+   "conflict": false,
+   "raw_ref": null,
+   "domain": "ROLL_RECORD"
+  },
+  {
+   "field": "acreage",
+   "label": "Acreage (roll)",
+   "value": "0.0",
+   "state": "FOUND",
+   "source": "ar_gis_parcels",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+   "source_date": "1990-10-01",
+   "read_date": "2026-09-23T21:29",
+   "ref": "evidence:2240481",
+   "origin": "AUTOMATED_SOURCE",
+   "origin_label": "AUTOMATED SOURCE",
+   "confidence": "HIGH",
+   "verification": "FACT",
+   "historical": true,
+   "conflict": false,
+   "raw_ref": "taxarea from county tax roll",
+   "domain": "ROLL_RECORD"
+  },
+  {
+   "field": "land_value",
+   "label": "Land value (assessor)",
+   "value": "2500.0",
+   "state": "FOUND",
+   "source": "ar_gis_parcels",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+   "source_date": "1990-10-01",
+   "read_date": "2026-09-23T21:29",
+   "ref": "evidence:2240482",
+   "origin": "AUTOMATED_SOURCE",
+   "origin_label": "AUTOMATED SOURCE",
+   "confidence": "HIGH",
+   "verification": "FACT",
+   "historical": true,
+   "conflict": false,
+   "raw_ref": null,
+   "domain": "ROLL_RECORD"
+  },
+  {
+   "field": "improvement_value",
+   "label": "Improvement value (assessor)",
+   "value": "0.0",
+   "state": "FOUND",
+   "source": "ar_gis_parcels",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+   "source_date": "1990-10-01",
+   "read_date": "2026-09-23T21:29",
+   "ref": "evidence:2240483",
+   "origin": "AUTOMATED_SOURCE",
+   "origin_label": "AUTOMATED SOURCE",
+   "confidence": "HIGH",
+   "verification": "FACT",
+   "historical": true,
+   "conflict": false,
+   "raw_ref": null,
+   "domain": "ROLL_RECORD"
+  },
+  {
+   "field": "total_assessed_value",
+   "label": "Total value (assessor)",
+   "value": "2500.0",
+   "state": "FOUND",
+   "source": "ar_gis_parcels",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+   "source_date": "1990-10-01",
+   "read_date": "2026-09-23T21:29",
+   "ref": "evidence:2240484",
+   "origin": "AUTOMATED_SOURCE",
+   "origin_label": "AUTOMATED SOURCE",
+   "confidence": "HIGH",
+   "verification": "FACT",
+   "historical": true,
+   "conflict": false,
+   "raw_ref": null,
+   "domain": "ROLL_RECORD"
+  },
+  {
+   "field": "property_class",
+   "label": "Property class",
+   "value": "residential",
+   "state": "FOUND",
+   "source": "ar_gis_parcels",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+   "source_date": "1990-10-01",
+   "read_date": "2026-09-23T21:29",
+   "ref": "evidence:2240486",
+   "origin": "AUTOMATED_SOURCE",
+   "origin_label": "AUTOMATED SOURCE",
+   "confidence": "HIGH",
+   "verification": "FACT",
+   "historical": true,
+   "conflict": false,
+   "raw_ref": null,
+   "domain": "ROLL_RECORD"
+  },
+  {
+   "field": "parcel_type_code",
+   "label": "Parcel type code",
+   "value": "RV",
+   "state": "FOUND",
+   "source": "ar_gis_parcels",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+   "source_date": "1990-10-01",
+   "read_date": "2026-09-23T21:29",
+   "ref": "evidence:2240485",
+   "origin": "AUTOMATED_SOURCE",
+   "origin_label": "AUTOMATED SOURCE",
+   "confidence": "HIGH",
+   "verification": "FACT",
+   "historical": true,
+   "conflict": false,
+   "raw_ref": null,
+   "domain": "ROLL_RECORD"
+  },
+  {
+   "field": "tax_delinquent",
+   "label": "State certification (unpaid taxes)",
+   "value": "held by the Commissioner of State Lands (certified for unpaid taxes)",
+   "state": "FOUND",
+   "source": "cosl_listings",
+   "source_name": "Arkansas Commissioner of State Lands - tax-delinquent parcels for sale",
+   "source_url": "https://cosl.org/Home/SearchByParcel",
+   "source_date": "2026-09-23",
+   "read_date": "2026-09-23T21:29",
+   "ref": "evidence:2240493",
+   "origin": "AUTOMATED_SOURCE",
+   "origin_label": "AUTOMATED SOURCE",
+   "confidence": "HIGH",
+   "verification": "FACT",
+   "historical": false,
+   "conflict": false,
+   "raw_ref": null,
+   "domain": "STATE_LANDS"
+  },
+  {
+   "field": "flood_zone",
+   "label": "FEMA flood zone",
+   "value": "X (AREA OF MINIMAL FLOOD HAZARD)",
+   "state": "FOUND",
+   "source": "fema_nfhl",
+   "source_name": "FEMA National Flood Hazard Layer",
+   "source_url": "https://msc.fema.gov/portal/search?AddressQuery=34.661818,-92.894832",
+   "source_date": null,
+   "read_date": "2026-09-23T21:29",
+   "ref": "evidence:2240494",
+   "origin": "AUTOMATED_SOURCE",
+   "origin_label": "AUTOMATED SOURCE",
+   "confidence": "HIGH",
+   "verification": "FACT",
+   "historical": false,
+   "conflict": false,
+   "raw_ref": "DFIRM 05125C; SFHA=F; checked at the parcel centroid only",
+   "domain": "FLOOD"
+  },
+  {
+   "field": "road_access",
+   "label": "Nearest mapped road",
+   "value": "local street - Ponce De Leon Dr",
+   "state": "FOUND",
+   "source": "ar_gis_roads",
+   "source_name": "Arkansas GIS Office - road centerlines (911 addressing)",
+   "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Transportation/FeatureServer/18",
+   "source_date": "2026-06-25",
+   "read_date": "2026-09-23T21:29",
+   "ref": "evidence:2240495",
+   "origin": "AUTOMATED_SOURCE",
+   "origin_label": "AUTOMATED SOURCE",
+   "confidence": "HIGH",
+   "verification": "OBSERVATION",
+   "historical": false,
+   "conflict": false,
+   "raw_ref": "nearest mapped centerline within 90 m of the parcel centroid. A road on the map is NOT the same as a legal right to use it - that is in the deed or the plat.",
+   "domain": "ROAD_ACCESS"
+  },
+  {
+   "field": "owner_name",
+   "label": "Owner of record (roll)",
+   "value": "RIGSBY BILLY M & BILLIE J",
+   "state": "FOUND",
+   "source": "ar_gis_parcels",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+   "source_date": "1990-10-01",
+   "read_date": "2026-09-23T21:29",
+   "ref": "evidence:2240478",
+   "origin": "AUTOMATED_SOURCE",
+   "origin_label": "AUTOMATED SOURCE",
+   "confidence": "HIGH",
+   "verification": "FACT",
+   "historical": true,
+   "conflict": false,
+   "raw_ref": null,
+   "qualifier": "HISTORICAL RECORD \u2014 record date 1990-10-01; the roll reading on file is dated 1990-10-01",
+   "domain": "OWNER_MAILING"
+  }
+ ],
+ "checked_not_found": [],
+ "tax": {
+  "tax_state": "TAX_SALE_VERIFIED",
+  "source": "Commissioner of State Lands",
+  "as_of": "2026-09-23",
+  "amount": 247.56,
+  "delinquency": "DELINQUENT",
+  "collector": {
+   "status": "UNAVAILABLE",
+   "down_since": "2026-09-14T14:25:00-0500",
+   "checked_at": "2026-09-23T16:25:03-0500",
+   "detail": "Online payments are currently unavailable."
+  },
+  "meaning": "Certified to the State for unpaid taxes (State evidence)."
+ },
+ "sections": {
+  "ROLL_RECORD": {
+   "label": "State parcel / roll record",
+   "check": null,
+   "items": [
+    {
+     "field": "parcel_id",
+     "label": "Parcel number",
+     "value": "764-00096-000",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240477",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null
+    },
+    {
+     "field": "address",
+     "label": "Situs address",
+     "value": "193 Ponce De Leon Dr",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240479",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null
+    },
+    {
+     "field": "legal_description",
+     "label": "Legal description",
+     "value": "336-644",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240480",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null
+    },
+    {
+     "field": "subdivision",
+     "label": "Subdivision",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    },
+    {
+     "field": "acreage",
+     "label": "Acreage (roll)",
+     "value": "0.0",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240481",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": "taxarea from county tax roll"
+    },
+    {
+     "field": "land_value",
+     "label": "Land value (assessor)",
+     "value": "2500.0",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240482",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null
+    },
+    {
+     "field": "improvement_value",
+     "label": "Improvement value (assessor)",
+     "value": "0.0",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240483",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null
+    },
+    {
+     "field": "total_assessed_value",
+     "label": "Total value (assessor)",
+     "value": "2500.0",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240484",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null
+    },
+    {
+     "field": "property_class",
+     "label": "Property class",
+     "value": "residential",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240486",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null
+    },
+    {
+     "field": "parcel_type_code",
+     "label": "Parcel type code",
+     "value": "RV",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240485",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null
+    },
+    {
+     "field": "improvement_state",
+     "label": "Improvement state (roll code)",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    }
+   ],
+   "known": [
+    {
+     "field": "parcel_id",
+     "label": "Parcel number",
+     "value": "764-00096-000",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240477",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null
+    },
+    {
+     "field": "address",
+     "label": "Situs address",
+     "value": "193 Ponce De Leon Dr",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240479",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null
+    },
+    {
+     "field": "legal_description",
+     "label": "Legal description",
+     "value": "336-644",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240480",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null
+    },
+    {
+     "field": "acreage",
+     "label": "Acreage (roll)",
+     "value": "0.0",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240481",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": "taxarea from county tax roll"
+    },
+    {
+     "field": "land_value",
+     "label": "Land value (assessor)",
+     "value": "2500.0",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240482",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null
+    },
+    {
+     "field": "improvement_value",
+     "label": "Improvement value (assessor)",
+     "value": "0.0",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240483",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null
+    },
+    {
+     "field": "total_assessed_value",
+     "label": "Total value (assessor)",
+     "value": "2500.0",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240484",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null
+    },
+    {
+     "field": "property_class",
+     "label": "Property class",
+     "value": "residential",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240486",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null
+    },
+    {
+     "field": "parcel_type_code",
+     "label": "Parcel type code",
+     "value": "RV",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240485",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null
+    }
+   ],
+   "checked_not_found": [],
+   "questions": [
+    {
+     "key": "values",
+     "wording": "What does the county roll record for land, building and total value?",
+     "state": "FOUND",
+     "answer": "land 2500.0, building 0.0, total 2500.0 (assessor's figures, not a price)",
+     "source": "Arkansas GIS Office (county assessor roll)",
+     "checked_at": "1990-10-01",
+     "checked_by": "source",
+     "refs": [
+      "evidence:2240484"
+     ]
+    }
+   ],
+   "attempt": {
+    "domain": "ROLL_RECORD",
+    "label": "State parcel / roll record",
+    "source": "ar_gis_parcels",
+    "check_type": null,
+    "status": "SUCCESS_WITH_EVIDENCE",
+    "failure_category": null,
+    "reused": 0,
+    "ms": 0
+   }
+  },
+  "TAX_COLLECTOR": {
+   "label": "County Collector tax state",
+   "check": "COLLECTOR_RECHECK",
+   "items": [
+    {
+     "field": "tax_bill",
+     "label": "Collector bill",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    },
+    {
+     "field": "tax_amount_owed_county",
+     "label": "Amount owed to the county",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    },
+    {
+     "field": "tax_delinquent_county",
+     "label": "County delinquency",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    },
+    {
+     "field": "tax_status_check",
+     "label": "Tax status check",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    }
+   ],
+   "known": [],
+   "checked_not_found": [],
+   "questions": [
+    {
+     "key": "collector_asof",
+     "wording": "When did the county Collector last answer for this parcel, and what did it say?",
+     "state": "UNKNOWN",
+     "answer": "The Collector has never answered for this parcel (source unavailable)",
+     "source": null,
+     "checked_at": null,
+     "checked_by": null,
+     "refs": []
+    },
+    {
+     "key": "tax_state",
+     "wording": "What is the current tax state, from which source, and as of when?",
+     "state": "FOUND",
+     "answer": "TAX SALE \u2014 certified to the State for unpaid taxes \u2014 $247.56 [2026-09-23]",
+     "source": "Commissioner of State Lands",
+     "checked_at": "2026-09-23",
+     "checked_by": "source",
+     "refs": [
+      "evidence:2240493"
+     ]
+    },
+    {
+     "key": "tax_delinquent",
+     "wording": "Is there verified delinquent tax evidence, and if so, what amount is documented?",
+     "state": "FOUND",
+     "answer": "Yes \u2014 TAX SALE \u2014 certified to the State for unpaid taxes; documented amount $247.56",
+     "source": "Commissioner of State Lands",
+     "checked_at": "2026-09-23",
+     "checked_by": "source",
+     "refs": [
+      "evidence:2240493"
+     ]
+    }
+   ],
+   "attempt": {
+    "domain": "TAX_COLLECTOR",
+    "label": "County Collector tax state",
+    "source": "county_tax_collector",
+    "check_type": "COLLECTOR_RECHECK",
+    "status": "SOURCE_UNAVAILABLE",
+    "failure_category": "PROBE_FAILED",
+    "reused": 0,
+    "ms": 470
+   }
+  },
+  "STATE_LANDS": {
+   "label": "State Lands / tax-sale history",
+   "check": "STATE_LANDS_RECHECK",
+   "items": [
+    {
+     "field": "tax_delinquent",
+     "label": "State certification (unpaid taxes)",
+     "value": "held by the Commissioner of State Lands (certified for unpaid taxes)",
+     "state": "FOUND",
+     "source": "cosl_listings",
+     "source_name": "Arkansas Commissioner of State Lands - tax-delinquent parcels for sale",
+     "source_url": "https://cosl.org/Home/SearchByParcel",
+     "source_date": "2026-09-23",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240493",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": false,
+     "conflict": false,
+     "raw_ref": null
+    },
+    {
+     "field": "tax_delinquent_removed",
+     "label": "Left the State inventory",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    },
+    {
+     "field": "tax_sale_history",
+     "label": "State sale record",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    },
+    {
+     "field": "tax_redemption",
+     "label": "State redemption record",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    }
+   ],
+   "known": [
+    {
+     "field": "tax_delinquent",
+     "label": "State certification (unpaid taxes)",
+     "value": "held by the Commissioner of State Lands (certified for unpaid taxes)",
+     "state": "FOUND",
+     "source": "cosl_listings",
+     "source_name": "Arkansas Commissioner of State Lands - tax-delinquent parcels for sale",
+     "source_url": "https://cosl.org/Home/SearchByParcel",
+     "source_date": "2026-09-23",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240493",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": false,
+     "conflict": false,
+     "raw_ref": null
+    }
+   ],
+   "checked_not_found": [],
+   "questions": [
+    {
+     "key": "state_history",
+     "wording": "Is there a State sale or redemption record for this parcel?",
+     "state": "UNKNOWN",
+     "answer": "No State sale or redemption record read for this parcel; monthly reports cover only counties with a history file",
+     "source": null,
+     "checked_at": null,
+     "checked_by": null,
+     "refs": []
+    },
+    {
+     "key": "state_record",
+     "wording": "Is there a State Lands listing record, and if so, what amount and sale information does it document?",
+     "state": "FOUND",
+     "answer": "Listing: starting bid $247.65; delinquent year not stated; sale type post-auction sale (negotiated)",
+     "source": "Commissioner of State Lands",
+     "checked_at": "2026-09-16",
+     "checked_by": "source",
+     "refs": [
+      "evidence:2240493"
+     ]
+    },
+    {
+     "key": "state_inventory",
+     "wording": "Is the parcel in the State tax-sale inventory (Commissioner of State Lands)?",
+     "state": "FOUND",
+     "answer": "Yes \u2014 in the State inventory as of 2026-09-23",
+     "source": "Commissioner of State Lands",
+     "checked_at": "2026-09-23",
+     "checked_by": "source",
+     "refs": [
+      "evidence:2240493"
+     ]
+    },
+    {
+     "key": "auction",
+     "wording": "Is auction or acquisition information publicly documented (bid, sale date, terms)?",
+     "state": "FOUND",
+     "answer": "Starting bid $247.65; current bid $0.00; ends not stated",
+     "source": "Commissioner of State Lands",
+     "checked_at": "2026-09-16",
+     "checked_by": "source",
+     "refs": [
+      "evidence:2240493"
+     ]
+    }
+   ],
+   "attempt": {
+    "domain": "STATE_LANDS",
+    "label": "State Lands / tax-sale history",
+    "source": "cosl_listings",
+    "check_type": "STATE_LANDS_RECHECK",
+    "status": "SUCCESS_WITH_EVIDENCE",
+    "failure_category": null,
+    "reused": 1,
+    "ms": 1
+   }
+  },
+  "FLOOD": {
+   "label": "FEMA flood zone",
+   "check": "FEMA_RECHECK",
+   "items": [
+    {
+     "field": "flood_zone",
+     "label": "FEMA flood zone",
+     "value": "X (AREA OF MINIMAL FLOOD HAZARD)",
+     "state": "FOUND",
+     "source": "fema_nfhl",
+     "source_name": "FEMA National Flood Hazard Layer",
+     "source_url": "https://msc.fema.gov/portal/search?AddressQuery=34.661818,-92.894832",
+     "source_date": null,
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240494",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": false,
+     "conflict": false,
+     "raw_ref": "DFIRM 05125C; SFHA=F; checked at the parcel centroid only"
+    },
+    {
+     "field": "flood_risk",
+     "label": "FEMA hazard area",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    }
+   ],
+   "known": [
+    {
+     "field": "flood_zone",
+     "label": "FEMA flood zone",
+     "value": "X (AREA OF MINIMAL FLOOD HAZARD)",
+     "state": "FOUND",
+     "source": "fema_nfhl",
+     "source_name": "FEMA National Flood Hazard Layer",
+     "source_url": "https://msc.fema.gov/portal/search?AddressQuery=34.661818,-92.894832",
+     "source_date": null,
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240494",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": false,
+     "conflict": false,
+     "raw_ref": "DFIRM 05125C; SFHA=F; checked at the parcel centroid only"
+    }
+   ],
+   "checked_not_found": [],
+   "questions": [
+    {
+     "key": "flood",
+     "wording": "Is there a FEMA flood-zone reading for this parcel?",
+     "state": "FOUND",
+     "answer": "FEMA zone X (AREA OF MINIMAL FLOOD HAZARD)",
+     "source": "FEMA National Flood Hazard Layer",
+     "checked_at": "2026-09-23",
+     "checked_by": "source",
+     "refs": [
+      "evidence:2240494"
+     ]
+    }
+   ],
+   "attempt": {
+    "domain": "FLOOD",
+    "label": "FEMA flood zone",
+    "source": "fema_nfhl",
+    "check_type": "FEMA_RECHECK",
+    "status": "SUCCESS_WITH_EVIDENCE",
+    "failure_category": null,
+    "reused": 1,
+    "ms": 0
+   }
+  },
+  "ROAD_ACCESS": {
+   "label": "Road / access",
+   "check": "ROAD_RECORD_RECHECK",
+   "items": [
+    {
+     "field": "road_access",
+     "label": "Nearest mapped road",
+     "value": "local street - Ponce De Leon Dr",
+     "state": "FOUND",
+     "source": "ar_gis_roads",
+     "source_name": "Arkansas GIS Office - road centerlines (911 addressing)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Transportation/FeatureServer/18",
+     "source_date": "2026-06-25",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240495",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "OBSERVATION",
+     "historical": false,
+     "conflict": false,
+     "raw_ref": "nearest mapped centerline within 90 m of the parcel centroid. A road on the map is NOT the same as a legal right to use it - that is in the deed or the plat."
+    },
+    {
+     "field": "legal_access",
+     "label": "Legal access record",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    }
+   ],
+   "known": [
+    {
+     "field": "road_access",
+     "label": "Nearest mapped road",
+     "value": "local street - Ponce De Leon Dr",
+     "state": "FOUND",
+     "source": "ar_gis_roads",
+     "source_name": "Arkansas GIS Office - road centerlines (911 addressing)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Transportation/FeatureServer/18",
+     "source_date": "2026-06-25",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240495",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "OBSERVATION",
+     "historical": false,
+     "conflict": false,
+     "raw_ref": "nearest mapped centerline within 90 m of the parcel centroid. A road on the map is NOT the same as a legal right to use it - that is in the deed or the plat."
+    }
+   ],
+   "checked_not_found": [],
+   "questions": [
+    {
+     "key": "access",
+     "wording": "Is there evidence of road access to the parcel?",
+     "state": "FOUND",
+     "answer": "local street - Ponce De Leon Dr",
+     "source": "Arkansas GIS Office - road centerlines (911 addressing)",
+     "checked_at": "2026-06-25",
+     "checked_by": "source",
+     "refs": [
+      "evidence:2240495"
+     ]
+    }
+   ],
+   "attempt": {
+    "domain": "ROAD_ACCESS",
+    "label": "Road / access",
+    "source": "ar_gis_roads",
+    "check_type": "ROAD_RECORD_RECHECK",
+    "status": "SUCCESS_WITH_EVIDENCE",
+    "failure_category": null,
+    "reused": 1,
+    "ms": 0
+   },
+   "legal_access": {
+    "state": "UNKNOWN",
+    "text": "Legal access (easement / right of way) is established only by the deed or plat; a mapped road nearby is not that record."
+   }
+  },
+  "MUNICIPAL_VACANCY": {
+   "label": "Municipal vacancy register",
+   "check": "CITY_VACANCY_RECHECK",
+   "items": [
+    {
+     "field": "vacant_structure",
+     "label": "Vacancy register record",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    },
+    {
+     "field": "vacant_structure_check",
+     "label": "Vacancy register check",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    }
+   ],
+   "known": [],
+   "checked_not_found": [],
+   "questions": [
+    {
+     "key": "vacancy",
+     "wording": "Is there a City vacancy register record for this parcel?",
+     "state": "UNKNOWN",
+     "answer": "No City register covers this county; the county has no equivalent layer",
+     "source": null,
+     "checked_at": null,
+     "checked_by": null,
+     "refs": []
+    }
+   ],
+   "attempt": {
+    "domain": "MUNICIPAL_VACANCY",
+    "label": "Municipal vacancy register",
+    "source": "hs_gis_vacant",
+    "check_type": "CITY_VACANCY_RECHECK",
+    "status": "NOT_APPLICABLE",
+    "failure_category": "NOT_APPLICABLE",
+    "reused": 0,
+    "ms": 0
+   }
+  },
+  "MUNICIPAL_LIEN": {
+   "label": "Municipal lien layer",
+   "check": "CITY_LIEN_RECHECK",
+   "items": [
+    {
+     "field": "cleanup_lien_amount",
+     "label": "City lien",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    },
+    {
+     "field": "cleanup_lien_check",
+     "label": "City lien check",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    }
+   ],
+   "known": [],
+   "checked_not_found": [],
+   "questions": [
+    {
+     "key": "lien_city",
+     "wording": "Is there a recorded City cleanup or demolition lien on this parcel?",
+     "state": "UNKNOWN",
+     "answer": "No City register covers this county; the county has no equivalent layer",
+     "source": null,
+     "checked_at": null,
+     "checked_by": null,
+     "refs": []
+    }
+   ],
+   "attempt": {
+    "domain": "MUNICIPAL_LIEN",
+    "label": "Municipal lien layer",
+    "source": "hs_gis_liens",
+    "check_type": "CITY_LIEN_RECHECK",
+    "status": "NOT_APPLICABLE",
+    "failure_category": "NOT_APPLICABLE",
+    "reused": 0,
+    "ms": 0
+   }
+  },
+  "MUNICIPAL_CODE": {
+   "label": "Municipal code cases",
+   "check": "CITY_CODE_RECHECK",
+   "items": [
+    {
+     "field": "code_case_open",
+     "label": "Code case",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    },
+    {
+     "field": "code_case_check",
+     "label": "Code case check",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    }
+   ],
+   "known": [],
+   "checked_not_found": [],
+   "questions": [
+    {
+     "key": "code",
+     "wording": "Is there a City code-enforcement case for this address?",
+     "state": "UNKNOWN",
+     "answer": "No City register covers this county; the county has no equivalent layer",
+     "source": null,
+     "checked_at": null,
+     "checked_by": null,
+     "refs": []
+    }
+   ],
+   "attempt": {
+    "domain": "MUNICIPAL_CODE",
+    "label": "Municipal code cases",
+    "source": "hs_gis_code_cases",
+    "check_type": "CITY_CODE_RECHECK",
+    "status": "NOT_APPLICABLE",
+    "failure_category": "NOT_APPLICABLE",
+    "reused": 0,
+    "ms": 0
+   }
+  },
+  "OWNER_MAILING": {
+   "label": "Owner / mailing address",
+   "check": "OWNER_MAILING_RECHECK",
+   "items": [
+    {
+     "field": "owner_name",
+     "label": "Owner of record (roll)",
+     "value": "RIGSBY BILLY M & BILLIE J",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240478",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null,
+     "qualifier": "HISTORICAL RECORD \u2014 record date 1990-10-01; the roll reading on file is dated 1990-10-01"
+    }
+   ],
+   "known": [
+    {
+     "field": "owner_name",
+     "label": "Owner of record (roll)",
+     "value": "RIGSBY BILLY M & BILLIE J",
+     "state": "FOUND",
+     "source": "ar_gis_parcels",
+     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27764-00096-000%27+AND+countyfips%3D%2705125%27&outFields=*&f=json",
+     "source_date": "1990-10-01",
+     "read_date": "2026-09-23T21:29",
+     "ref": "evidence:2240478",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": true,
+     "conflict": false,
+     "raw_ref": null,
+     "qualifier": "HISTORICAL RECORD \u2014 record date 1990-10-01; the roll reading on file is dated 1990-10-01"
+    }
+   ],
+   "checked_not_found": [],
+   "questions": [
+    {
+     "key": "mailing_address",
+     "wording": "Is there a mailing address of record for the owner, and from which source?",
+     "state": "PRIVATE",
+     "answer": "mailing details are private to the license holder",
+     "source": null,
+     "checked_at": null,
+     "checked_by": null,
+     "refs": []
+    },
+    {
+     "key": "owner",
+     "wording": "Who is the recorded owner on the county roll, and as of what date?",
+     "state": "FOUND",
+     "answer": "RIGSBY BILLY M & BILLIE J (owner of record on the county roll, not a title opinion)",
+     "source": "Arkansas GIS Office (county assessor roll)",
+     "checked_at": "1990-10-01",
+     "checked_by": "source",
+     "refs": [
+      "evidence:2240478"
+     ]
+    }
+   ],
+   "attempt": {
+    "domain": "OWNER_MAILING",
+    "label": "Owner / mailing address",
+    "source": "ar_gis_parcels",
+    "check_type": null,
+    "status": "PRIVATE",
+    "failure_category": null,
+    "reused": 0,
+    "ms": 0
+   }
+  },
+  "TITLE_DEED": {
+   "label": "Title / deed / Circuit Clerk",
+   "check": null,
+   "items": [
+    {
+     "field": "deed_reference",
+     "label": "Deed reference",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    },
+    {
+     "field": "sourceref",
+     "label": "Roll source reference",
+     "value": null,
+     "state": "UNKNOWN",
+     "source": null,
+     "source_name": null,
+     "source_url": null,
+     "source_date": null,
+     "read_date": null,
+     "ref": null,
+     "origin": null,
+     "origin_label": null,
+     "confidence": null,
+     "verification": null,
+     "historical": false,
+     "conflict": false
+    }
+   ],
+   "known": [],
+   "checked_not_found": [],
+   "questions": [
+    {
+     "key": "deed",
+     "wording": "Is there a recorded deed reference, and if so, what does it document?",
+     "state": "UNKNOWN",
+     "answer": "No deed reference read; the Circuit Clerk index is the only complete answer",
+     "source": null,
+     "checked_at": null,
+     "checked_by": null,
+     "refs": []
+    },
+    {
+     "key": "lien_clerk",
+     "wording": "Is there a recorded mortgage, judgment or tax lien at the Circuit Clerk?",
+     "state": "UNKNOWN",
+     "answer": "Circuit Clerk instruments are not read by this site; a person pulls the index",
+     "source": null,
+     "checked_at": null,
+     "checked_by": null,
+     "refs": []
+    },
+    {
+     "key": "title",
+     "wording": "Is there a title search or Circuit Clerk index result on record?",
+     "state": "UNKNOWN",
+     "answer": "No title search on record",
+     "source": null,
+     "checked_at": null,
+     "checked_by": null,
+     "refs": []
+    }
+   ],
+   "attempt": {
+    "domain": "TITLE_DEED",
+    "label": "Title / deed / Circuit Clerk",
+    "source": null,
+    "check_type": null,
+    "status": "MANUAL_ONLY",
+    "failure_category": "NO_CLERK_ADAPTER",
+    "reused": 0,
+    "ms": 0
+   },
+   "status": "TITLE STATUS: UNKNOWN \u2014 MANUAL CIRCUIT CLERK REVIEW REQUIRED"
+  },
+  "LISTING": {
+   "label": "Listing / sale status",
+   "check": null,
+   "items": [],
+   "known": [],
+   "checked_not_found": [],
+   "questions": [
+    {
+     "key": "sale_state",
+     "wording": "What is the sale state, and from which source?",
+     "state": "FOUND",
+     "answer": "FOR SALE BY THE STATE \u2014 TAX SALE (Commissioner of State Lands); not a private listing",
+     "source": "Commissioner of State Lands",
+     "checked_at": "2026-09-23",
+     "checked_by": "source",
+     "refs": [
+      "evidence:2240493"
+     ]
+    },
+    {
+     "key": "listing",
+     "wording": "Is there a connected public listing, and if so, from which source?",
+     "state": "FOUND",
+     "answer": "The seller is the State (tax sale), not a private listing",
+     "source": "Commissioner of State Lands",
+     "checked_at": "2026-09-23",
+     "checked_by": "source",
+     "refs": [
+      "evidence:2240493"
+     ]
+    }
+   ],
+   "attempt": {
+    "domain": "LISTING",
+    "label": "Listing / sale status",
+    "source": "cosl_listings",
+    "check_type": null,
+    "status": "SUCCESS_WITH_EVIDENCE",
+    "failure_category": null,
+    "reused": 0,
+    "ms": 1
+   }
+  },
+  "PHYSICAL": {
+   "label": "Physical / occupancy",
+   "check": null,
+   "items": [],
+   "known": [],
+   "checked_not_found": [],
+   "questions": [
+    {
+     "key": "inspection",
+     "wording": "Has a person inspected the property in person, and what did they record?",
+     "state": "UNKNOWN",
+     "answer": "Nobody has recorded an in-person inspection",
+     "source": null,
+     "checked_at": null,
+     "checked_by": null,
+     "refs": []
+    }
+   ],
+   "attempt": {
+    "domain": "PHYSICAL",
+    "label": "Physical / occupancy",
+    "source": null,
+    "check_type": null,
+    "status": "MANUAL_ONLY",
+    "failure_category": "INSPECTION_REQUIRED",
+    "reused": 0,
+    "ms": 0
+   },
+   "status": "UNKNOWN \u2014 condition and occupancy are never inferred from records"
+  }
+ },
+ "listing": {
+  "sale_state": "FOR_SALE_BY_STATE",
+  "text": "FOR SALE BY THE STATE \u2014 TAX SALE (Commissioner of State Lands); not a private listing",
+  "source": "Commissioner of State Lands",
+  "as_of": "2026-09-23",
+  "for_sale_by_state": true,
+  "private_listing": {
+   "state": "PRIVATE"
+  },
+  "note": "Absence from every list is not 'not for sale'. Property Hunter never says an owner wants to sell."
+ },
+ "what_we_dont_know": [
+  {
+   "key": "lien_city",
+   "wording": "Is there a recorded City cleanup or demolition lien on this parcel?",
+   "answer": "No City register covers this county; the county has no equivalent layer",
+   "category": "LIENS"
+  },
+  {
+   "key": "vacancy",
+   "wording": "Is there a City vacancy register record for this parcel?",
+   "answer": "No City register covers this county; the county has no equivalent layer",
+   "category": "VACANCY"
+  },
+  {
+   "key": "code",
+   "wording": "Is there a City code-enforcement case for this address?",
+   "answer": "No City register covers this county; the county has no equivalent layer",
+   "category": "CODE"
+  },
+  {
+   "key": "mailing_address",
+   "wording": "Is there a mailing address of record for the owner, and from which source?",
+   "answer": "MAILING ADDRESS: UNKNOWN \u2014 no mailing address of record has been read; the situs address is never substituted",
+   "category": "OWNERSHIP"
+  },
+  {
+   "key": "deed",
+   "wording": "Is there a recorded deed reference, and if so, what does it document?",
+   "answer": "No deed reference read; the Circuit Clerk index is the only complete answer",
+   "category": "OWNERSHIP"
+  },
+  {
+   "key": "state_history",
+   "wording": "Is there a State sale or redemption record for this parcel?",
+   "answer": "No State sale or redemption record read for this parcel; monthly reports cover only counties with a history file",
+   "category": "TAXES"
+  },
+  {
+   "key": "collector_asof",
+   "wording": "When did the county Collector last answer for this parcel, and what did it say?",
+   "answer": "The Collector has never answered for this parcel (source unavailable)",
+   "category": "TAXES"
+  },
+  {
+   "key": "inspection",
+   "wording": "Has a person inspected the property in person, and what did they record?",
+   "answer": "Nobody has recorded an in-person inspection",
+   "category": "PHYSICAL"
+  },
+  {
+   "key": "lien_clerk",
+   "wording": "Is there a recorded mortgage, judgment or tax lien at the Circuit Clerk?",
+   "answer": "Circuit Clerk instruments are not read by this site; a person pulls the index",
+   "category": "LEGAL_RECORD"
+  },
+  {
+   "key": "title",
+   "wording": "Is there a title search or Circuit Clerk index result on record?",
+   "answer": "No title search on record",
+   "category": "LEGAL_RECORD"
+  }
+ ],
+ "source_failures": [
+  {
+   "domain": "TAX_COLLECTOR",
+   "source": "county_tax_collector",
+   "status": "SOURCE_UNAVAILABLE",
+   "category": "PROBE_FAILED",
+   "at": "2026-09-23T21:32:12+00:00"
+  }
+ ],
+ "conflicts": [],
+ "checks_performed": [
+  {
+   "domain": "IDENTITY",
+   "label": "Property identity",
+   "source": "p6_resolver",
+   "check_type": null,
+   "status": "SUCCESS_WITH_EVIDENCE",
+   "failure_category": null,
+   "evidence_count": 3,
+   "reused": 0,
+   "ms": 0
+  },
+  {
+   "domain": "ROLL_RECORD",
+   "label": "State parcel / roll record",
+   "source": "ar_gis_parcels",
+   "check_type": null,
+   "status": "SUCCESS_WITH_EVIDENCE",
+   "failure_category": null,
+   "evidence_count": 9,
+   "reused": 0,
+   "ms": 0
+  },
+  {
+   "domain": "TAX_COLLECTOR",
+   "label": "County Collector tax state",
+   "source": "county_tax_collector",
+   "check_type": "COLLECTOR_RECHECK",
+   "status": "SOURCE_UNAVAILABLE",
+   "failure_category": "PROBE_FAILED",
+   "evidence_count": 0,
+   "reused": 0,
+   "ms": 470
+  },
+  {
+   "domain": "STATE_LANDS",
+   "label": "State Lands / tax-sale history",
+   "source": "cosl_listings",
+   "check_type": "STATE_LANDS_RECHECK",
+   "status": "SUCCESS_WITH_EVIDENCE",
+   "failure_category": null,
+   "evidence_count": 1,
+   "reused": 1,
+   "ms": 1
+  },
+  {
+   "domain": "FLOOD",
+   "label": "FEMA flood zone",
+   "source": "fema_nfhl",
+   "check_type": "FEMA_RECHECK",
+   "status": "SUCCESS_WITH_EVIDENCE",
+   "failure_category": null,
+   "evidence_count": 2,
+   "reused": 1,
+   "ms": 0
+  },
+  {
+   "domain": "ROAD_ACCESS",
+   "label": "Road / access",
+   "source": "ar_gis_roads",
+   "check_type": "ROAD_RECORD_RECHECK",
+   "status": "SUCCESS_WITH_EVIDENCE",
+   "failure_category": null,
+   "evidence_count": 3,
+   "reused": 1,
+   "ms": 0
+  },
+  {
+   "domain": "MUNICIPAL_VACANCY",
+   "label": "Municipal vacancy register",
+   "source": "hs_gis_vacant",
+   "check_type": "CITY_VACANCY_RECHECK",
+   "status": "NOT_APPLICABLE",
+   "failure_category": "NOT_APPLICABLE",
+   "evidence_count": 0,
+   "reused": 0,
+   "ms": 0
+  },
+  {
+   "domain": "MUNICIPAL_LIEN",
+   "label": "Municipal lien layer",
+   "source": "hs_gis_liens",
+   "check_type": "CITY_LIEN_RECHECK",
+   "status": "NOT_APPLICABLE",
+   "failure_category": "NOT_APPLICABLE",
+   "evidence_count": 0,
+   "reused": 0,
+   "ms": 0
+  },
+  {
+   "domain": "MUNICIPAL_CODE",
+   "label": "Municipal code cases",
+   "source": "hs_gis_code_cases",
+   "check_type": "CITY_CODE_RECHECK",
+   "status": "NOT_APPLICABLE",
+   "failure_category": "NOT_APPLICABLE",
+   "evidence_count": 0,
+   "reused": 0,
+   "ms": 0
+  },
+  {
+   "domain": "OWNER_MAILING",
+   "label": "Owner / mailing address",
+   "source": "ar_gis_parcels",
+   "check_type": null,
+   "status": "PRIVATE",
+   "failure_category": null,
+   "evidence_count": null,
+   "reused": 0,
+   "ms": 0
+  },
+  {
+   "domain": "TITLE_DEED",
+   "label": "Title / deed / Circuit Clerk",
+   "source": null,
+   "check_type": null,
+   "status": "MANUAL_ONLY",
+   "failure_category": "NO_CLERK_ADAPTER",
+   "evidence_count": 0,
+   "reused": 0,
+   "ms": 0
+  },
+  {
+   "domain": "LISTING",
+   "label": "Listing / sale status",
+   "source": "cosl_listings",
+   "check_type": null,
+   "status": "SUCCESS_WITH_EVIDENCE",
+   "failure_category": null,
+   "evidence_count": 0,
+   "reused": 0,
+   "ms": 1
+  },
+  {
+   "domain": "PHYSICAL",
+   "label": "Physical / occupancy",
+   "source": null,
+   "check_type": null,
+   "status": "MANUAL_ONLY",
+   "failure_category": "INSPECTION_REQUIRED",
+   "evidence_count": 0,
+   "reused": 0,
+   "ms": 0
+  }
+ ],
+ "next_actions": [
+  {
+   "domain": "MUNICIPAL_LIEN",
+   "question": "lien_city",
+   "wording": "Is there a recorded City cleanup or demolition lien on this parcel?",
+   "what": "Open the City lien layer",
+   "why": "City liens attach to the parcel and survive a sale. Now: no source covers this county.",
+   "resolves": "A lien record with filing date and amount, or a dated no-lien check",
+   "source_status": "NOT_APPLICABLE"
+  },
+  {
+   "domain": "MUNICIPAL_VACANCY",
+   "question": "vacancy",
+   "wording": "Is there a City vacancy register record for this parcel?",
+   "what": "Open the City vacancy register",
+   "why": "Vacancy is never inferred; only the register or an inspection says it. Now: no source covers this county.",
+   "resolves": "A register record or a dated 'not on the register' check",
+   "source_status": "NOT_APPLICABLE"
+  },
+  {
+   "domain": "MUNICIPAL_CODE",
+   "question": "code",
+   "wording": "Is there a City code-enforcement case for this address?",
+   "what": "Open the City code-case layer",
+   "why": "Code cases signal condition problems but are not proof of condition. Now: no source covers this county.",
+   "resolves": "A code case record or a dated no-case check",
+   "source_status": "NOT_APPLICABLE"
+  },
+  {
+   "domain": "TITLE_DEED",
+   "question": "deed",
+   "wording": "Is there a recorded deed reference, and if so, what does it document?",
+   "what": "Pull the latest deed at the Circuit Clerk",
+   "why": "Vesting owner, legal description and instrument number come only from the recorded deed. Now: no automated source; a person does this.",
+   "resolves": "Deed book/page or instrument number, grantor/grantee, record date",
+   "source_status": "MANUAL_ONLY"
+  },
+  {
+   "domain": "STATE_LANDS",
+   "question": "state_history",
+   "wording": "Is there a State sale or redemption record for this parcel?",
+   "what": "Check the State's sale and redemption reports for the county",
+   "why": "History explains prior certifications and redemptions. Now: the sources that answered did not establish it.",
+   "resolves": "A State report line for this parcel",
+   "source_status": "SUCCESS_WITH_EVIDENCE"
+  },
+  {
+   "domain": "TAX_COLLECTOR",
+   "question": "collector_asof",
+   "wording": "When did the county Collector last answer for this parcel, and what did it say?",
+   "what": "Ask the Collector when it last answered for this parcel",
+   "why": "An old answer is treated as unknown after 45 days. Now: the automated source did not answer.",
+   "resolves": "A dated Collector response",
+   "source_status": "SOURCE_UNAVAILABLE"
+  },
+  {
+   "domain": "PHYSICAL",
+   "question": "inspection",
+   "wording": "Has a person inspected the property in person, and what did they record?",
+   "what": "Inspect the property in person: exterior, visible structure, occupancy indicators, posted notices, apparent access",
+   "why": "Condition and occupancy are never inferred from records. Now: no automated source; a person does this.",
+   "resolves": "Your dated inspection log with photos",
+   "source_status": "MANUAL_ONLY"
+  },
+  {
+   "domain": "TITLE_DEED",
+   "question": "lien_clerk",
+   "wording": "Is there a recorded mortgage, judgment or tax lien at the Circuit Clerk?",
+   "what": "Search the Circuit Clerk index for mortgages, judgments and tax liens",
+   "why": "Recorded liens follow the property. Now: no automated source; a person does this.",
+   "resolves": "A Clerk index result naming any instruments, or a dated 'none found'",
+   "source_status": "MANUAL_ONLY"
+  },
+  {
+   "domain": "TITLE_DEED",
+   "question": "title",
+   "wording": "Is there a title search or Circuit Clerk index result on record?",
+   "what": "Order or run a title search at the Circuit Clerk",
+   "why": "Property Hunter never declares title clear; only a search does. Now: no automated source; a person does this.",
+   "resolves": "A title search result or Circuit Clerk index review, recorded as a manual verification",
+   "source_status": "MANUAL_ONLY"
+  }
+ ],
+ "outreach_gate": null,
+ "manual_research": null,
+ "investigation": {
+  "id": null,
+  "status": "OPEN",
+  "counts": {
+   "found": 13,
+   "not_found": 0,
+   "unknown": 10,
+   "signals": 1,
+   "evidence": 15,
+   "notes": 0
+  },
+  "signals": [
+   {
+    "label": "Opened from address search",
+    "cls": "MANUAL",
+    "date": null,
+    "src": "the license holder"
+   }
+  ]
+ },
+ "timeline": [
+  {
+   "at": "2026-09-23T21:29:41+00:00",
+   "cls": "INVESTIGATION OPENED",
+   "title": "Investigation opened by the license holder"
+  },
+  {
+   "at": "2026-09-23T21:29:41+00:00",
+   "cls": "SIGNAL RECEIVED",
+   "title": "Opened by a person (MANUAL)"
+  },
+  {
+   "at": "2026-09-23T21:29:41+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "Is the parcel identity verified on the county roll (parcel number, county, situs)? \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-23T21:29:41+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "Who is the recorded owner on the county roll, and as of what date? \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-23T21:29:41+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "Is the parcel in the State tax-sale inventory (Commissioner of State Lands)? \u2192 NOT_FOUND"
+  },
+  {
+   "at": "2026-09-23T21:29:41+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "What does the county roll record for land, building and total value? \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-23T21:29:41+00:00",
+   "cls": "WORKUP STARTED",
+   "title": "Full property workup 9 started by the license holder"
+  },
+  {
+   "at": "2026-09-23T21:29:41+00:00",
+   "cls": "INVESTIGATION CHECK STARTED",
+   "title": "County Collector re-check (CountyPay) for tax_state"
+  },
+  {
+   "at": "2026-09-23T21:29:42+00:00",
+   "cls": "INVESTIGATION CHECK BLOCKED",
+   "title": "County Collector re-check (CountyPay): BLOCKED"
+  },
+  {
+   "at": "2026-09-23T21:29:42+00:00",
+   "cls": "INVESTIGATION CHECK STARTED",
+   "title": "State Lands per-parcel re-read for state_inventory"
+  },
+  {
+   "at": "2026-09-23T21:29:43+00:00",
+   "cls": "INVESTIGATION CHECK PRODUCED EVIDENCE",
+   "title": "1 reading from Arkansas Commissioner of State Lands - tax-delinquent parcels for sale"
+  },
+  {
+   "at": "2026-09-23T21:29:43+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "Is auction or acquisition information publicly documented (bid, sale date, terms)? \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-23T21:29:43+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "Is there a State Lands listing record, and if so, what amount and sale information does it document? \u2192 NOT_FOUND"
+  },
+  {
+   "at": "2026-09-23T21:29:43+00:00",
+   "cls": "QUESTION REFRESHED",
+   "title": "state_inventory: NOT_FOUND \u2192 NOT_FOUND"
+  },
+  {
+   "at": "2026-09-23T21:29:43+00:00",
+   "cls": "INVESTIGATION CHECK SUCCEEDED",
+   "title": "State Lands per-parcel re-read: SUCCEEDED"
+  },
+  {
+   "at": "2026-09-23T21:29:43+00:00",
+   "cls": "INVESTIGATION CHECK STARTED",
+   "title": "FEMA flood-zone read at the parcel centroid for flood"
+  },
+  {
+   "at": "2026-09-23T21:29:44+00:00",
+   "cls": "INVESTIGATION CHECK PRODUCED EVIDENCE",
+   "title": "1 reading from FEMA National Flood Hazard Layer"
+  },
+  {
+   "at": "2026-09-23T21:29:44+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "Is there a FEMA flood-zone reading for this parcel? \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-23T21:29:44+00:00",
+   "cls": "QUESTION REFRESHED",
+   "title": "flood: UNKNOWN \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-23T21:29:44+00:00",
+   "cls": "INVESTIGATION CHECK SUCCEEDED",
+   "title": "FEMA flood-zone read at the parcel centroid: SUCCEEDED"
+  },
+  {
+   "at": "2026-09-23T21:29:44+00:00",
+   "cls": "INVESTIGATION CHECK STARTED",
+   "title": "State road centreline read near the parcel for access"
+  },
+  {
+   "at": "2026-09-23T21:29:44+00:00",
+   "cls": "INVESTIGATION CHECK PRODUCED EVIDENCE",
+   "title": "2 readings from Arkansas GIS Office - road centerlines (911 addressing)"
+  },
+  {
+   "at": "2026-09-23T21:29:44+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "Is there evidence of road access to the parcel? \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-23T21:29:44+00:00",
+   "cls": "QUESTION REFRESHED",
+   "title": "access: UNKNOWN \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-23T21:29:44+00:00",
+   "cls": "INVESTIGATION CHECK SUCCEEDED",
+   "title": "State road centreline read near the parcel: SUCCEEDED"
+  },
+  {
+   "at": "2026-09-23T21:29:44+00:00",
+   "cls": "INVESTIGATION CHECK BLOCKED",
+   "title": "City of Hot Springs vacant-structure register re-read: BLOCKED"
+  },
+  {
+   "at": "2026-09-23T21:29:44+00:00",
+   "cls": "INVESTIGATION CHECK BLOCKED",
+   "title": "City of Hot Springs lien layer re-read: BLOCKED"
+  },
+  {
+   "at": "2026-09-23T21:29:44+00:00",
+   "cls": "INVESTIGATION CHECK BLOCKED",
+   "title": "City of Hot Springs code-case layer re-read: BLOCKED"
+  },
+  {
+   "at": "2026-09-23T21:29:44+00:00",
+   "cls": "WORKUP COMPLETED",
+   "title": "Workup 9: COMPLETE WITH SOURCE FAILURES"
+  },
+  {
+   "at": "2026-09-23T21:32:11+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "Is there a connected public listing, and if so, from which source? \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-23T21:32:11+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "Are other public-record signals recorded on this parcel? \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-23T21:32:11+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "What is the sale state, and from which source? \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-23T21:32:11+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "Is the parcel in the State tax-sale inventory (Commissioner of State Lands)? \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-23T21:32:11+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "Is there a State Lands listing record, and if so, what amount and sale information does it document? \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-23T21:32:11+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "Is there verified delinquent tax evidence, and if so, what amount is documented? \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-23T21:32:11+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "What is the current tax state, from which source, and as of when? \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-23T21:32:11+00:00",
+   "cls": "WORKUP STARTED",
+   "title": "Full property workup 10 started by the license holder"
+  },
+  {
+   "at": "2026-09-23T21:32:11+00:00",
+   "cls": "INVESTIGATION CHECK STARTED",
+   "title": "County Collector re-check (CountyPay) for tax_state"
+  },
+  {
+   "at": "2026-09-23T21:32:12+00:00",
+   "cls": "INVESTIGATION CHECK BLOCKED",
+   "title": "County Collector re-check (CountyPay): BLOCKED"
+  },
+  {
+   "at": "2026-09-23T21:32:12+00:00",
+   "cls": "INVESTIGATION CHECK BLOCKED",
+   "title": "City of Hot Springs vacant-structure register re-read: BLOCKED"
+  },
+  {
+   "at": "2026-09-23T21:32:12+00:00",
+   "cls": "INVESTIGATION CHECK BLOCKED",
+   "title": "City of Hot Springs lien layer re-read: BLOCKED"
+  },
+  {
+   "at": "2026-09-23T21:32:12+00:00",
+   "cls": "INVESTIGATION CHECK BLOCKED",
+   "title": "City of Hot Springs code-case layer re-read: BLOCKED"
+  },
+  {
+   "at": "2026-09-23T21:32:12+00:00",
+   "cls": "WORKUP COMPLETED",
+   "title": "Workup 10: COMPLETE WITH SOURCE FAILURES"
+  }
+ ],
+ "evidence": [
+  {
+   "ref": "evidence:2240496",
+   "field": "road_frontage_candidates",
+   "value": "Hendaye Ln, Hendaye Way, Ponce De Leon Dr, Ponce De Leon Ln",
+   "source_name": "Arkansas GIS Office - road centerlines (911 addressing)",
+   "date": "2026-09-23",
+   "recorded_at": "2026-09-23T21:29",
+   "etype": "OBSERVATION",
+   "conf": "MEDIUM",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2240495",
+   "field": "road_access",
+   "value": "local street - Ponce De Leon Dr",
+   "source_name": "Arkansas GIS Office - road centerlines (911 addressing)",
+   "date": "2026-06-25",
+   "recorded_at": "2026-09-23T21:29",
+   "etype": "OBSERVATION",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2240494",
+   "field": "flood_zone",
+   "value": "X (AREA OF MINIMAL FLOOD HAZARD)",
+   "source_name": "FEMA National Flood Hazard Layer",
+   "date": "2026-09-23",
+   "recorded_at": "2026-09-23T21:29",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2240493",
+   "field": "tax_delinquent",
+   "value": "held by the Commissioner of State Lands (certified for unpaid taxes)",
+   "source_name": "Arkansas Commissioner of State Lands - tax-delinquent parcels for sale",
+   "date": "2026-09-23",
+   "recorded_at": "2026-09-23T21:29",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2240492",
+   "field": "identity_resolution",
+   "value": "193 PONCE DE LEON DR, HOT SPRINGS VILLAGE = parcel 764-00096-000 (Saline County)",
+   "source_name": "Arkansas GIS Office parcel layer (live State roll)",
+   "date": "1990-10-01",
+   "recorded_at": "2026-09-23T21:29",
+   "etype": "OBSERVATION",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2240484",
+   "field": "total_assessed_value",
+   "value": "2500.0",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "date": "1990-10-01",
+   "recorded_at": "2026-09-23T21:29",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2240483",
+   "field": "improvement_value",
+   "value": "0.0",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "date": "1990-10-01",
+   "recorded_at": "2026-09-23T21:29",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2240482",
+   "field": "land_value",
+   "value": "2500.0",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "date": "1990-10-01",
+   "recorded_at": "2026-09-23T21:29",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2240481",
+   "field": "acreage",
+   "value": "0.0",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "date": "1990-10-01",
+   "recorded_at": "2026-09-23T21:29",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2240480",
+   "field": "legal_description",
+   "value": "336-644",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "date": "1990-10-01",
+   "recorded_at": "2026-09-23T21:29",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2240479",
+   "field": "address",
+   "value": "193 Ponce De Leon Dr",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "date": "1990-10-01",
+   "recorded_at": "2026-09-23T21:29",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2240478",
+   "field": "owner_name",
+   "value": "RIGSBY BILLY M & BILLIE J",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "date": "1990-10-01",
+   "recorded_at": "2026-09-23T21:29",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2240477",
+   "field": "parcel_id",
+   "value": "764-00096-000",
+   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
+   "date": "1990-10-01",
+   "recorded_at": "2026-09-23T21:29",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:94398",
+   "field": "tax_amount_owed",
+   "value": "247.56",
+   "source_name": "Arkansas Commissioner of State Lands - tax-delinquent parcels for sale",
+   "date": "2026-09-14",
+   "recorded_at": "2026-09-14T03:42",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:94397",
+   "field": "tax_delinquent",
+   "value": "certified to the State for unpaid taxes; for sale by COSL (post-auction sale (negotiated)); starting bid $247.56 = taxes, interest, penalties and costs owed",
+   "source_name": "Arkansas Commissioner of State Lands - tax-delinquent parcels for sale",
+   "date": "2025-10-09",
+   "recorded_at": "2026-09-14T03:42",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": true,
+   "conflict": false
+  }
+ ],
+ "links": {
+  "investigation": null,
+  "roll_file": "lookup.html?county=05125&q=764-00096-000",
+  "search": null
+ }
+}

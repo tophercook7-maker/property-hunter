@@ -379,7 +379,9 @@ def export_rows(only=None):
     rows, labels = [], {}
     county_name = {t["county_fips"]: t["county"] for t in __import__("hunter.config", fromlist=["TERRITORIES"]).TERRITORIES}
     pfrag = frag.replace("property_id", "id")
-    for p in q(f"SELECT * FROM properties WHERE excluded=0 AND data_class='real'{pfrag}", ids):
+    # the public export skips excluded areas; an explicit per-id request (a case file) is not the public export
+    excl = "" if only else "excluded=0 AND "
+    for p in q(f"SELECT * FROM properties WHERE {excl}data_class='real'{pfrag}", ids):
         pid = p["id"]
         dist = json.loads(p["distress_json"] or "[]")
         for x in dist:

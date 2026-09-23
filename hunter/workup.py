@@ -267,7 +267,9 @@ def _classify_on_file(domain: str, pid: int, prop: dict, fields, roll_date) -> t
             return "MANUAL_ONLY", "ASSESSOR_BLOCKED", "owner of record on file from the State roll; no mailing address of record — the Assessor's site refuses automation; a person reads it", owner.get("source"), True
         return "MANUAL_ONLY", "ASSESSOR_BLOCKED", "no owner or mailing record on file; the Assessor's site refuses automation", None, True
     if domain == "TITLE_DEED":
-        if any(store.latest_answer(pid, f) for f in ("manual:title", "manual:deed", "deed_reference")):
+        # a person's dated answer (FOUND / NOT_FOUND) counts; a person's UNKNOWN attempt does not
+        qs = {r["key"]: (r["state"], r["checked_by"]) for r in db.q("SELECT q.key, q.state, q.checked_by FROM investigation_questions q JOIN investigation_cases c ON c.id=q.case_id WHERE c.property_id=? AND q.key IN ('deed','title','lien_clerk')", (pid,))}
+        if any(st in ("FOUND", "NOT_FOUND") for st, _by in qs.values()) or store.latest_answer(pid, "deed_reference"):
             return "SUCCESS_WITH_EVIDENCE", None, "a deed/title reading is on file (see its date and origin); no automated Circuit Clerk source exists", "manual_verification", True
         return "MANUAL_ONLY", "NO_CLERK_ADAPTER", "TITLE STATUS: UNKNOWN — MANUAL CIRCUIT CLERK REVIEW REQUIRED; no automated Clerk/title source exists and none is simulated", None, True
     if domain == "LISTING":
@@ -275,7 +277,8 @@ def _classify_on_file(domain: str, pid: int, prop: dict, fields, roll_date) -> t
         sale = cases.sale_state(row)
         if sale["st"] == "FOR_SALE_BY_STATE":
             return "SUCCESS_WITH_EVIDENCE", None, "for sale by the State (tax sale) per State evidence; that is not a private listing", "cosl_listings", False
-        if store.latest_answer(pid, "manual:listing") or store.latest_answer(pid, "manual:sale_state"):
+        lq = db.q1("SELECT q.state FROM investigation_questions q JOIN investigation_cases c ON c.id=q.case_id WHERE c.property_id=? AND q.key='listing'", (pid,))
+        if lq and lq["state"] in ("FOUND", "NOT_FOUND"):
             return "SUCCESS_WITH_EVIDENCE", None, "a person recorded a listing check (see its date)", "manual_verification", False
         return "MANUAL_ONLY", "NO_LISTING_ADAPTER", "no listing source is connected; a person searches and records the result — absence is not 'not for sale'", None, True
     if domain == "PHYSICAL":

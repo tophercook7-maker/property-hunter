@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sample Property Files · Property Hunter</title>
+<meta name="description" content="Real Arkansas Property Files published as samples: every fact with its source and date, every unknown named, every source failure shown.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="ph.css">
+<style>
+main{max-width:980px;margin:0 auto;padding:16px 16px 70px;display:grid;gap:16px}
+h2{font-size:26px;text-transform:uppercase;letter-spacing:.02em;margin:0}
+.lead{margin:2px 0 0;font-size:14px;color:var(--muted);max-width:75ch}
+.card{background:var(--surface);border:1px solid var(--rule);padding:14px 16px;display:grid;grid-template-columns:1fr auto;gap:6px 14px;align-items:start}
+.card .addr{font-family:var(--display);font-size:26px;line-height:1.05;text-transform:uppercase;font-weight:600}
+.card .meta{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.card .st{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.06em;padding:2px 6px;border:1px solid var(--rule);color:var(--ink);white-space:nowrap}
+.card .counts{font-size:13px}
+.how{background:var(--surface);border:1px solid var(--rule);padding:12px 14px;font-size:13px;display:grid;gap:6px}
+</style>
+</head>
+<body>
+<header class="ph-top"><h1><small>What the licensed workup produces, on real Arkansas parcels</small>Sample Property Files</h1><nav data-nav aria-label="Sections"></nav></header>
+<main>
+  <section><h2>Real files, published as samples</h2><p class="lead">Each file below was produced by Property Hunter's full workup on a real parcel: every fact with its source and record date, everything that was checked and not found, everything still unknown, and every source that failed to answer. Owner mailing details, the research log and outreach material are private to the license holder and are removed before publishing. Nothing on these pages is investment, legal or tax advice.</p></section>
+  <section id="list" style="display:grid;gap:10px"><div class="lead">Loading…</div></section>
+  <section class="how"><b>How a file is made</b><div>1. An address or a county-scoped parcel number is resolved to one verified parcel on the State roll, or the search says honestly why not.</div><div>2. Every applicable source is asked through one guarded path: county Collector, State Lands, FEMA, the State road layer, the City of Hot Springs registers, the City's roll copy. A source that does not answer is recorded as unavailable, never as "nothing found".</div><div>3. Each question ends FOUND, NOT FOUND or UNKNOWN from recorded evidence only. Unknown stays unknown until a person closes it with a dated, sourced verification.</div><div>4. The file lists what a person does next, and the outreach gate says whether a letter could even be prepared. Nothing is ever sent by the system.</div></section>
+</main>
+<script src="ph.js"></script>
+<script>
+const esc = PH.esc;
+fetch('samples/index.json', {cache: 'no-store'}).then(r => r.json()).then(d => {
+  document.getElementById('list').innerHTML = (d.samples || []).map(s => `<a class="card" href="sample.html?file=${esc(s.slug)}" style="text-decoration:none;color:inherit"><div><div class="addr">${esc(s.title)}</div><div class="meta">${esc(s.county)} County · parcel ${esc(s.parcel_id)}${s.rpid ? ' · RPID ' + esc(s.rpid) : ''} · workup ${esc(String(s.workup_completed_at || '').slice(0,10))}</div><div class="counts" style="margin-top:6px">${esc(s.headline || '')}</div></div><div><span class="st">${esc(String(s.status || '').replace(/_/g, ' '))}</span><div class="meta" style="margin-top:6px">FOUND ${s.found} · NOT FOUND ${s.not_found} · UNKNOWN ${s.unknown}</div></div></a>`).join('') || '<div class="lead">No samples published yet.</div>';
+}).catch(() => { document.getElementById('list').innerHTML = '<div class="lead">No samples published yet.</div>'; });
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

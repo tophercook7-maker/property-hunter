@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Property File · Property Hunter</title>
-<meta name="robots" content="noindex">
+<title>Sample Property File · Property Hunter</title>
+<meta name="description" content="A real Arkansas Property File produced by Property Hunter: what is known with sources and dates, what was checked and not found, what is unknown, what failed, and what a person does next.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="ph.css">
 <style>
@@ -45,9 +45,10 @@ table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{text-align:left
 details summary{cursor:pointer;color:var(--accent);font-size:13px}
 .msg{font-size:13px}.msg.err{color:var(--bad)}
 </style>
+<style>.st.PRIVATE{color:var(--muted);border-color:var(--rule)} .sample-note{background:var(--paper);color:var(--paper-ink);border:1px solid var(--rule);padding:10px 14px;font-size:13px}</style>
 </head>
 <body>
-<header class="ph-top"><h1><small>What is known · what was checked and not found · what is unknown · what failed · what a person does next</small>Property File</h1><nav data-nav aria-label="Sections"></nav></header>
+<header class="ph-top"><h1><small>A real file, published as a sample · private research and mailing details removed · nothing here is advice</small>Sample Property File</h1><nav data-nav aria-label="Sections"></nav></header>
 <main>
   <section class="status NOT_STARTED" id="status"><div class="k">Loading…</div><div class="fine" id="stfine"></div><div class="progress" id="progress"></div></section>
   <section id="identity"></section>
@@ -69,28 +70,21 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px}
     <div class="box"><h2>Evidence</h2><details><summary id="ev-sum">Show evidence rows</summary><div id="evidence"></div></details></div>
   </section>
 </main>
-<script src="ph-auth.js"></script>
+
 <script src="ph.js"></script>
 <script src="pf-render.js"></script>
 <script>
-const p = new URLSearchParams(location.search);
-const WID = p.get('workup');
-async function api(path, body, ms){
-  const r = await PH.apiFetch(path, body ? {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)} : {}, ms || 20000);
-  if(PH.needsActivation(r)){ location.href = PH.activateHref(); throw new Error('Activation required.'); }
-  const j = await r.json().catch(() => ({}));
-  if(!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
-  return j;
-}
-async function poll(){
+const params = new URLSearchParams(location.search); const FILE = (params.get('file') || '').replace(/[^a-z0-9\-]/g, '');
+(async () => {
+  if(!FILE){ location.replace('samples.html'); return; }
   try {
-    const w = await api(`/api/property/workup/${encodeURIComponent(WID)}`);
-    renderStatus(w);
-    if(w.status === 'RUNNING' || w.status === 'NOT_STARTED'){ setTimeout(poll, 1500); return; }
-    renderFile(await api(`/api/property/workup/${encodeURIComponent(WID)}/file`, null, 30000));
-  } catch(e){ $('status').className = 'status FAILED'; $('status').querySelector('.k').textContent = 'Could not load the workup'; $('stfine').textContent = e.message; }
-}
-if(WID) poll(); else { $('status').querySelector('.k').textContent = 'No workup selected'; $('stfine').innerHTML = 'Start from <a href="find.html">Find a property</a>.'; }
+    const f = await (await fetch(`samples/${FILE}.json`, {cache: 'no-store'})).json();
+    f.sample = true;
+    const main = document.querySelector('main');
+    main.insertAdjacentHTML('afterbegin', `<div class="sample-note"><b>Published sample.</b> ${esc(f.sample_note || '')} Published ${esc(String(f.published_at || '').slice(0,10))}. <a href="samples.html">All samples</a> · <a href="index.html">What Property Hunter is</a></div>`);
+    renderStatus(f.workup_view); renderFile(f);
+  } catch(e) { $('status').className = 'status FAILED'; $('status').querySelector('.k').textContent = 'Sample not found'; $('stfine').innerHTML = 'See <a href="samples.html">all samples</a>.'; }
+})();
 </script>
 <script src="nav.js"></script>
 </body>

@@ -273,7 +273,7 @@ def test_no_network_nothing_public_ui_wired_schema_additive():
         t = f.read_text()[:3_000_000]
         assert "research_tasks" not in t and "intake_json" not in t and "TEST RECORD" not in t and "manual:" not in t, f
     ui = (ROOT / "docs" / "research.html").read_text()
-    pf = (ROOT / "docs" / "property-file.html").read_text()
+    pf = (ROOT / "docs" / "property-file.html").read_text() + (ROOT / "docs" / "pf-render.js").read_text()      # the renderer is shared with the public sample page
     assert "PH.apiFetch(" in ui and "arcgis" not in ui.lower() and "fetch('http" not in ui and "/complete" in ui and "/skip" in ui and "intake_schema" in ui        # 27
     assert "Close this gap" in pf and "research.html?task=" in pf and "manual_research" in pf and "/research/open" in pf
     db_src = (ROOT / "hunter" / "db.py").read_text()

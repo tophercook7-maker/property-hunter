@@ -1,20 +1,6 @@
 {
  "samples": [
   {
-   "slug": "darby-aly-lot-hot-springs",
-   "title": "Darby Aly, HOT SPRINGS",
-   "county": "Garland",
-   "parcel_id": "300-06244-000",
-   "rpid": "50238",
-   "status": "COMPLETE_WITH_SOURCE_FAILURES",
-   "workup_completed_at": "2026-09-17T22:38:16+00:00",
-   "published_at": "2026-09-23T21:21:52+00:00",
-   "found": 14,
-   "not_found": 3,
-   "unknown": 6,
-   "headline": "Tax state TAX SALE VERIFIED \u00b7 FOR SALE BY STATE \u00b7 1 source failure \u00b7 6 open actions"
-  },
-  {
    "slug": "302-lincoln-st-hot-springs",
    "title": "302 Lincoln St, HOT SPRINGS",
    "county": "Garland",
@@ -22,11 +8,25 @@
    "rpid": "50201",
    "status": "COMPLETE_WITH_SOURCE_FAILURES",
    "workup_completed_at": "2026-09-23T21:22:53+00:00",
-   "published_at": "2026-09-23T21:22:53+00:00",
+   "published_at": "2026-09-24T00:20:13+00:00",
    "found": 11,
    "not_found": 3,
    "unknown": 10,
    "headline": "Tax state SOURCE UNAVAILABLE \u00b7 UNKNOWN \u00b7 1 source failure \u00b7 10 open actions"
+  },
+  {
+   "slug": "darby-aly-lot-hot-springs",
+   "title": "Darby Aly, HOT SPRINGS",
+   "county": "Garland",
+   "parcel_id": "300-06244-000",
+   "rpid": "50238",
+   "status": "COMPLETE_WITH_SOURCE_FAILURES",
+   "workup_completed_at": "2026-09-17T22:38:16+00:00",
+   "published_at": "2026-09-24T00:20:54+00:00",
+   "found": 14,
+   "not_found": 3,
+   "unknown": 6,
+   "headline": "Tax state TAX SALE VERIFIED \u00b7 FOR SALE BY STATE \u00b7 1 source failure \u00b7 6 open actions"
   },
   {
    "slug": "255-garland-st-conway",
@@ -36,7 +36,7 @@
    "rpid": "710-02796-000",
    "status": "COMPLETE_WITH_SOURCE_FAILURES",
    "workup_completed_at": "2026-09-23T21:29:35+00:00",
-   "published_at": "2026-09-23T21:29:35+00:00",
+   "published_at": "2026-09-24T00:21:38+00:00",
    "found": 13,
    "not_found": 0,
    "unknown": 10,
@@ -50,7 +50,7 @@
    "rpid": "34L2030013700",
    "status": "COMPLETE_WITH_UNKNOWN",
    "workup_completed_at": "2026-09-23T21:29:40+00:00",
-   "published_at": "2026-09-23T21:29:40+00:00",
+   "published_at": "2026-09-24T00:22:46+00:00",
    "found": 13,
    "not_found": 0,
    "unknown": 10,
@@ -64,12 +64,12 @@
    "rpid": "764-00096-000",
    "status": "COMPLETE_WITH_SOURCE_FAILURES",
    "workup_completed_at": "2026-09-23T21:32:12+00:00",
-   "published_at": "2026-09-23T21:33:00+00:00",
+   "published_at": "2026-09-24T00:23:37+00:00",
    "found": 13,
    "not_found": 0,
    "unknown": 10,
    "headline": "Tax state TAX SALE VERIFIED \u00b7 FOR SALE BY STATE \u00b7 1 source failure \u00b7 9 open actions"
   }
  ],
- "built_at": "2026-09-23T21:33:00+00:00"
+ "built_at": "2026-09-24T00:24:26+00:00"
 }

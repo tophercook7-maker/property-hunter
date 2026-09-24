@@ -1,7 +1,7 @@
 {
  "sample": true,
  "sample_note": "302 Lincoln St, Hot Springs: a house on the City's vacant-structure register with a City cleanup lien, redeemed from the State tax sale in July 2026. The county Collector's online source was down when this file was made, so the tax state is honestly unavailable.",
- "published_at": "2026-09-23T21:22:53+00:00",
+ "published_at": "2026-09-24T00:20:13+00:00",
  "workup_view": {
   "workup_id": "sample",
   "status": "COMPLETE_WITH_SOURCE_FAILURES",
@@ -499,7 +499,7 @@
   "collector": {
    "status": "UNAVAILABLE",
    "down_since": "2026-09-14T14:25:00-0500",
-   "checked_at": "2026-09-23T16:05:02-0500",
+   "checked_at": "2026-09-23T19:05:08-0500",
    "detail": "Online payments are currently unavailable."
   },
   "meaning": "The Collector's online source is down; nothing was checked. Not a finding either way."
@@ -3202,5 +3202,23 @@
   "investigation": null,
   "roll_file": "lookup.html?county=05051&q=300-06307-000",
   "search": null
+ },
+ "bee": {
+  "origin": "AI_OPINION",
+  "label": "Bee's read (AI opinion; explains and proposes, establishes nothing)",
+  "model": "qwen2.5:7b-instruct",
+  "at": "2026-09-24T00:20:54+00:00",
+  "summary": "The property has a known City cleanup lien and a recent redemption from the State, but the current tax status is unknown due to an unavailable online search.",
+  "unknown": [
+   "The current tax state is unknown due to the County Collector's online search being temporarily unavailable."
+  ],
+  "conflicts": [],
+  "proposed_checks": [
+   {
+    "question": null,
+    "what": null,
+    "why": "To determine the current tax state, as the previous search is unavailable."
+   }
+  ]
  }
 }

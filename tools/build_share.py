@@ -430,7 +430,7 @@ def write_csv(rows, path):
                     "Assessed for tax (20%)", "City lien $", "On vacant register", "Delinquent taxes",
                     "Score", "Risk", "Our call", "Zoning", "Parcel", "Open in app"])
         for r in rows:
-            w.writerow([r["a"], r["c"], r["o"], r["m"] or "", f"{r['tv']:,.0f}" if r["tv"] else "",
+            w.writerow([r["a"], r["c"], r["o"], r.get("m") or "", f"{r['tv']:,.0f}" if r["tv"] else "",
                         f"{r['tv']*0.2:,.0f}" if r["tv"] else "", f"{r['lien']:,.2f}" if r["lien"] else "",
                         "YES" if r["vac"] else "", "NOT CHECKED - arkansastaxsearch.com",
                         r["s"] if r["s"] is not None else "", r["r"] if r["r"] is not None else "",

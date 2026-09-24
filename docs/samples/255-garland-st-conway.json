@@ -1,7 +1,7 @@
 {
  "sample": true,
  "sample_note": "255 Garland St, Conway (Faulkner County): a parcel certified to the State for unpaid taxes and offered as a post-auction sale. Outside Hot Springs, so the City registers and the City roll copy do not apply and are shown as not applicable or manual.",
- "published_at": "2026-09-23T21:29:35+00:00",
+ "published_at": "2026-09-24T00:21:38+00:00",
  "workup_view": {
   "workup_id": "sample",
   "status": "COMPLETE_WITH_SOURCE_FAILURES",
@@ -419,7 +419,7 @@
   "collector": {
    "status": "UNAVAILABLE",
    "down_since": "2026-09-14T14:25:00-0500",
-   "checked_at": "2026-09-23T16:25:03-0500",
+   "checked_at": "2026-09-23T19:05:08-0500",
    "detail": "Online payments are currently unavailable."
   },
   "meaning": "Certified to the State for unpaid taxes (State evidence)."
@@ -2538,5 +2538,6 @@
   "investigation": null,
   "roll_file": "lookup.html?county=05045&q=710-02796-000",
   "search": null
- }
+ },
+ "bee": null
 }

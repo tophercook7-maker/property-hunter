@@ -62,6 +62,15 @@ form.search button[disabled]{opacity:.6;cursor:wait}
 .mapwrap{position:relative;min-height:420px}
 #map{position:absolute;inset:0;background:var(--surface2)}
 .maptools{position:absolute;top:10px;right:10px;z-index:500;display:flex;gap:6px}
+.sheet{position:absolute;left:10px;right:10px;bottom:34px;z-index:600;background:var(--surface);color:var(--ink);border:1px solid var(--rule);box-shadow:0 8px 24px rgba(0,0,0,.35);padding:10px 12px;display:grid;gap:8px;font-size:13px}
+.sheet .sh-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.sheet .sh-sub{font-size:12px;color:var(--muted)}
+.sheet .sh-x{background:none;border:0;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:0 4px}
+.sheet .sh-open{background:none;border:1px solid var(--rule);color:var(--ink);font:inherit;font-size:12.5px;padding:6px 10px;cursor:pointer;justify-self:start}
+@media (min-width:861px){.sheet .sh-open{display:none}}
+.doors{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.door{display:inline-flex;align-items:center;padding:6px 10px;border:1px solid var(--rule);color:var(--ink);text-decoration:none;font-size:12.5px;font-weight:500;background:var(--surface2)}
+.door.main{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-family:var(--display);font-size:15px;letter-spacing:.03em;text-transform:uppercase}
+.door.sale{border-color:#E2746B;color:#E2746B}
 .maptools button{background:var(--surface);border:1px solid var(--rule);padding:6px 10px;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 .maptools button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .mapnote{position:absolute;bottom:10px;left:10px;z-index:500;background:var(--surface);border:1px solid var(--rule);padding:5px 9px;font-size:11.5px;color:var(--muted)}
@@ -177,7 +186,8 @@ footer{background:var(--surface);border-top:1px solid var(--rule);padding:10px 2
   <section class="mapwrap">
     <div id="map" role="application" aria-label="Parcel map"></div>
     <div class="maptools"><button type="button" id="b-aerial" aria-pressed="true">Aerial</button><button type="button" id="b-streetmap" aria-pressed="false">Streets</button><span style="width:6px"></span><button type="button" id="b-me" title="Show the parcels around your location">Around me</button><button type="button" id="b-follow" aria-pressed="false" title="Keep loading parcels as you move along the road">Follow me</button><button type="button" id="b-view" title="Every parcel inside the map view (zoom to street level first)">Parcels in view</button><button type="button" id="b-street" title="Every parcel on the selected parcel's street">This street</button></div>
-    <div class="mapnote">Click a parcel to identify it · <span style="color:#E2746B">red = on the State tax-sale list today</span> · aerial by Esri</div>
+    <div class="mapnote">Tap a parcel for its record · <span style="color:#FFD54A">yellow = selected</span> · <span style="color:#E2746B">red = on the State tax-sale list today</span> · aerial by Esri</div>
+    <div class="sheet" id="sheet" hidden></div>
   </section>
 </div>
 
@@ -352,6 +362,17 @@ $('results').addEventListener('click', e => { const b = e.target.closest('button
 $('f').addEventListener('submit', e => { e.preventDefault(); search($('q').value); });
 document.querySelectorAll('.ex').forEach(b => b.addEventListener('click', () => { $('county').value='05051'; $('q').value=b.dataset.q; search(b.dataset.q); }));
 
+/* the doors into the rest of Property Hunter, from any parcel on the map */
+function doorsHtml(a, county, addr, c){
+  const cty = county || '';
+  const q = a.parcelid ? `${a.parcelid}, ${cty} County` : `${addr}, ${title(a.adrcity) || ''}`;
+  const find = `find.html?q=${encodeURIComponent(q)}`;
+  const req = `mailto:topher@mixedmakershop.com?subject=${encodeURIComponent('Property File request: ' + (a.parcelid || addr) + ', ' + cty + ' County')}&body=${encodeURIComponent('Parcel: ' + (a.parcelid || '') + '\nCounty: ' + cty + '\nSitus: ' + addr + (a.adrcity ? ', ' + title(a.adrcity) : '') + '\nWhat I am trying to decide: ')}`;
+  const watch = `signup.html?watch=${encodeURIComponent(a.parcelid || addr)}&county=${encodeURIComponent(cty)}`;
+  const sl = onSale(a) ? `<a class="door sale" href="state-lands.html?county=${esc(a.countyfips)}&q=${encodeURIComponent(a.parcelid || '')}">State sale listing</a>` : '';
+  return `<div class="doors"><a class="door main" href="${find}" title="Resolve this parcel and run the full workup (licensed)">Full Property File</a><a class="door" href="${req}">Get a file</a><a class="door" href="${watch}">Watch</a>${sl}<a class="door" href="${c ? `https://www.google.com/maps/search/?api=1&query=${c[0]},${c[1]}` : '#'}" target="_blank" rel="noopener">Drive there</a></div>`;
+}
+
 /* identify by map click */
 async function identify(lat, lon){
   status('busy', `Identifying the parcel at ${lat.toFixed(5)}, ${lon.toFixed(5)}…`);
@@ -376,7 +397,7 @@ async function select(i){
   document.querySelectorAll('.results button').forEach(b => b.setAttribute('aria-current', b.dataset.i==i));
   if(window.innerWidth <= 860) setTimeout(() => { try { $('detail').scrollIntoView({behavior: 'smooth', block: 'start'}); } catch(e){} }, 60);
   if(selectedLayer) map.removeLayer(selectedLayer);
-  if(r.geom && r.geom.rings){ selectedLayer = L.geoJSON({type:'Feature',geometry:{type:'Polygon',coordinates:r.geom.rings}}, {style:{color:'#E2746B',weight:3,fillOpacity:.15}}).addTo(map); try{ map.fitBounds(selectedLayer.getBounds().pad(0.6), {maxZoom:18}); }catch(e){} }
+  if(r.geom && r.geom.rings){ selectedLayer = L.geoJSON({type:'Feature',geometry:{type:'Polygon',coordinates:r.geom.rings}}, {style:{color:'#FFD54A',weight:4,fillOpacity:.12,dashArray:'6 4'}}).addTo(map); try{ map.fitBounds(selectedLayer.getBounds().pad(0.6), {maxZoom:18}); }catch(e){} }
   const c = centroidOf(r);
   const acres = a.Shape__Area ? a.Shape__Area / 4046.8564 : null;
   const pt = String(a.parceltype||''); const cls = CLASS[pt[0]] || null; const imp = IMPROVE[pt[1]] || null;
@@ -386,8 +407,14 @@ async function select(i){
   const gm = c ? `https://www.google.com/maps/search/?api=1&query=${c[0]},${c[1]}` : '#';
   const taxsearch = `https://www.arkansastaxsearch.com/${(county||'').toLowerCase().replace(/[^a-z]/g,'')}.html`;
   const ds = `https://www.actdatascout.com/RealProperty/Arkansas/${encodeURIComponent(county)}`;
+  const doors = doorsHtml(a, county, addr, c);
+  const sheet = $('sheet');
+  sheet.hidden = false;
+  sheet.innerHTML = `<div class="sh-top"><div><b>${esc(addr)}</b><div class="sh-sub">${esc(title(a.ownername)||'owner not on the roll')} · ${fmt$(a.totalvalue)}${onSale(a) ? ' · <span style="color:#E2746B;font-weight:600">ON THE STATE TAX-SALE LIST</span>' : ''}</div></div><button type="button" class="sh-x" id="sh-x" aria-label="Close">×</button></div>${doors}<button type="button" class="sh-open" id="sh-open">Full record ↓</button>`;
+  $('sh-x').onclick = () => { sheet.hidden = true; };
+  $('sh-open').onclick = () => { try { $('detail').scrollIntoView({behavior: 'smooth', block: 'start'}); } catch(e){} };
   $('detail').innerHTML = `<div class="detail">
-    <div><h2>${esc(addr)}</h2><div class="sub">${esc(title(a.adrcity)||'')}${a.adrzip5?' '+a.adrzip5:''} · ${esc(county)} County · parcel <span class="num">${esc(a.parcelid)}</span></div></div>
+    <div><h2>${esc(addr)}</h2><div class="sub">${esc(title(a.adrcity)||'')}${a.adrzip5?' '+a.adrzip5:''} · ${esc(county)} County · parcel <span class="num">${esc(a.parcelid)}</span></div>${doors}</div>
     <div id="village"></div>
     <div class="strip" id="strip" aria-label="Summary"><div><span>Sale</span><b>UNKNOWN — no listing source connected</b></div><div><span>Taxes</span><b id="strip-tax">checking the State list and Collector status…</b></div><div><span>Signals</span><b id="strip-sig">looking up the scan…</b></div><div><span>Next</span><b id="strip-next">…</b></div></div>
     <div class="sec" id="whysec"><h3>Why this property? <span class="from">only from records read</span></h3><div id="why"><span class="pending">assembling…</span></div></div>

@@ -4,10 +4,10 @@ name: Refresh State Lands inventory
 # State parcel layer, then commits it so the GitHub Pages site stays current.
 # Public data only; no logins, no bidding, polite pacing.
 
+# 2026-09-23: the scheduled runs failed every day from 09-20 (COSL does not answer GitHub's runners; exit 1).
+# The Mac's publish loop (tools/publish_scan.py) now refreshes the inventory once a day instead. Kept for
+# manual runs only; re-add the schedule if COSL starts answering the runner again.
 on:
-  schedule:
-    - cron: "17 11 * * *"      # daily, ~06:17 Central: listings
-    - cron: "47 11 * * 1"      # Mondays: listings + sales history
   workflow_dispatch:
 
 permissions:

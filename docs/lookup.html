@@ -194,7 +194,7 @@ footer{background:var(--surface);border-top:1px solid var(--rule);padding:10px 2
   </section>
   <section class="mapwrap">
     <div id="map" role="application" aria-label="Parcel map"></div>
-    <div class="maptools"><button type="button" id="b-aerial" aria-pressed="true">Aerial</button><button type="button" id="b-streetmap" aria-pressed="false">Streets</button><span style="width:6px"></span><button type="button" id="b-me" title="Show the parcels around your location">Around me</button><button type="button" id="b-follow" aria-pressed="false" title="Keep loading parcels as you move along the road">Follow me</button><button type="button" id="b-view" title="Every parcel inside the map view (zoom to street level first)">Parcels in view</button><button type="button" id="b-street" title="Every parcel on the selected parcel's street">This street</button><button type="button" id="b-corners" title="Number the corners of the selected parcel and walk to one">Corners</button></div>
+    <div class="maptools"><button type="button" id="b-aerial" aria-pressed="true">Aerial</button><button type="button" id="b-streetmap" aria-pressed="false">Streets</button><span style="width:6px"></span><button type="button" id="b-me" title="Show the parcels around your location">Around me</button><button type="button" id="b-follow" aria-pressed="false" title="Keep loading parcels as you move along the road">Follow me</button><button type="button" id="b-view" title="Every parcel inside the map view (zoom to street level first)">Parcels in view</button><button type="button" id="b-street" title="Every parcel on the selected parcel's street">This street</button><button type="button" id="b-corners" title="Tax-map corners of the selected parcel, with distance from your phone. Not a survey; it will not find the pin.">Corners</button></div>
     <div class="walk" id="walk" hidden></div>
     <div class="mapnote">Tap a parcel for its record · <span style="color:#FFD54A">yellow = selected</span> · <span style="color:#E2746B">red = on the State tax-sale list today</span> · aerial by Esri</div>
     <div class="sheet" id="sheet" hidden></div>
@@ -376,6 +376,13 @@ function selectedParcel(){ const i = [...document.querySelectorAll('.results but
 function showCorners(){
   const r = selectedParcel();
   if(!r || !r.geom || !r.geom.rings || !r.geom.rings[0]){ status('ok', 'Pick a parcel first (tap one on the map); then Corners numbers its tax-map corners.'); return; }
+  let ack = false; try { ack = localStorage.getItem('ph-corners-ack') === '1'; } catch(e){}
+  if(!ack){
+    const sheet = $('sheet'); sheet.hidden = false;
+    sheet.innerHTML = `<div class="sh-top"><div><b style="color:#E2746B">This will not find the survey pin.</b><div class="sh-sub" style="margin-top:4px">The lines come from the county tax map, drawn for assessment: usually within 5 to 50 ft of the true boundary, sometimes worse. Your phone's GPS adds 10 to 30 ft. Use it to find the right stretch of fence and see the lot's shape. Only a licensed surveyor, or the actual monuments in the ground, locate a corner. Never build, cut, or fence from this.</div></div></div><div class="doors"><button type="button" class="door main" id="c-ack">I understand · show the tax-map corners</button><button type="button" class="door" onclick="document.getElementById('sheet').hidden=true">Cancel</button></div>`;
+    $('c-ack').onclick = () => { try { localStorage.setItem('ph-corners-ack', '1'); } catch(e){} sheet.hidden = true; showCorners(); };
+    return;
+  }
   const ring = r.geom.rings[0].slice(); if(ring.length > 1 && ring[0][0] === ring[ring.length-1][0] && ring[0][1] === ring[ring.length-1][1]) ring.pop();
   cornerParcel = r; cornerPts = ring.map(p => [p[1], p[0]]);
   if(cornerLayer) map.removeLayer(cornerLayer);
@@ -389,7 +396,7 @@ function showCorners(){
   const acres = ringArea(r.geom.rings[0]) / 4046.8564;
   try { map.fitBounds(L.latLngBounds(cornerPts).pad(0.3), {maxZoom: 19}); } catch(e){}
   const list = cornerPts.map((pt, i) => `<div><span><span class="num">${i+1}</span> ${pt[0].toFixed(6)}, ${pt[1].toFixed(6)} <span class="num">· side to ${(i+1) % cornerPts.length + 1}: ${Math.round(sides[i]*FT)} ft</span></span><button type="button" data-walk="${i}" style="background:none;border:1px solid var(--rule);color:var(--ink);font:inherit;font-size:12px;padding:3px 8px;cursor:pointer">Walk to</button></div>`).join('');
-  const box = `<div class="sec" id="cornersec"><h3>Corners and lines <span class="from">tax-map geometry from the State parcel layer · NOT a survey</span></h3>
+  const box = `<div class="sec" id="cornersec"><h3>Corners and lines <span class="from">tax-map geometry from the State parcel layer · NOT a survey · will not find the pin</span></h3>
     <div class="warn">These are the county tax map's lines: usually within 5 to 50 ft of the true boundary, sometimes worse. Your phone adds 10 to 30 ft. Use this to find the right part of the fence line and see the lot's shape; only a survey or the actual monuments locate a corner.</div>
     <div style="font-size:13px;margin:8px 0">${cornerPts.length} corners · perimeter ${Math.round(perim*FT).toLocaleString()} ft · ${acres.toFixed(3)} acres by the polygon${r.a.Shape__Area ? '' : ''}</div>
     <div class="cornerlist">${list}</div>
@@ -425,9 +432,9 @@ function updateWalk(lat, lon, acc){
     if(walkLine) map.removeLayer(walkLine);
     walkLine = L.polyline([here, t], {color: '#FFD54A', weight: 3, opacity: .9}).addTo(map);
     const within = d <= Math.max(acc, 5);
-    html += `<div class="fine">Corner ${walkTarget+1} of the tax-map lot</div><div class="big">${within ? 'HERE ±' + Math.round(acc*FT) + ' ft' : Math.round(d*FT) + ' ft ' + compass(b)}</div><div class="fine">${within ? 'You are inside the GPS error of the mapped corner. The pin, if any, is somewhere within that circle; the map cannot place it closer.' : `bearing ${Math.round(b)}° · GPS ±${Math.round(acc*FT)} ft`}</div>`;
+    html += `<div class="fine">Corner ${walkTarget+1} of the <b>tax-map</b> lot · <span style="color:#E2746B">will not find the pin</span></div><div class="big">${within ? 'HERE ±' + Math.round(acc*FT) + ' ft' : Math.round(d*FT) + ' ft ' + compass(b)}</div><div class="fine">${within ? 'You are inside the GPS error of the mapped corner. The pin, if any, is somewhere within that circle; the map cannot place it closer.' : `bearing ${Math.round(b)}° · GPS ±${Math.round(acc*FT)} ft`}</div>`;
   }
-  html += `<div class="fine">${inside ? 'Inside' : 'Outside'} the tax-map lot · nearest line ${Math.round(near.d*FT)} ft away (side ${near.side+1}–${(near.side+1) % cornerPts.length + 1})</div><div style="display:flex;gap:6px"><button type="button" onclick="map.setView([${lat},${lon}], Math.max(map.getZoom(), 18))">Center on me</button><button type="button" onclick="stopWalk()">Stop</button></div><div class="fine">Tax-map line, not a survey.</div>`;
+  html += `<div class="fine">${inside ? 'Inside' : 'Outside'} the tax-map lot · nearest line ${Math.round(near.d*FT)} ft away (side ${near.side+1}–${(near.side+1) % cornerPts.length + 1})</div><div style="display:flex;gap:6px"><button type="button" onclick="map.setView([${lat},${lon}], Math.max(map.getZoom(), 18))">Center on me</button><button type="button" onclick="stopWalk()">Stop</button></div><div class="fine">Tax-map line, not a survey. It will not find the pin.</div>`;
   $('walk').innerHTML = html;
 }
 $('b-corners').onclick = showCorners;

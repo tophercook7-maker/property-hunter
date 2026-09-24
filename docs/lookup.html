@@ -164,20 +164,20 @@ footer{background:var(--surface);border-top:1px solid var(--rule);padding:10px 2
 </header>
 <div class="hint">
   <span><b>Try:</b> <button class="ex" type="button" data-q="267 Glade">267 Glade</button> · <button class="ex" type="button" data-q="Monolith">Monolith</button> · <button class="ex" type="button" data-q="400-29150-014-000">400-29150-014-000</button></span>
-  <span>Or <b>click any parcel on the map</b>.</span>
+  <span>Or <b>click any parcel on the map</b>, or press <b>Around me</b> / <b>Follow me</b> to see every parcel along the road you are on.</span>
   <span>Owner and values come from the county tax roll as republished by the State. Taxes owed and listings are <b>not</b> here; the links in each record take you to those.</span>
 </div>
 
 <div class="body">
   <section class="panel">
-    <div class="status" id="status"><span class="dot"></span><span id="stext">Pick a county and type an address, owner or parcel number.</span></div>
+    <div class="status" id="status"><span class="dot"></span><span id="stext">Pick a county and type an address, owner or parcel number. Choose "Any county" to search statewide.</span></div>
     <ul class="results" id="results"></ul>
     <div id="detail"></div>
   </section>
   <section class="mapwrap">
     <div id="map" role="application" aria-label="Parcel map"></div>
-    <div class="maptools"><button type="button" id="b-aerial" aria-pressed="true">Aerial</button><button type="button" id="b-street" aria-pressed="false">Streets</button></div>
-    <div class="mapnote">Click a parcel to identify it · aerial by Esri</div>
+    <div class="maptools"><button type="button" id="b-aerial" aria-pressed="true">Aerial</button><button type="button" id="b-streetmap" aria-pressed="false">Streets</button><span style="width:6px"></span><button type="button" id="b-me" title="Show the parcels around your location">Around me</button><button type="button" id="b-follow" aria-pressed="false" title="Keep loading parcels as you move along the road">Follow me</button><button type="button" id="b-view" title="Every parcel inside the map view (zoom to street level first)">Parcels in view</button><button type="button" id="b-street" title="Every parcel on the selected parcel's street">This street</button></div>
+    <div class="mapnote">Click a parcel to identify it · <span style="color:#E2746B">red = on the State tax-sale list today</span> · aerial by Esri</div>
   </section>
 </div>
 
@@ -209,17 +209,22 @@ const clean = s => String(s ?? '').replace(/\s+/g,' ').trim();
 const title = s => clean(s).toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 
 /* county select */
-$('county').innerHTML = Object.entries(COUNTIES).map(([f,n]) => `<option value="${f}">${n} County</option>`).join('');
-try { $('county').value = localStorage.getItem('ph-county') || '05051'; } catch(e) { $('county').value = '05051'; }
+$('county').innerHTML = '<option value="">Any county (statewide)</option>' + Object.entries(COUNTIES).map(([f,n]) => `<option value="${f}">${n} County</option>`).join('');
+try { const saved = localStorage.getItem('ph-county'); $('county').value = saved === null ? '05051' : saved; } catch(e) { $('county').value = '05051'; }   // Garland by default; "Any county" is the option
+const countyName = fips => fips ? `${COUNTIES[fips]} County` : 'every Arkansas county';
 
 /* map */
 const map = L.map('map', {zoomControl:true}).setView([34.55, -93.05], 11);
 const aerial = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, attribution:'Esri, Maxar, Earthstar Geographics'});
 const streets = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, attribution:'Esri, HERE, Garmin'});
 aerial.addTo(map);
-$('b-aerial').onclick = () => { map.removeLayer(streets); aerial.addTo(map); $('b-aerial').setAttribute('aria-pressed','true'); $('b-street').setAttribute('aria-pressed','false'); };
-$('b-street').onclick = () => { map.removeLayer(aerial); streets.addTo(map); $('b-street').setAttribute('aria-pressed','true'); $('b-aerial').setAttribute('aria-pressed','false'); };
-const resultLayer = L.geoJSON(null, {style: () => ({color:'#3BB8AC', weight:2, fillOpacity:.08})}).addTo(map);
+$('b-aerial').onclick = () => { map.removeLayer(streets); aerial.addTo(map); $('b-aerial').setAttribute('aria-pressed','true'); $('b-streetmap').setAttribute('aria-pressed','false'); };
+$('b-streetmap').onclick = () => { map.removeLayer(aerial); streets.addTo(map); $('b-streetmap').setAttribute('aria-pressed','true'); $('b-aerial').setAttribute('aria-pressed','false'); };
+let SALE = null;                                                     // "fips:parcel" for every parcel the State is selling today
+fetch('data/state_lands.json', {cache:'no-store'}).then(r => r.json()).then(d => { SALE = new Set((d.listings || []).map(x => `${x.fips}:${x.parcel_id}`)); if(current.length) drawResults(current); }).catch(() => { SALE = new Set(); });
+const onSale = a => !!(SALE && a && SALE.has(`${a.countyfips}:${a.parcelid}`));
+const resultLayer = L.geoJSON(null, {style: f => f.properties.sale ? ({color:'#E2746B', weight:3, fillOpacity:.22}) : ({color:'#3BB8AC', weight:2, fillOpacity:.08})}).addTo(map);
+let youMarker = null, followId = null, lastFix = null;
 let selectedLayer = null;
 map.on('click', e => identify(e.latlng.lat, e.latlng.lng));
 
@@ -239,41 +244,106 @@ async function arc(url, params){
 /* search */
 function buildWhere(fips, raw){
   const q = clean(raw).toUpperCase();
-  const c = `countyfips='${fips}'`;
+  const c = fips ? `countyfips='${fips}' AND ` : '';
   if(!q) return null;
-  if(/^[\d-]{5,}[A-Z]?$/.test(q)) return `${c} AND parcelid LIKE '%${sq(q)}%'`;
+  if(/^[\d-]{5,}[A-Z]?$/.test(q)) return `${c}parcelid LIKE '%${sq(q)}%'`;
   const m = q.match(/^(\d+)\s+(.+)$/);
   if(m){
     const num = parseInt(m[1],10), rest = m[2].replace(/[.,]/g,'');
     const street = rest.split(' ')[0];
-    return `${c} AND ((adrnum=${num} AND UPPER(pstrnam) LIKE '${sq(street)}%') OR UPPER(adrlabel) LIKE '%${sq(m[1]+' '+rest)}%')`;
+    // statewide: house number + street name only (the same rule the licensed resolver uses); a county narrows it
+    if(!fips) return `adrnum=${num} AND UPPER(pstrnam) LIKE '${sq(street)}%'`;
+    return `${c}((adrnum=${num} AND UPPER(pstrnam) LIKE '${sq(street)}%') OR UPPER(adrlabel) LIKE '%${sq(m[1]+' '+rest)}%')`;
   }
-  return `${c} AND (UPPER(ownername) LIKE '%${sq(q)}%' OR UPPER(adrlabel) LIKE '%${sq(q)}%' OR UPPER(subdivision) LIKE '%${sq(q)}%')`;
+  if(!fips) return `UPPER(ownername) LIKE '${sq(q)}%'`;
+  return `${c}(UPPER(ownername) LIKE '%${sq(q)}%' OR UPPER(adrlabel) LIKE '%${sq(q)}%' OR UPPER(subdivision) LIKE '%${sq(q)}%')`;
 }
 let current = [];
 async function search(raw){
   const fips = $('county').value; const where = buildWhere(fips, raw);
   if(!where) return;
   try { localStorage.setItem('ph-county', fips); localStorage.setItem('ph-q', raw); } catch(e){}
-  $('go').disabled = true; status('busy', `Asking the State parcel layer for "${clean(raw)}" in ${COUNTIES[fips]} County…`);
+  $('go').disabled = true; status('busy', `Asking the State parcel layer for "${clean(raw)}" in ${countyName(fips)}…`);
   $('detail').innerHTML = ''; $('results').innerHTML = '';
   try {
     const j = await arc(PARCELS, {where, outFields:FIELDS, outSR:4326, returnGeometry:true, returnCentroid:true, resultRecordCount:60, orderByFields:'adrlabel'});
     current = (j.features || []).map(f => ({a:f.attributes, geom:f.geometry, centroid:f.centroid}));
     drawResults(current);
-    if(!current.length){ status('ok', `Nothing on the ${COUNTIES[fips]} County roll matches "${clean(raw)}". Try fewer words, or the owner's last name.`); }
-    else { status('ok', `${current.length}${current.length===60?'+':''} parcel${current.length===1?'':'s'} on the ${COUNTIES[fips]} County roll.`); if(current.length===1) select(0); }
+    if(!current.length){ status('ok', `Nothing on the roll matches "${clean(raw)}" in ${countyName(fips)}. Try fewer words${fips ? ", or the owner's last name" : ', or add the county'}.`); }
+    else { status('ok', `${current.length}${current.length===60?'+':''} parcel${current.length===1?'':'s'} on the roll in ${countyName(fips)}.${current.length > 1 && !fips ? ' Pick the right one; the county fills in.' : ''}`); if(current.length===1) select(0); }
   } catch(err){ status('err', 'The State parcel service did not answer: ' + err.message); }
   $('go').disabled = false;
 }
 function addrOf(a){ const s = clean(a.adrlabel); return s ? title(s) : (clean(a.parcellgl) ? 'No situs address · ' + clean(a.parcellgl).slice(0,40) : 'No situs address'); }
 function drawResults(rows){
-  $('results').innerHTML = rows.map((r,i) => `<li><button type="button" data-i="${i}"><span class="addr">${esc(addrOf(r.a))}</span><span class="val">${fmt$(r.a.totalvalue)}</span><span class="own">${esc(title(r.a.ownername) || 'no owner name')} · ${esc(title(r.a.adrcity))}</span><span class="pid">${esc(r.a.parcelid)}</span></button></li>`).join('');
+  $('results').innerHTML = rows.slice(0, 200).map((r,i) => `<li><button type="button" data-i="${i}"><span class="addr">${onSale(r.a) ? '⚑ ' : ''}${esc(addrOf(r.a))}</span><span class="val">${fmt$(r.a.totalvalue)}</span><span class="own">${esc(title(r.a.ownername) || 'no owner name')} · ${esc(title(r.a.adrcity))}</span><span class="pid">${esc(r.a.parcelid)}</span></button></li>`).join('');
   resultLayer.clearLayers();
-  rows.forEach((r,i) => { if(r.geom && r.geom.rings){ const gj = {type:'Feature', properties:{i}, geometry:{type:'Polygon', coordinates:r.geom.rings}}; resultLayer.addData(gj); } });
+  rows.forEach((r,i) => { if(r.geom && r.geom.rings){ const gj = {type:'Feature', properties:{i, sale: onSale(r.a)}, geometry:{type:'Polygon', coordinates:r.geom.rings}}; resultLayer.addData(gj); } });
   resultLayer.eachLayer(l => l.on('click', ev => { L.DomEvent.stop(ev); select(l.feature.properties.i); }));
-  if(rows.length){ try { map.fitBounds(resultLayer.getBounds().pad(0.2), {maxZoom:17}); } catch(e){} }
+  if(rows.length && !rows.inView){ try { map.fitBounds(resultLayer.getBounds().pad(0.2), {maxZoom:17}); } catch(e){} }
+  if(rows.length > 200) $('results').insertAdjacentHTML('beforeend', `<li class="hint" style="padding:8px 12px;font-size:12px;color:var(--muted)">${rows.length} parcels drawn; the list shows the first 200. Click any parcel on the map.</li>`);
 }
+
+/* ---------- along the road: every parcel in the map view, around you, or on one street ---------- */
+async function loadInView(msg){
+  if(map.getZoom() < 15){ status('ok', 'Zoom in closer (street level) and try again; at this zoom there are too many parcels to draw.'); return; }
+  const b = map.getBounds();
+  status('busy', msg || 'Reading every parcel in view from the State roll…');
+  $('detail').innerHTML = '';
+  try {
+    const j = await arc(PARCELS, {geometry: `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`, geometryType: 'esriGeometryEnvelope', inSR: 4326, spatialRel: 'esriSpatialRelIntersects',
+                                  outFields: FIELDS, outSR: 4326, returnGeometry: true, returnCentroid: true, resultRecordCount: 500, orderByFields: 'adrlabel'});
+    current = (j.features || []).map(f => ({a: f.attributes, geom: f.geometry, centroid: f.centroid}));
+    current.inView = true;
+    drawResults(current);
+    const sale = current.filter(r => onSale(r.a)).length;
+    status('ok', `${current.length}${current.length === 500 ? '+' : ''} parcels in view${sale ? `; ${sale} on the State tax-sale list (red)` : ''}. Click one for its record.`);
+  } catch(err){ status('err', 'The State parcel service did not answer: ' + err.message); }
+}
+function showYou(lat, lon, acc){
+  if(!youMarker){ youMarker = L.circleMarker([lat, lon], {radius: 8, color: '#fff', weight: 2, fillColor: '#2F5D9E', fillOpacity: 1}).addTo(map); }
+  else youMarker.setLatLng([lat, lon]);
+  youMarker.bindTooltip(`You (±${Math.round(acc || 0)} m)`);
+}
+function distM(a, b){ const R = 6371000, dLat = (b[0]-a[0])*Math.PI/180, dLon = (b[1]-a[1])*Math.PI/180, x = Math.sin(dLat/2)**2 + Math.cos(a[0]*Math.PI/180)*Math.cos(b[0]*Math.PI/180)*Math.sin(dLon/2)**2; return 2*R*Math.asin(Math.sqrt(x)); }
+function aroundMe(){
+  if(!navigator.geolocation){ status('err', 'This browser does not share location.'); return; }
+  status('busy', 'Finding you…');
+  navigator.geolocation.getCurrentPosition(pos => {
+    const {latitude: lat, longitude: lon, accuracy} = pos.coords;
+    showYou(lat, lon, accuracy); lastFix = [lat, lon];
+    map.setView([lat, lon], 17);
+    loadInView('Reading the parcels around you…');
+  }, err => status('err', 'Location was not shared: ' + err.message), {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000});
+}
+function follow(on){
+  if(!on){ if(followId != null) navigator.geolocation.clearWatch(followId); followId = null; $('b-follow').setAttribute('aria-pressed', 'false'); return; }
+  if(!navigator.geolocation){ status('err', 'This browser does not share location.'); return; }
+  $('b-follow').setAttribute('aria-pressed', 'true');
+  followId = navigator.geolocation.watchPosition(pos => {
+    const here = [pos.coords.latitude, pos.coords.longitude];
+    showYou(here[0], here[1], pos.coords.accuracy);
+    if(!lastFix || distM(lastFix, here) > 120){ lastFix = here; map.setView(here, Math.max(map.getZoom(), 16)); loadInView('Moving: reading the parcels along the road…'); }
+  }, err => { status('err', 'Location stopped: ' + err.message); follow(false); }, {enableHighAccuracy: true, maximumAge: 5000});
+}
+async function thisStreet(){
+  const r = current[[...document.querySelectorAll('.results button')].findIndex(b => b.getAttribute('aria-current') === 'true')] || current[0];
+  if(!r || !r.a.pstrnam){ status('ok', 'Pick a parcel first; then this shows every parcel on its street.'); return; }
+  const a = r.a;
+  status('busy', `Reading every parcel on ${title(a.pstrnam)} ${title(a.pstrtype || '')} in ${COUNTIES[a.countyfips] || 'the county'}…`);
+  try {
+    const where = `countyfips='${a.countyfips}' AND UPPER(pstrnam)='${sq(String(a.pstrnam).toUpperCase())}'` + (a.pstrtype ? ` AND UPPER(pstrtype)='${sq(String(a.pstrtype).toUpperCase())}'` : '');
+    const j = await arc(PARCELS, {where, outFields: FIELDS, outSR: 4326, returnGeometry: true, returnCentroid: true, resultRecordCount: 500, orderByFields: 'adrnum'});
+    current = (j.features || []).map(f => ({a: f.attributes, geom: f.geometry, centroid: f.centroid}));
+    drawResults(current);
+    const sale = current.filter(x => onSale(x.a)).length;
+    status('ok', `${current.length}${current.length === 500 ? '+' : ''} parcels on ${title(a.pstrnam)} ${title(a.pstrtype || '')}${sale ? `; ${sale} on the State tax-sale list (red)` : ''}.`);
+  } catch(err){ status('err', 'The State parcel service did not answer: ' + err.message); }
+}
+$('b-view').onclick = () => loadInView();
+$('b-me').onclick = aroundMe;
+$('b-follow').onclick = () => follow(followId == null);
+$('b-street').onclick = thisStreet;
 $('results').addEventListener('click', e => { const b = e.target.closest('button'); if(b) select(+b.dataset.i); });
 $('f').addEventListener('submit', e => { e.preventDefault(); search($('q').value); });
 document.querySelectorAll('.ex').forEach(b => b.addEventListener('click', () => { $('county').value='05051'; $('q').value=b.dataset.q; search(b.dataset.q); }));
@@ -597,6 +667,7 @@ function renderAcq(r, a, c, cityOut, county){
 
   /* --- manual confirmations (the ones no feed can do) --- */
   const taxsearch = `https://www.arkansastaxsearch.com/${(county||'').toLowerCase().replace(/[^a-z]/g,'')}.html`;
+  const ds = `https://www.actdatascout.com/RealProperty/Arkansas/${encodeURIComponent(county || '')}`;
   const manual = [
     {k:'assessor', t:'Assessor record: the house photo, deed history with prices, and the owner\'s current mailing address', why:`One click on <a href="${ds}" target="_blank" rel="noopener">actDataScout</a>, search parcel <span class="num">${esc(a.parcelid||'')}</span>, then View. The City's mailing copy can be years old; the assessor's is current. Their terms forbid automated reading, so this one is yours.`},
     {k:'taxes', t:'Taxes: are they current, how many years delinquent, and the payoff amount', why:`<a href="${taxsearch}" target="_blank" rel="noopener">${esc(county)} County tax search</a> (login) or call the Collector. Delinquent ≠ for sale, and paying them does not make you the owner.`},

@@ -57,7 +57,7 @@ form.search button[disabled]{opacity:.6;cursor:wait}
 .hint .ex{cursor:pointer;color:var(--accent);background:none;border:0;padding:0;font-size:12.5px;text-decoration:underline dotted}
 
 .body{flex:1;display:grid;grid-template-columns:minmax(380px,520px) 1fr;min-height:0}
-@media (max-width:860px){.body{grid-template-columns:1fr}.mapwrap{height:360px}}
+@media (max-width:860px){.body{display:flex;flex-direction:column;min-height:auto}.mapwrap{order:0;height:56vh;min-height:320px}.panel{order:1;overflow:visible;border-right:0;border-top:1px solid var(--rule)}.maptools{flex-wrap:wrap;justify-content:flex-end;max-width:70%}.maptools button{font-size:12px;padding:6px 8px}}
 .panel{border-right:1px solid var(--rule);background:var(--surface);overflow-y:auto;display:flex;flex-direction:column}
 .mapwrap{position:relative;min-height:420px}
 #map{position:absolute;inset:0;background:var(--surface2)}
@@ -305,6 +305,7 @@ function showYou(lat, lon, acc){
   else youMarker.setLatLng([lat, lon]);
   youMarker.bindTooltip(`You (±${Math.round(acc || 0)} m)`);
 }
+function inRing(ring, x, y){ let inside = false; for(let i = 0, j = ring.length - 1; i < ring.length; j = i++){ const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1]; if(((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside; } return inside; }
 function distM(a, b){ const R = 6371000, dLat = (b[0]-a[0])*Math.PI/180, dLon = (b[1]-a[1])*Math.PI/180, x = Math.sin(dLat/2)**2 + Math.cos(a[0]*Math.PI/180)*Math.cos(b[0]*Math.PI/180)*Math.sin(dLon/2)**2; return 2*R*Math.asin(Math.sqrt(x)); }
 function aroundMe(){
   if(!navigator.geolocation){ status('err', 'This browser does not share location.'); return; }
@@ -313,7 +314,10 @@ function aroundMe(){
     const {latitude: lat, longitude: lon, accuracy} = pos.coords;
     showYou(lat, lon, accuracy); lastFix = [lat, lon];
     map.setView([lat, lon], 17);
-    loadInView('Reading the parcels around you…');
+    loadInView('Reading the parcels around you…').then(() => {
+      const i = current.findIndex(r => r.geom && r.geom.rings && inRing(r.geom.rings[0], lon, lat));
+      if(i >= 0) select(i); else status('ok', `${current.length} parcels around you. You are not inside a mapped parcel (a road or right-of-way); tap any parcel for its record.`);
+    });
   }, err => status('err', 'Location was not shared: ' + err.message), {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000});
 }
 function follow(on){
@@ -370,6 +374,7 @@ function centroidOf(r){
 async function select(i){
   const r = current[i]; if(!r) return; const a = r.a;
   document.querySelectorAll('.results button').forEach(b => b.setAttribute('aria-current', b.dataset.i==i));
+  if(window.innerWidth <= 860) setTimeout(() => { try { $('detail').scrollIntoView({behavior: 'smooth', block: 'start'}); } catch(e){} }, 60);
   if(selectedLayer) map.removeLayer(selectedLayer);
   if(r.geom && r.geom.rings){ selectedLayer = L.geoJSON({type:'Feature',geometry:{type:'Polygon',coordinates:r.geom.rings}}, {style:{color:'#E2746B',weight:3,fillOpacity:.15}}).addTo(map); try{ map.fitBounds(selectedLayer.getBounds().pad(0.6), {maxZoom:18}); }catch(e){} }
   const c = centroidOf(r);

@@ -75,3 +75,21 @@ def test_feedback_page_is_static_and_routes_to_one_inbox():
     assert "PH.apiFetch" not in t and "ph-auth.js" not in t and "8234" not in t
     for page in ("samples.html", "sample.html", "get-a-file.html", "index.html"):
         assert "feedback.html" in (ROOT / "docs" / page).read_text(), page
+
+
+def test_signup_brief_and_deploy_kit_are_static_and_honest():
+    su = (ROOT / "docs" / "signup.html").read_text()
+    assert 'action="https://formsubmit.co/topher@mixedmakershop.com"' in su and 'name="would_pay"' in su and 'name="price"' in su and 'name="watch_parcel"' in su
+    assert "PH.apiFetch" not in su and "8234" not in su
+    wb = (ROOT / "tools" / "weekly_brief.py").read_text()
+    assert not re.search(r"^\s*(import|from)\s+(requests|urllib|httpx|subprocess)\b", wb, re.M) and "from hunter" not in wb and "sqlite" not in wb      # public data files only
+    assert (ROOT / "docs" / "weekly.html").exists() and "nothing here is advice" in (ROOT / "docs" / "weekly.html").read_text()
+    sp = (ROOT / "docs" / "samples.html").read_text()
+    assert "data/state_lands.json" in sp and "signup.html?watch=" in sp and "mailto:topher@mixedmakershop.com" in sp
+    pf = (ROOT / "docs" / "pf-render.js").read_text()
+    assert "@media print" in (ROOT / "docs" / "sample.html").read_text() and "window.print()" in pf
+    assert "draft only, nothing is sent" in pf and "/outreach`" in pf and "!f.sample" in pf                       # outreach prep only on the licensed page
+    smp = (ROOT / "docs" / "sample.html").read_text()
+    assert "AI OPINION" in smp and "cannot change the identity" in smp
+    dk = (ROOT / "deploy" / "README.md").read_text()
+    assert "PH_LICENSE_ENFORCED" in (ROOT / "deploy" / "Dockerfile").read_text() and "per month" in dk

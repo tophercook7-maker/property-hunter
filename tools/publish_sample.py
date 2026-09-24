@@ -90,7 +90,27 @@ def _slug(text: str) -> str:
     return re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", text.lower())).strip("-")[:60]
 
 
-def publish(workup_id: int, slug: str | None, note: str) -> dict:
+def bee_read(case_id: int, *, run: bool) -> dict | None:
+    """Bee's latest OK analysis of the case, or a fresh one when asked. Private field values never appear (Bee's snapshot
+    already redacts them). Shown on the public sample as AI OPINION: it explains and proposes; it establishes nothing."""
+    from hunter import bee
+    if run:
+        try:
+            bee.run(case_id, actor="publisher")
+        except Exception as exc:                                  # a slow or absent model is not a reason to fail publishing
+            print("bee run skipped:", exc)
+    v = bee.view(case_id)
+    a = v.get("latest") if (v.get("latest") or {}).get("status") == "OK" else v.get("latest_ok")
+    if not a:
+        return None
+    out = a.get("output") or {}
+    checks = [{"question": c.get("question"), "what": c.get("what") or c.get("check") or c.get("label"), "why": c.get("why") or c.get("reason")} for c in (out.get("proposed_checks") or [])[:6]]
+    return {"origin": "AI_OPINION", "label": "Bee's read (AI opinion; explains and proposes, establishes nothing)", "model": a.get("model"), "at": a.get("created_at"),
+            "summary": (out.get("summary") or "")[:900], "unknown": [str(x.get("text") if isinstance(x, dict) else x)[:200] for x in (out.get("unknown") or [])[:6]],
+            "conflicts": [str(x.get("text") if isinstance(x, dict) else x)[:200] for x in (out.get("conflicts") or [])[:4]], "proposed_checks": checks}
+
+
+def publish(workup_id: int, slug: str | None, note: str, *, bee: bool = False, bee_run: bool = False) -> dict:
     w = workup.view(workup_id)
     if not w:
         raise SystemExit(f"no workup {workup_id}")
@@ -100,6 +120,7 @@ def publish(workup_id: int, slug: str | None, note: str) -> dict:
     ident = f["identity"]
     slug = _slug(slug or f"{ident.get('situs') or ident.get('parcel_id')}-{ident.get('county')}")
     out = redact(f, w, note=note)
+    out["bee"] = bee_read(w["investigation_id"], run=bee_run) if (bee and w.get("investigation_id")) else None
     os.makedirs(SAMPLES, exist_ok=True)
     path = os.path.join(SAMPLES, f"{slug}.json")
     text = json.dumps(out, indent=1)
@@ -145,6 +166,8 @@ if __name__ == "__main__":
     ap.add_argument("--note", default="A real parcel; the file is exactly what the workup produced, with private research and mailing details removed.")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--remove")
+    ap.add_argument("--bee", action="store_true", help="include Bee's latest OK read of the case as AI OPINION")
+    ap.add_argument("--bee-run", action="store_true", help="ask Bee for a fresh read first (needs the local model)")
     a = ap.parse_args()
     if a.list:
         for r in db.q("SELECT id, property_id, status, completed_at FROM workups ORDER BY id DESC LIMIT 20"):
@@ -152,6 +175,6 @@ if __name__ == "__main__":
     elif a.remove:
         remove(a.remove); print("removed", a.remove)
     elif a.workup:
-        print(publish(a.workup, a.slug, a.note))
+        print(publish(a.workup, a.slug, a.note, bee=a.bee or a.bee_run, bee_run=a.bee_run))
     else:
         ap.print_help()

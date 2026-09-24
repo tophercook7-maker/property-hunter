@@ -45,7 +45,25 @@ table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{text-align:left
 details summary{cursor:pointer;color:var(--accent);font-size:13px}
 .msg{font-size:13px}.msg.err{color:var(--bad)}
 </style>
-<style>.st.PRIVATE{color:var(--muted);border-color:var(--rule)} .sample-note{background:var(--paper);color:var(--paper-ink);border:1px solid var(--rule);padding:10px 14px;font-size:13px}</style>
+<style>.st.PRIVATE{color:var(--muted);border-color:var(--rule)} .sample-note{background:var(--paper);color:var(--paper-ink);border:1px solid var(--rule);padding:10px 14px;font-size:13px}
+/* Print / save as PDF: the file on paper. No shadows (Chrome renders them as grey boxes), no nav, no buttons. */
+@media print{
+  *{box-shadow:none!important;text-shadow:none!important}
+  body{background:#fff!important;color:#111!important}
+  .ph-top nav,nav[data-nav],.btn,.btnrow,button,details:not([open])>*:not(summary){display:none!important}
+  .ph-top{border:0;padding:0 0 8px}
+  main{max-width:none;padding:0;gap:12px}
+  .box,.prop,.status,.state,.sample-note{border:1px solid #999!important;background:#fff!important;color:#111!important;break-inside:avoid}
+  .grid2{grid-template-columns:1fr 1fr}
+  .st{border-color:#666!important;color:#111!important}
+  a{color:#111;text-decoration:none}
+  a[href^="http"]::after{content:" (" attr(href) ")";font-size:10px;color:#555}
+  details{display:block} details[open] summary{display:none}
+  .progress div{border-color:#999!important;background:#fff!important}
+  .tablewrap{overflow:visible}
+  h2{font-size:16px} .prop .addr{font-size:22px}
+}
+</style>
 </head>
 <body>
 <header class="ph-top"><h1><small>A real file, published as a sample · private research and mailing details removed · nothing here is advice</small>Sample Property File</h1><nav data-nav aria-label="Sections"></nav></header>
@@ -83,6 +101,9 @@ const params = new URLSearchParams(location.search); const FILE = (params.get('f
     const main = document.querySelector('main');
     main.insertAdjacentHTML('afterbegin', `<div class="sample-note"><b>Published sample.</b> ${esc(f.sample_note || '')} Published ${esc(String(f.published_at || '').slice(0,10))}. <a href="samples.html">All samples</a> · <a href="get-a-file.html">Get one for your parcel</a> · <a href="feedback.html">Would this save you time? Tell me</a></div>`);
     renderStatus(f.workup_view); renderFile(f);
+    if(f.bee){ const b = f.bee; const box = document.createElement('div'); box.className = 'box'; box.style.borderColor = 'var(--warn)';
+      box.innerHTML = `<h2>Bee's read <span class="st CONFLICTING" style="vertical-align:middle">AI OPINION</span></h2><p class="fine">${esc(b.label)} · model ${esc(b.model || '')} · ${esc(String(b.at || '').slice(0,10))}. Bee reads the file above and nothing else. It cannot change the identity, add evidence, or answer a question; a person does those.</p><div style="font-size:14px;margin:6px 0">${esc(b.summary)}</div>${b.unknown && b.unknown.length ? `<h3 style="margin-top:8px">What Bee calls the open questions</h3><ul style="margin:0;padding-left:18px;font-size:13px">${b.unknown.map(u => `<li>${esc(u)}</li>`).join('')}</ul>` : ''}${b.proposed_checks && b.proposed_checks.length ? `<h3 style="margin-top:8px">What Bee would check first</h3><ol style="margin:0;padding-left:18px;font-size:13px">${b.proposed_checks.map(c => `<li><b>${esc(c.what || c.question || '')}</b>${c.why ? ' — ' + esc(c.why) : ''}</li>`).join('')}</ol>` : ''}`;
+      const anchor = document.getElementById('tax'); anchor.parentNode.insertBefore(box, anchor); }
   } catch(e) { $('status').className = 'status FAILED'; $('status').querySelector('.k').textContent = 'Sample not found'; $('stfine').innerHTML = 'See <a href="samples.html">all samples</a>.'; }
 })();
 </script>

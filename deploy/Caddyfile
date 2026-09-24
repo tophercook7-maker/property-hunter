@@ -1,0 +1,5 @@
+# Replace app.example.com with the real domain. Caddy gets the certificate on its own.
+app.example.com {
+  reverse_proxy app:8234
+  encode gzip
+}

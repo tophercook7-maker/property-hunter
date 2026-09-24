@@ -44,6 +44,24 @@ table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{text-align:left
 .tl{font-size:12px;display:grid;grid-template-columns:auto auto 1fr;gap:2px 8px;padding:4px 0;border-top:1px solid var(--rule)}.tl .c{font-family:var(--mono);font-size:10.5px}
 details summary{cursor:pointer;color:var(--accent);font-size:13px}
 .msg{font-size:13px}.msg.err{color:var(--bad)}
+
+/* Print / save as PDF: the file on paper. No shadows (Chrome renders them as grey boxes), no nav, no buttons. */
+@media print{
+  *{box-shadow:none!important;text-shadow:none!important}
+  body{background:#fff!important;color:#111!important}
+  .ph-top nav,nav[data-nav],.btn,.btnrow,button,details:not([open])>*:not(summary){display:none!important}
+  .ph-top{border:0;padding:0 0 8px}
+  main{max-width:none;padding:0;gap:12px}
+  .box,.prop,.status,.state,.sample-note{border:1px solid #999!important;background:#fff!important;color:#111!important;break-inside:avoid}
+  .grid2{grid-template-columns:1fr 1fr}
+  .st{border-color:#666!important;color:#111!important}
+  a{color:#111;text-decoration:none}
+  a[href^="http"]::after{content:" (" attr(href) ")";font-size:10px;color:#555}
+  details{display:block} details[open] summary{display:none}
+  .progress div{border-color:#999!important;background:#fff!important}
+  .tablewrap{overflow:visible}
+  h2{font-size:16px} .prop .addr{font-size:22px}
+}
 </style>
 </head>
 <body>

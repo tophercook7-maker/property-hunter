@@ -1,0 +1,16 @@
+services:
+  app:
+    build: { context: .., dockerfile: deploy/Dockerfile }
+    restart: unless-stopped
+    ports: ["127.0.0.1:8234:8234"]
+    volumes: ["ph-data:/data"]
+    environment:
+      PH_ENV: production
+      PH_LICENSE_ENFORCED: "1"
+      PH_AI_ENABLED: "0"          # Bee needs a model; on a small server leave it off or point OLLAMA_URL at a GPU box
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes: ["./Caddyfile:/etc/caddy/Caddyfile", "caddy-data:/data"]
+volumes: { ph-data: {}, caddy-data: {} }

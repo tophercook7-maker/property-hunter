@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Weekly Arkansas Tax-Sale Brief · Property Hunter</title>
+<meta name="description" content="Once a week: every parcel that entered or left the Arkansas State tax sale, every redemption, every new City lien, with sources and dates. Free while it's being built.">
+<meta property="og:title" content="Weekly Arkansas Tax-Sale Brief · Property Hunter">
+<meta property="og:description" content="What changed on the public record this week, statewide. Free while it's being built.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="ph.css">
+<style>
+main{max-width:720px;margin:0 auto;padding:16px 16px 70px;display:grid;gap:18px}
+h2{font-size:32px;text-transform:uppercase;letter-spacing:.02em;margin:0;text-wrap:balance}
+.lead{margin:4px 0 0;font-size:15px;line-height:1.5;max-width:66ch}
+form{background:var(--surface);border:1px solid var(--rule);padding:16px;display:grid;gap:12px}
+label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+input,select,textarea{font:inherit;font-size:14px;padding:9px 11px;background:var(--surface2);color:var(--ink);border:1px solid var(--rule)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:520px){.two{grid-template-columns:1fr}}
+.fine{font-size:12px;color:var(--muted)}
+.opts{display:grid;gap:6px}
+.opts label{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--ink)}
+.hp{position:absolute;left:-9999px;opacity:0;height:0;width:0}
+.thanks{background:var(--paper);color:var(--paper-ink);border:1px solid var(--rule);padding:16px;display:grid;gap:8px}
+.what{background:var(--surface);border:1px solid var(--rule);padding:14px 16px;font-size:13.5px;display:grid;gap:6px}
+.what div::before{content:"▲ ";color:var(--good);font-weight:600}
+</style>
+</head>
+<body>
+<header class="ph-top"><h1><small>Once a week · statewide · sources and dates on everything · free while it is being built</small>Weekly brief</h1><nav data-nav aria-label="Sections"></nav></header>
+<main>
+  <section>
+    <h2>What changed on the Arkansas public record this week, in one email.</h2>
+    <p class="lead">The site reads the State tax-sale inventory every day, along with the City of Hot Springs registers. Most people never see what moved. Once a week you get the changes: parcels that entered the State sale, parcels that were redeemed or sold, new City liens and vacancy records, and the five files most worth a look. Every line names its source and date. No opinions about what to buy.</p>
+  </section>
+  <p class="lead"><a href="weekly.html">Read the current brief on the site</a> before you sign up.</p>
+  <section class="what">
+    <div>New State tax-sale listings, by county, with the starting bid.</div>
+    <div>Redemptions and sales: what left the list, and why.</div>
+    <div>New City of Hot Springs liens, vacancy-register entries and code cases.</div>
+    <div>Which sample files were added or updated.</div>
+    <div>What the tool could not check that week, and why.</div>
+  </section>
+  <section class="what" id="watchbox" hidden><b>Watch request</b><div id="watchtxt"></div><div class="fine">You get a note when anything on this parcel's record changes: State sale status, redemption, a City lien or register entry. Fill in the form and it goes on the watch list with your email.</div></section>
+  <section class="thanks" id="thanks" hidden><b>You're on the list.</b><div>The next brief goes out Monday. You will hear from a person, not a system, and one email a week is the whole deal.</div><div><a href="weekly.html">Read this week's brief now</a> · <a href="samples.html">the samples</a></div></section>
+  <form id="f" action="https://formsubmit.co/topher@mixedmakershop.com" method="POST">
+    <input type="hidden" name="_subject" value="Property Hunter signup">
+    <input type="hidden" name="_template" value="table">
+    <input type="hidden" name="_next" value="https://tophercook7-maker.github.io/property-hunter/signup.html?sent=1">
+    <input type="hidden" name="page" id="page" value="">
+    <input type="hidden" name="watch_parcel" id="watch_parcel" value="">
+    <input type="hidden" name="watch_county" id="watch_county" value="">
+    <input class="hp" type="text" name="_honey" tabindex="-1" autocomplete="off">
+    <div class="two">
+      <label>Email *<input name="email" type="email" required maxlength="120" autocomplete="email" placeholder="you@example.com"></label>
+      <label>Name (optional)<input name="name" maxlength="80" autocomplete="name"></label>
+    </div>
+    <label>Which counties or areas do you work? *<input name="area" required maxlength="160" placeholder="e.g. Garland, Saline, Pulaski, or 'statewide'"></label>
+    <div class="opts"><span class="fine">Which is closest to you? *</span>
+      <label><input type="radio" name="role" value="investor" required> I buy property (tax sale, rentals, flips)</label>
+      <label><input type="radio" name="role" value="agent"> I am an agent or broker</label>
+      <label><input type="radio" name="role" value="lender_title"> Lender, title, or attorney</label>
+      <label><input type="radio" name="role" value="curious"> Just looking</label>
+    </div>
+    <div class="opts"><span class="fine">Straight question: would you pay for the weekly brief and the Property Files once the site has its own domain? *</span>
+      <label><input type="radio" name="would_pay" value="yes" required> Yes</label>
+      <label><input type="radio" name="would_pay" value="maybe"> Maybe, depends on the price</label>
+      <label><input type="radio" name="would_pay" value="no"> No, I'd only use it free</label>
+    </div>
+    <label>If yes or maybe: what would it be worth to you per month? (a number, or "per file" pricing if you'd rather)<input name="price" maxlength="80" placeholder="e.g. $20/month, or $15 per file"></label>
+    <label>Anything you'd need it to do first? (optional)<textarea name="need" rows="3" maxlength="2000"></textarea></label>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn" type="submit">Send me the brief</button><span class="fine">One email a week. Reply "stop" to any of them and you're off. Your address is never shared or sold.</span></div>
+  </form>
+  <p class="fine">Prefer email? <a href="mailto:topher@mixedmakershop.com?subject=Property%20Hunter%20signup&body=Counties%3A%0AWould%20I%20pay%3A%0AWorth%20per%20month%3A%20">topher@mixedmakershop.com</a></p>
+</main>
+<script>
+(function(){
+  var p = new URLSearchParams(location.search);
+  document.getElementById('page').value = document.referrer || location.href;
+  var w = p.get('watch'), c = p.get('county');
+  if(w){ document.getElementById('watch_parcel').value = w; document.getElementById('watch_county').value = c || ''; document.getElementById('watchbox').hidden = false; document.getElementById('watchtxt').textContent = 'Parcel ' + w + (c ? ', ' + c + ' County' : ''); document.querySelector('input[name=_subject]').value = 'Property Hunter watch: ' + w + (c ? ' ' + c : ''); }
+  if(p.get('sent') === '1'){ document.getElementById('thanks').hidden = false; document.getElementById('f').hidden = true; }
+})();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

@@ -3,7 +3,7 @@
   "down_since": "2026-09-14T14:25:00-0500",
   "open": false,
   "detail": "Online payments are currently unavailable.",
-  "checked_at": "2026-09-25T12:26:19-0500",
+  "checked_at": "2026-09-25T14:06:22-0500",
   "note": "first seen unavailable 2:25 pm CDT; the poller has tried every 20 minutes since",
   "statewide": {
    "checked_at": "2026-09-14T16:57:46-0500",

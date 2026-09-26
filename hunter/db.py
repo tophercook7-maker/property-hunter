@@ -56,6 +56,22 @@ def ex(sql: str, params: Iterable = ()) -> sqlite3.Cursor:
     return cur
 
 
+def many(sql: str, rows: Iterable[Iterable]) -> int:
+    """One executemany inside one transaction.
+
+    ex() commits per statement, which is right for a handful of writes and ruinous
+    for a bulk pass: scoring the state is millions of rows, and a commit each is
+    most of the wall clock. Returns the number of parameter sets applied.
+    """
+    rows = list(rows)
+    if not rows:
+        return 0
+    conn = connect()
+    with conn:
+        conn.executemany(sql, rows)
+    return len(rows)
+
+
 def rows_to_dicts(rows) -> list[dict]:
     return [dict(r) for r in rows]
 

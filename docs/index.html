@@ -197,9 +197,10 @@ async function main(){
   try { const c = new AbortController(); setTimeout(()=>c.abort(), 1500); app = await (await fetch('http://127.0.0.1:8234/api/status', {signal:c.signal})).json(); } catch(e){ app = null; }
   const ap = $('app');
   if(app){ ap.className='app on'; ap.innerHTML = `<i></i>app running on this Mac · <a href="http://127.0.0.1:8234">open the command center</a>`; } else { ap.innerHTML = `<i></i>showing the last published data`; }
-  const [g, sl, idx, hunt, changes, st, sig] = await Promise.all([
+  const [g, sl, idx, hunt, changes, st, sig, owners] = await Promise.all([
     load('data/garland.json', {rows:[]}), load('data/state_lands.json', {listings:[],counties:{}}), load('data/scan_index.json', {counties:{}}),
-    load('data/hunt_status.json', {counties:{}}), load('data/changes.json', {rows:[],total:0,by_field:[]}), load('data/status.json', {}), load('data/signals.json', {rows:[],discovered:[],total:0,discovered_total:0,by_event:{},discovered_by_event:{}})]);
+    load('data/hunt_status.json', {counties:{}}), load('data/changes.json', {rows:[],total:0,by_field:[]}), load('data/status.json', {}), load('data/signals.json', {rows:[],discovered:[],total:0,discovered_total:0,by_event:{},discovered_by_event:{}}),
+    load('data/owners.json', null)]);
   const home = (g.rows||[]).filter(r=>r.s!=null && r.rec!=='PASS');
   const others = Object.entries(idx.counties||{}).filter(([cf])=>!['05051','05125'].includes(cf)).flatMap(([cf,c])=>(c.top||[]).map(r=>({...r, cn:c.county, cf})));
   const all = home.concat(others).sort((a,b)=>(b.s||0)-(a.s||0) || (b.lien||0)-(a.lien||0));
@@ -285,6 +286,7 @@ async function main(){
     ['taxes.html','Tax intelligence','Every county: what is verified at the Collector or the State, what is unknown, whether the source is up, and the coverage queue.', 'all 75 counties · observed only'],
     ['hunt.html','Hunt Arkansas','The statewide map: counties done, scanning and waiting; filters for State tax sale, verified Collector bills, City liens, vacancy, appraisal bands, new signals.', `${doneC.length} counties · map`],
     ['lookup.html','Look up','Any Arkansas parcel: owner, values, aerials, liens, taxes, and the full investigation file.', 'all 75 counties · live'],
+    ['owners.html','Who owns Garland','Every parcel grouped by its owner of record, from the county assessor namelist. How concentrated ownership is, who holds the most, and where the tax bills are mailed.', `${owners ? owners.totals.parcels.toLocaleString()+' parcels · '+owners.totals.owners.toLocaleString()+' owners' : 'county namelist'}`],
     ['state-lands.html?county=GARLAND','Tax sale','What the State is selling for unpaid taxes, what lots like it sold for.', `${(sl.listings||[]).length.toLocaleString()} for sale · ${cnt} counties · ${withBldg} with a building`],
     ['campaign.html','Owner outreach','Prepared inside an investigation, behind an evidence gate. You review, print or mail, and record what you did; the site never sends.', `${preps.length} in preparation · ${drafted} drafted`],
     ['watch.html','Watch','Your pipeline: re-checked live, changes shown before and after.', `${watch.length} watched`],

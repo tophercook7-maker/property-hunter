@@ -14,6 +14,7 @@
     ["watch.html", "Watch", "◉"],
     ["taxes.html", "Taxes", "$"],
     ["investigation.html", "Cases", "▣"],
+    ["owners.html", "Owners", "◍"],
     ["garland.html", "Scan", "▤"],
     ["pro.html", "Radar", "◎"],
     ["request.html", "Request", "✎"]

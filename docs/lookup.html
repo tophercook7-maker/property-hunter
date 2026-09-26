@@ -516,7 +516,7 @@ async function select(i){
     <div class="sec"><h3>Ownership, mailing, parcel <span class="src">county roll via Arkansas GIS Office</span></h3><dl class="facts">
       <dt>Owner of record</dt><dd>${esc(title(a.ownername))||'<span class="pill unknown">NOT FOUND on the roll</span>'}<span class="tag fact">fact</span><details style="margin-top:4px"><summary style="font-size:11.5px;color:var(--muted);cursor:pointer">what this establishes</summary>${PH.chain({fact:'The county tax roll names this owner of record', source:'Arkansas GIS Office parcel layer (county assessor data)', date: dt(a.camadate)||'roll date not stated', interp:'Who the county bills. Usually the owner, sometimes an estate, trust or custodian.', next:'Circuit Clerk deed index, then a title company', notEstablish:'clear title · authority to sell · absence of mortgages, judgments or heirs'})}</details></dd>
       <dt>Tax bill goes to</dt><dd id="mailing">${isGarland?'<span class="pending">checking the City\'s roll copy…</span>':'<span class="tag unk">not published for this county</span>'}</dd>
-      <dt>Last deed ref.</dt><dd>${esc(clean(a.sourceref))||'—'}${a.sourcedate?` · recorded ${dt(a.sourcedate)}`:''}<span class="tag fact">fact</span></dd>
+      <dt>Last deed ref.</dt><dd id="deedref">${esc(clean(a.sourceref))||'<span class="pending">checking the county namelist…</span>'}${a.sourcedate?` · recorded ${dt(a.sourcedate)}`:''}${clean(a.sourceref)?'<span class="tag fact">fact</span>':''}</dd>
       <dt>Legal</dt><dd>${esc(clean(a.parcellgl))||'—'}</dd>
       <dt>Subdivision</dt><dd>${esc(clean(a.subdivision))||'—'}${a.nbhd?` · nbhd ${esc(a.nbhd)}`:''}</dd>
       <dt>Sec-Twp-Rng</dt><dd class="num">${esc(a.str||'—')}</dd>
@@ -544,6 +544,7 @@ async function select(i){
   // live enrichments, each independent, each honest on failure
   visuals(r, a, c);
   villageCheck(c, a);
+  deedFill(a);
   taxStatus(a, c);
   whyBlock(a, c);
   if(c) flood(c);
@@ -626,9 +627,42 @@ $('f').addEventListener('submit', () => { const u = new URL(location.href); u.se
 
 <script>
 /* ---------- Hot Springs Village / Diamondhead: the two places this hunt never buys ---------- */
+let DEEDS = null;
+// The county namelist carries Book/Page for 94.5% of Garland parcels. The State
+// layer's sourceref is blank on many of them, and the assessor portal that has
+// this blocks automation -- so for Garland we fill the gap from the county's own
+// extract and say plainly where it came from.
+async function loadDeeds(){
+  if (DEEDS !== null) return DEEDS;
+  try { DEEDS = await (await fetch('data/garland_deeds.json')).json(); }
+  catch(e){ DEEDS = {deeds:{}, subdivisions:{}}; }
+  return DEEDS;
+}
+const pnorm = v => String(v ?? '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+async function countyDeed(a){
+  if (String(a.countyfips||'') !== '05051') return null;
+  const d = await loadDeeds();
+  const k = pnorm(a.parcelid);
+  const ref = (d.deeds || {})[k];
+  return ref ? {ref, note: d.note, source: d.source} : null;
+}
 let EXCL = null;
 async function loadExcl(){ if(EXCL) return EXCL; try { EXCL = await (await fetch('data/exclusions.json')).json(); } catch(e){ EXCL = {}; } return EXCL; }
 function inRings(lon, lat, rings){ let inside=false; for(const ring of rings){ for(let i=0,j=ring.length-1;i<ring.length;j=i++){ const xi=ring[i][0], yi=ring[i][1], xj=ring[j][0], yj=ring[j][1]; if(((yi>lat)!==(yj>lat)) && (lon < (xj-xi)*(lat-yi)/(yj-yi)+xi)) inside=!inside; } } return inside; }
+async function deedFill(a){
+  const el = $('deedref'); if(!el) return;
+  if (clean(a.sourceref)) return;                       // the State layer already had it
+  const d = await countyDeed(a);
+  if (!d){
+    if (String(a.countyfips||'') === '05051') el.innerHTML = '<span class="tag unk">not on the county namelist</span>';
+    else el.innerHTML = '&mdash;';
+    return;
+  }
+  el.innerHTML = `Book ${esc(d.ref.split('/')[0])} Page ${esc(d.ref.split('/')[1])}` +
+    `<span class="tag fact">fact</span>` +
+    `<span class="src" title="${esc(d.note)}">${esc(d.source)}</span>`;
+}
+
 async function villageCheck(c, a){
   const el = $('village'); if(!el) return;
   const ex = await loadExcl(); if(!c) return;

@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Who owns Garland County · Property Hunter</title>
+<meta name="description" content="Every parcel in Garland County grouped by its owner of record, from the county assessor's own namelist: how concentrated ownership is, who holds the most, and where the tax bills are mailed.">
+<meta property="og:title" content="Who owns Garland County · Property Hunter">
+<meta property="og:description" content="79,734 parcels, grouped by owner of record. Concentration, out-of-state holdings, and who is buying in the Village.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tophercook7-maker.github.io/property-hunter/owners.html">
+<link rel="canonical" href="https://tophercook7-maker.github.io/property-hunter/owners.html">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="ph.css">
+<style>
+main{max-width:1100px;margin:0 auto;padding:16px 16px 60px;display:grid;gap:20px}
+h2{font-size:26px;text-transform:uppercase;letter-spacing:.02em;margin:0}
+.lead{margin:2px 0 0;font-size:14px;color:var(--muted);max-width:75ch}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.stat{background:var(--surface);border:1px solid var(--rule);padding:10px 12px}
+.stat b{display:block;font-family:var(--display);font-size:28px;line-height:1;font-weight:600}
+.stat span{font-size:10.5px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--rule)}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:680px}
+th,td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);position:sticky;top:0;background:var(--surface)}
+td.num,th.num{text-align:right;font-family:var(--mono)}
+tr:hover td{background:var(--surface2)}
+.chip{display:inline-block;font-size:10px;letter-spacing:.04em;text-transform:uppercase;border:1px solid var(--rule);padding:1px 5px;margin-left:5px;color:var(--muted)}
+.chip.v{border-color:var(--accent);color:var(--accent)}
+.bars{display:grid;gap:5px}
+.bar{display:grid;grid-template-columns:120px 1fr auto;gap:8px;align-items:center;font-size:12.5px}
+.bar i{display:block;height:13px;background:var(--accent);opacity:.8}
+.note{background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--accent);padding:10px 12px;font-size:13px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:13px}
+.controls input,.controls select{font:inherit;padding:5px 8px;border:1px solid var(--rule);background:var(--surface);color:var(--ink)}
+@media(max-width:560px){.bar{grid-template-columns:92px 1fr auto}}
+</style>
+</head>
+<body>
+<header class="ph-top"><h1><small>Owner of record · county assessor namelist</small>Who owns Garland County</h1><nav data-nav aria-label="Sections"></nav></header>
+<main>
+  <section>
+    <h2>Who owns Garland County</h2>
+    <p class="lead" id="lead">Loading…</p>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <section>
+    <h2>How concentrated is it</h2>
+    <p class="lead">Owners grouped by how many parcels they hold. The county gives every owner a stable id, so this counts the same owner once no matter how their name is spelled on each deed.</p>
+    <div class="bars" id="conc"></div>
+  </section>
+
+  <section>
+    <h2>The largest holders</h2>
+    <p class="lead">Ranked by parcel count. <b>Village</b> is how many of that owner's parcels fall inside the Hot Springs Village or Diamondhead boundary — decided by the Census polygon, never by the subdivision name.</p>
+    <div class="controls">
+      <input id="q" type="search" placeholder="Filter by owner name…" aria-label="Filter owners">
+      <select id="f" aria-label="Filter">
+        <option value="">Everyone</option>
+        <option value="oos">Mails from out of state</option>
+        <option value="vill">Holds Village parcels</option>
+        <option value="ent">Companies and trusts</option>
+      </select>
+      <span id="count" class="lead"></span>
+    </div>
+    <div class="tablewrap"><table id="tbl"><thead><tr>
+      <th>#</th><th>Owner of record</th><th class="num">Parcels</th><th class="num">Appraised</th><th>Bills mailed to</th><th class="num">Village</th>
+    </tr></thead><tbody id="rows"></tbody></table></div>
+  </section>
+
+  <section>
+    <h2>Where the tax bills go</h2>
+    <p class="lead">The state on the owner's mailing address. An out-of-state mailing address is a signal worth checking, not a finding: plenty of Arkansans keep a mailbox elsewhere, and plenty of locals own through an out-of-state entity.</p>
+    <div class="tablewrap"><table><thead><tr><th>State</th><th class="num">Parcels</th><th class="num">Share</th><th class="num">Appraised</th></tr></thead><tbody id="states"></tbody></table></div>
+  </section>
+
+  <section id="means"></section>
+</main>
+<script src="nav.js"></script>
+<script src="ph.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const n = v => (v === null || v === undefined) ? '—' : Number(v).toLocaleString();
+const money = v => (v === null || v === undefined) ? '—' : '$' + Math.round(v).toLocaleString();
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let DOC = null, VIEW = [];
+
+function stat(b, s){ return `<div class="stat"><b>${b}</b><span>${s}</span></div>`; }
+
+function render(){
+  const t = DOC.totals, c = DOC.concentration;
+  $('lead').innerHTML = `${n(t.parcels)} parcels held by ${n(t.owners)} owners, from the ${esc(DOC.source)}. ` +
+    `${esc(DOC.source_note)}`;
+  $('stats').innerHTML =
+    stat(n(t.parcels), 'Parcels in the county') +
+    stat(n(t.owners), 'Distinct owners') +
+    stat(money(t.appraised_total), 'Total appraised value') +
+    stat(n(t.out_of_state_parcels) + (t.out_of_state_pct != null ? ` · ${t.out_of_state_pct}%` : ''), 'Billed out of state') +
+    stat(n(t.entity_owned_parcels), 'Held by a company or trust') +
+    stat(t.village_parcels === null ? 'not measured' : n(t.village_parcels), 'Inside the Village') +
+    stat(n(t.with_deed_reference), 'Carry a deed book & page') +
+    stat(n(t.parcels_not_located), 'No parcel polygon found');
+
+  const groups = [
+    ['One parcel', c.owners_1], ['2 to 9', c.owners_2_9], ['10 to 24', c.owners_10_24],
+    ['25 to 99', c.owners_25_99], ['100 or more', c.owners_100plus]];
+  const max = Math.max(...groups.map(g => g[1] || 0)) || 1;
+  $('conc').innerHTML = groups.map(([k, v]) =>
+    `<div class="bar"><span>${k}</span><i style="width:${Math.max(1, (v / max) * 100)}%"></i><b>${n(v)}</b></div>`).join('') +
+    `<p class="lead" style="margin-top:6px">${n(c.parcels_held_by_10plus)} parcels — ` +
+    `${(c.parcels_held_by_10plus / DOC.totals.parcels * 100).toFixed(1)}% of the county — sit with the ` +
+    `${n(c.owners_10_24 + c.owners_25_99 + c.owners_100plus)} owners holding ten or more.</p>`;
+
+  $('states').innerHTML = DOC.by_state.map(s =>
+    `<tr><td>${esc(s.state)}</td><td class="num">${n(s.parcels)}</td>` +
+    `<td class="num">${(s.parcels / DOC.totals.parcels * 100).toFixed(1)}%</td>` +
+    `<td class="num">${money(s.appraised)}</td></tr>`).join('');
+
+  if (window.PH && PH.means) {
+    $('means').innerHTML = PH.means(
+      ['Owner of record, parcel counts, appraised values and deed book/page all come from the county assessor namelist named above, with its own date',
+       'One owner is counted once across every parcel, using the county\'s stable owner id rather than name spelling',
+       'Village membership is decided by the Census boundary polygon, not by a subdivision name or a city field'],
+      ['Owner of record is not clear title, and not authority to sell',
+       'Appraised value is the county\'s figure — not market value, not a sale price, and not what a lot would fetch',
+       'An out-of-state mailing address is a question to ask, not absentee ownership proven',
+       'A deed book and page is a pointer to the record, not the recorded instrument itself',
+       'Parcels the State parcel layer could not locate are counted but have no Village determination either way',
+       'Nothing here is legal, tax, appraisal, title or investment advice']);
+  }
+  apply();
+}
+
+function apply(){
+  const q = ($('q').value || '').trim().toLowerCase(), f = $('f').value;
+  VIEW = DOC.top_holders.filter(h => {
+    if (q && !String(h.owner || '').toLowerCase().includes(q)) return false;
+    if (f === 'oos' && (!h.state || h.state === 'AR')) return false;
+    if (f === 'vill' && !(h.village > 0)) return false;
+    if (f === 'ent' && !h.entity) return false;
+    return true;
+  });
+  $('count').textContent = `${VIEW.length} of ${DOC.top_holders.length} largest holders shown`;
+  $('rows').innerHTML = VIEW.map((h, i) =>
+    `<tr><td class="num">${i + 1}</td>` +
+    `<td>${esc(h.owner) || '<em>blank on the roll</em>'}${h.entity ? '<span class="chip">entity</span>' : ''}` +
+    `${h.state && h.state !== 'AR' ? '<span class="chip">out of state</span>' : ''}</td>` +
+    `<td class="num">${n(h.parcels)}</td><td class="num">${money(h.appraised)}</td>` +
+    `<td>${esc(h.state || '—')}</td>` +
+    `<td class="num">${h.village === null ? '<span class="chip">not located</span>' : (h.village ? `<span class="chip v">${n(h.village)}</span>` : '0')}</td></tr>`
+  ).join('') || '<tr><td colspan="6">Nothing matches that filter.</td></tr>';
+}
+
+fetch('data/owners.json').then(r => r.json()).then(d => { DOC = d; render(); })
+  .catch(() => { $('lead').textContent = 'The owner file has not been built yet.'; });
+$('q').addEventListener('input', apply);
+$('f').addEventListener('change', apply);
+</script>
+</body>
+</html>

@@ -510,7 +510,11 @@ def build():
     css, tail = rest.split("</style>", 1)
     full = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">'
-            + head + "<style>" + css + "</style></head><body>" + tail + "</body></html>")
+            + head + "<style>" + css + "</style></head><body>" + tail
+            # garland.html is generated, so editing the file to add the counter
+            # lasts exactly until the next build. It belongs here.
+            + '<script src="analytics.js"></script>'
+            + "</body></html>")
     out = os.path.join(ROOT, "hunter", "static", "share.html")
     open(out, "w").write(full)
     os.makedirs(os.path.dirname(DESKTOP), exist_ok=True)

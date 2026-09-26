@@ -149,5 +149,6 @@ fetch('data/radar.json').then(r=>r.json()).then(r => {
 <script src="members.js"></script>
 <script>if(window.PH){ PH.member().then(m => { if(m){ const w = document.getElementById("welcome"); w.hidden = false; w.innerHTML = `<b>Member: ${m.plan==="desk"?"Desk":"Radar"}.</b> Every county is open for you, with CSV export, on the <a href="state-lands.html">tax-sale page</a>. Counties on your Monday email: ${(m.counties||[]).map(c=>c.charAt(0)+c.slice(1).toLowerCase()).join(", ")||"Garland"}.`; document.querySelectorAll(".locked").forEach(el=>el.classList.remove("locked")); } }); }</script>
 <script src="nav.js"></script>
+<script src="analytics.js"></script>
 </body>
 </html>

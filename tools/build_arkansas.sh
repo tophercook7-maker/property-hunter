@@ -24,6 +24,8 @@ sqlite3 data/property_hunter.db "PRAGMA wal_checkpoint(TRUNCATE);" >/dev/null 2>
 say "rebuilding published payloads"
 python3 -c "import sys;sys.path.insert(0,'.');import tools.build_share as b;b.build()" >> "$LOG/state_publish.log" 2>&1
 python3 tools/build_radar.py >> "$LOG/state_publish.log" 2>&1
+python3 tools/build_owners_state.py >> "$LOG/state_publish.log" 2>&1
+python3 tools/build_divestitures.py >> "$LOG/state_publish.log" 2>&1
 python3 tools/weekly_brief.py >> "$LOG/state_publish.log" 2>&1
 say "publish exit $?"
 

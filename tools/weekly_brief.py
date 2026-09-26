@@ -65,9 +65,32 @@ def build() -> dict:
     sale["movers"] = [c for c in sale["counties"] if c["new"] or c["gone"]][:8]
     cp = status.get("countypay") or {}
     unavailable = [c["county"] for c in (tax.get("counties") or {}).values() if (c.get("sources") or {}).get("countypay", {}).get("status") in ("TEMPORARILY_UNAVAILABLE", "BLOCKED")]
-    return {"built_at": built, "window_days": sig.get("window_days"), "total": len(rows), "by_event": dict(by_event), "by_county": {k: v for k, v in sorted(by_county.items(), key=lambda kv: -len(kv[1]))},
+    return {"built_at": built, "tool_news": tool_news(), "window_days": sig.get("window_days"), "total": len(rows), "by_event": dict(by_event), "by_county": {k: v for k, v in sorted(by_county.items(), key=lambda kv: -len(kv[1]))},
             "cheapest": cheapest, "samples": samples[-5:], "collector": cp, "unavailable_counties": unavailable[:12], "listing_count": len(listings),
             "sale": sale}
+
+
+def tool_news() -> dict:
+    """What changed in the tool itself this week. Counts come from the local
+    database so the brief never claims coverage it does not have. The county
+    mailing addresses are counted, never listed: they stay with the license
+    holder and are used only to prepare outreach a person reviews."""
+    out = {"parcels": 0, "counties": 0, "deed_refs": 0, "mailing": 0, "namelist_date": "2026-09-24"}
+    try:
+        idx = load("scan_index.json", {})
+        out["counties"] = len(idx.get("counties") or {})
+    except Exception:
+        pass
+    try:
+        import sqlite3
+        con = sqlite3.connect("file:" + os.path.join(ROOT, "data", "property_hunter.db") + "?mode=ro", uri=True)
+        out["parcels"] = con.execute("select count(*) from properties").fetchone()[0]
+        out["deed_refs"] = con.execute("select count(distinct property_id) from evidence where source='garland_namelist' and field='deed_reference'").fetchone()[0]
+        out["mailing"] = con.execute("select count(distinct property_id) from evidence where source='garland_namelist' and field='owner_mailing_address'").fetchone()[0]
+        con.close()
+    except Exception:
+        pass
+    return out
 
 
 def utc():
@@ -108,6 +131,15 @@ def markdown(b: dict) -> str:
     L += ["", "## Cheapest State-sale parcels right now (starting bid)"]
     for x in b["cheapest"]:
         L.append(f"- ${x['starting_bid']:,.2f} — {x.get('address') or 'no situs'}, {x.get('city') or ''} ({x.get('county', '').title()} County) · parcel {x['parcel_id']} · {x.get('sale_type_text', '')}")
+    t = b.get("tool_news") or {}
+    L += ["", "## New in the tool this week"]
+    if t.get("parcels"):
+        L.append(f"- **All of Arkansas is in.** {t['parcels']:,} parcels across {t.get('counties') or 75} counties are scored and searchable, not just Garland: {SITE}/lookup.html (pick 'Any county').")
+    if t.get("deed_refs"):
+        L.append(f"- **The Garland County assessor file arrived** (records request, fulfilled {t.get('namelist_date')}). Deed Book/Page references are now on file for {t['deed_refs']:,} Garland parcels, so a Property File can point you at the recorded deed instead of saying 'unknown'.")
+    if t.get("mailing"):
+        L.append(f"- Owner mailing addresses for {t['mailing']:,} Garland parcels are on file too. They are never published on the site; they are used only to prepare a letter that a person reviews before anything is mailed.")
+    L.append(f"- **Road tools on the map**: 'Around me' and 'Follow me' show the parcels along the road you are driving; 'Corners' shows the tax-map corners of the parcel you pick with distance and bearing to each. It will not find the survey pin; a licensed surveyor does that. {SITE}/lookup.html")
     L += ["", "## Files published this week"]
     for s in b["samples"]:
         L.append(f"- {s['title']} — {s['headline']} · {SITE}/sample.html?file={s['slug']}")
@@ -128,6 +160,15 @@ def html(b: dict) -> str:
     counties = li(f"<b>{esc(str(cn))}</b>: " + ", ".join(f"{n} {esc(EVENT_WORDS.get(e, e))}" for e, n in Counter(r['event'] for r in rs).most_common()) for cn, rs in list(b["by_county"].items())[:12])
     cheap = li(f"<b>${x['starting_bid']:,.2f}</b> — {esc(x.get('address') or 'no situs')}, {esc(x.get('city') or '')} ({esc(str(x.get('county', '')).title())} County) · parcel <code>{esc(x['parcel_id'])}</code> · {esc(x.get('sale_type_text', ''))}" + (f" · <a href=\"{esc(x['listing_url'])}\" target=\"_blank\" rel=\"noopener\">State listing</a>" if x.get("listing_url") else "") for x in b["cheapest"])
     samples = li(f"<a href=\"sample.html?file={esc(s['slug'])}\">{esc(s['title'])}</a> — {esc(s['headline'])}" for s in b["samples"])
+    t = b.get("tool_news") or {}
+    news = []
+    if t.get("parcels"):
+        news.append(f"<b>All of Arkansas is in.</b> {t['parcels']:,} parcels across {t.get('counties') or 75} counties are scored and searchable, not just Garland. <a href=\"lookup.html\">Look up any parcel</a> and pick \u201cAny county\u201d.")
+    if t.get("deed_refs"):
+        news.append(f"<b>The Garland County assessor file arrived</b> (records request, fulfilled {esc(t.get('namelist_date'))}). Deed Book/Page references are on file for {t['deed_refs']:,} Garland parcels, so a Property File can point at the recorded deed instead of saying \u201cunknown\u201d.")
+    if t.get("mailing"):
+        news.append(f"Owner mailing addresses for {t['mailing']:,} Garland parcels are on file too. They are never published here; they are used only to prepare a letter that a person reviews before anything is mailed.")
+    news.append("<b>Road tools on the map</b>: \u201cAround me\u201d and \u201cFollow me\u201d show the parcels along the road you are on; \u201cCorners\u201d shows the tax-map corners of the parcel you pick, with distance and bearing to each. It will not find the survey pin; a licensed surveyor does that.")
     failures = []
     if b["collector"].get("open") is False:
         failures.append(f"County Collector portal (CountyPay): unavailable since {esc(str(b['collector'].get('down_since', ''))[:10])}. Tax states in those counties are honestly UNKNOWN, not \"current\".")
@@ -161,6 +202,7 @@ code{{font-family:var(--mono);font-size:12.5px}}
   <section class="box"><h3>By the numbers</h3><ul>{ev or '<li>No recorded changes in the window.</li>'}</ul></section>
   <section class="box"><h3>By county, most activity first</h3><ul>{counties or '<li>None.</li>'}</ul></section>
   <section class="box"><h3>Cheapest State-sale parcels right now, by starting bid</h3><ul>{cheap}</ul><p class="lead" style="margin:8px 0 0">A starting bid is the State's number, not a value. Every one of these has open questions; a Property File lists them.</p></section>
+  <section class="box"><h3>New in the tool this week</h3><ul>{li(news)}</ul></section>
   <section class="box"><h3>Files published</h3><ul>{samples or '<li>None this week.</li>'}</ul></section>
   <section class="box"><h3>What the tool could not check</h3><ul>{li(failures) or '<li>Every automated source answered this week.</li>'}</ul></section>
   <section class="cta"><a class="btn ghost" href="get-a-file.html">Get a file on a parcel you are looking at</a><a class="btn ghost" href="feedback.html">Tell me what to add</a></section>

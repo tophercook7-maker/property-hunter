@@ -15,6 +15,7 @@
     ["taxes.html", "Taxes", "$"],
     ["investigation.html", "Cases", "▣"],
     ["owners.html", "Owners", "◍"],
+    ["divestitures.html", "Big land", "▲"],
     ["garland.html", "Scan", "▤"],
     ["pro.html", "Radar", "◎"],
     ["request.html", "Request", "✎"]

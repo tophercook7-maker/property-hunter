@@ -136,7 +136,15 @@ function drawCounty(){
   $('railh').textContent = `${current.name} County`; $('unusualnote').hidden = !filters.has('unusual');
   const src = ((HUNT.counties||{})[current.fips]||{}).sources || {};
   $('srcnote').innerHTML = `<b>Sources here:</b> parcel roll ✓ · State Lands ${src.state_lands?'✓':'— none listed'} · City vacancy/lien/code ${src.city_registers?'✓':'— unavailable (only Hot Springs publishes registers)'} · Collector ${src.collector==='open'?'✓':src.collector==='unavailable'?'— unavailable (CountyPay down)':'— untested'}. An empty filter means no source, not no such properties.`;
-  $('railn').textContent = `${v.length.toLocaleString()} of ${rows.length.toLocaleString()} scored${filters.size?` match ${[...filters].join(', ')}`:''} · ${sl.length} State sale parcels here`;
+  // A county file carries the top slice, not the whole county -- say so rather
+  // than let "of 2,000" read as the county having 2,000 parcels.
+  const meta = cache[current.fips] || {};
+  const cap = meta.capped
+    ? ` · top ${rows.length.toLocaleString()} of ${(meta.scored_total||0).toLocaleString()} scored in this county`
+    : '';
+  const held = meta.held_unscored
+    ? ` · ${meta.held_unscored.toLocaleString()} more on file, not yet scored` : '';
+  $('railn').textContent = `${v.length.toLocaleString()} of ${rows.length.toLocaleString()} scored${filters.size?` match ${[...filters].join(', ')}`:''}${cap}${held} · ${sl.length} State sale parcels here`;
   points.clearLayers();
   v.slice(0,1500).forEach(r => { if(!r.lat) return; L.circleMarker([r.lat,r.lon],{radius:4,color:css('--accent'),weight:1,fillOpacity:.75}).bindTooltip(`${r.a||'no address'} · ${PH.signals(r).verified.length} verified signals · score ${Math.round(r.s||0)}`).on('click', ()=>openFile(r)).addTo(points); });
   if(filters.size===0 || filters.has('state')) sl.forEach(x => { if(!x.lat) return; L.circleMarker([x.lat,x.lon],{radius:5,color:css('--bad'),weight:1.5,fillOpacity:.7}).bindTooltip(`State sale · ${PH.money(x.starting_bid)} owed`).on('click', ()=>location.href=`state-lands.html?county=${x.county}&q=${x.rpid}`).addTo(points); });

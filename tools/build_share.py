@@ -104,6 +104,9 @@ def _latest_full(field, only=None):
     return out
 
 
+# Most rows any single published file carries. See the note in build().
+PUBLISH_CAP = 2000
+
 COLLECTOR_SOURCES = ("county_tax_collector", "county_delinquent_list")
 STALE_DAYS = 45
 
@@ -467,7 +470,8 @@ def build():
     # Held-but-unscored is reported as a count, never silently dropped.
     scored = [r for r in rows if r.get("s") is not None]
     unscored_n = len(rows) - len(scored)
-    embed = [r for r in scored if r.get("cf") in ("05051", "05125")]
+    embed = sorted([r for r in scored if r.get("cf") in ("05051", "05125")],
+                   key=lambda r: -(r.get("s") or 0))[:PUBLISH_CAP]
     data = json.dumps(embed, separators=(",", ":")).replace("</", "<\\/")
     body = tpl.replace("__DATA__", data).replace("__LABELS__", json.dumps(labels))
     head, rest = body.split("<style>", 1)
@@ -486,9 +490,20 @@ def build():
         os.makedirs(os.path.join(ROOT, "docs", "data"), exist_ok=True)
         built = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(timespec="seconds")
         slim = [{k: v for k, v in r.items() if k != "inv"} for r in scored]
-        home = [r for r in slim if r.get("cf") in ("05051", "05125")]
+        # A published county file is something a browser downloads. At statewide
+        # scale the roll is 2.1 million parcels: Pulaski alone would be a 116 MB
+        # file, which GitHub refuses outright at its 100 MB limit and which no
+        # phone is going to fetch. The pages rank by score and nobody scrolls
+        # past the first few hundred, so publish the top slice and say plainly
+        # how many are behind it. Everything stays in the database and stays
+        # reachable one parcel at a time through Look up.
+        home_all = [r for r in slim if r.get("cf") in ("05051", "05125")]
+        home_all.sort(key=lambda r: -(r.get("s") or 0))
+        home = home_all[:PUBLISH_CAP]
         json.dump({"built_at": built, "labels": labels, "rows": home,
-                   "held_unscored": unscored_n},
+                   "held_unscored": unscored_n,
+                   "scored_total": len(home_all), "published": len(home),
+                   "capped": len(home_all) > len(home)},
                   open(os.path.join(ROOT, "docs", "data", "garland.json"), "w"), separators=(",", ":"))
         # every county: its own file, plus a small statewide index (counts + top 25) for the Today page
         sdir = os.path.join(ROOT, "docs", "data", "scan"); os.makedirs(sdir, exist_ok=True)
@@ -502,7 +517,10 @@ def build():
         index = {"built_at": built, "counties": {}}
         for cf, rs in by.items():
             rs.sort(key=lambda r: -(r.get("s") or 0))
-            json.dump({"built_at": built, "labels": labels, "county": rs[0].get("cn"), "fips": cf, "rows": rs},
+            top = rs[:PUBLISH_CAP]
+            json.dump({"built_at": built, "labels": labels, "county": rs[0].get("cn"), "fips": cf,
+                       "rows": top, "scored_total": len(rs), "published": len(top),
+                       "capped": len(rs) > len(top), "held_unscored": unscored_by.get(cf, 0)},
                       open(os.path.join(sdir, f"{cf}.json"), "w"), separators=(",", ":"))
             index["counties"][cf] = {"county": rs[0].get("cn"), "n": len(rs), "strong": sum(1 for r in rs if (r.get("s") or 0) >= 65),
                                      "held_unscored": unscored_by.get(cf, 0),

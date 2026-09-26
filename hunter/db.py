@@ -26,6 +26,10 @@ def connect() -> sqlite3.Connection:
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("PRAGMA busy_timeout=30000")
+        # 2026-09-26: the WAL reached 170 GB during the statewide load because a wedged reader (the stalled
+        # Garland rescan) held a snapshot for hours and auto-checkpoints could never reset the log. Cap the
+        # file so a completed checkpoint truncates it instead of leaving the space allocated.
+        conn.execute("PRAGMA journal_size_limit=1073741824")
         _local.conn = conn
     return conn
 

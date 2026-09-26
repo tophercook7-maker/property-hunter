@@ -14,10 +14,12 @@ say "fetch done: $(ls data/roll/*.jsonl 2>/dev/null | wc -l | tr -d ' ') countie
 say "loading every cached county"
 python3 tools/load_state_roll.py >> "$LOG/state_load.log" 2>&1
 say "load exit $?"
+sqlite3 data/property_hunter.db "PRAGMA wal_checkpoint(TRUNCATE);" >/dev/null 2>&1; say "wal checkpointed: $(du -sh data/property_hunter.db-wal 2>/dev/null | cut -f1)"
 
 say "scoring"
 python3 tools/score_state.py >> "$LOG/state_score.log" 2>&1
 say "score exit $?"
+sqlite3 data/property_hunter.db "PRAGMA wal_checkpoint(TRUNCATE);" >/dev/null 2>&1; say "wal checkpointed: $(du -sh data/property_hunter.db-wal 2>/dev/null | cut -f1)"
 
 say "rebuilding published payloads"
 python3 -c "import sys;sys.path.insert(0,'.');import tools.build_share as b;b.build()" >> "$LOG/state_publish.log" 2>&1

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Who owns Garland County · Property Hunter</title>
+<title>Who owns Arkansas · Property Hunter</title>
 <meta name="description" content="Every parcel in Garland County grouped by its owner of record, from the county assessor's own namelist: how concentrated ownership is, who holds the most, and where the tax bills are mailed.">
 <meta property="og:title" content="Who owns Garland County · Property Hunter">
 <meta property="og:description" content="79,734 parcels, grouped by owner of record. Concentration, out-of-state holdings, and who is buying in the Village.">
@@ -38,10 +38,27 @@ tr:hover td{background:var(--surface2)}
 </style>
 </head>
 <body>
-<header class="ph-top"><h1><small>Owner of record · county assessor namelist</small>Who owns Garland County</h1><nav data-nav aria-label="Sections"></nav></header>
+<header class="ph-top"><h1><small>Owner of record · all 75 counties</small>Who owns Arkansas</h1><nav data-nav aria-label="Sections"></nav></header>
 <main>
   <section>
-    <h2>Who owns Garland County</h2>
+    <h2>Who owns Arkansas</h2>
+    <p class="lead" id="stlead">Loading…</p>
+    <div class="stats" id="ststats"></div>
+    <div class="note" id="stmethod"></div>
+  </section>
+
+  <section>
+    <h2>The largest holders in the state</h2>
+    <p class="lead">Ranked by parcel count across all 75 counties. <b>Counties</b> is how many
+      separate counties that name appears in — the clearest sign of a holding that is being run as
+      a portfolio rather than a home.</p>
+    <div class="tablewrap"><table><thead><tr>
+      <th>#</th><th>Owner of record</th><th class="num">Parcels</th><th class="num">Counties</th><th class="num">Appraised</th>
+    </tr></thead><tbody id="strows"></tbody></table></div>
+  </section>
+
+  <section>
+    <h2>Garland County, in more detail</h2>
     <p class="lead" id="lead">Loading…</p>
     <div class="stats" id="stats"></div>
   </section>
@@ -154,8 +171,31 @@ function apply(){
   ).join('') || '<tr><td colspan="6">Nothing matches that filter.</td></tr>';
 }
 
+fetch('data/owners_state.json').then(r => r.json()).then(renderState)
+  .catch(() => { $('stlead').textContent = 'The statewide owner file has not been built yet.'; });
+
+function renderState(d){
+  const t = d.totals;
+  $('stlead').innerHTML = `${n(t.parcels)} parcels across ${n(t.counties)} counties, held under ` +
+    `${n(t.owner_names)} distinct owner names, ${money(t.appraised_total)} of county appraised value.`;
+  $('ststats').innerHTML =
+    stat(n(t.parcels), 'Parcels in Arkansas') +
+    stat(n(t.counties), 'Counties') +
+    stat(n(t.owner_names), 'Distinct owner names') +
+    stat(money(t.appraised_total), 'Total appraised value') +
+    stat(n(t.names_in_more_than_one_county), 'Names in 2+ counties');
+  $('stmethod').innerHTML = `<b>How this is grouped, and where it is weak.</b> ${esc(d.method_note)} ` +
+    `${esc(d.privacy_note)}`;
+  $('strows').innerHTML = d.top_holders.map((h, i) =>
+    `<tr><td class="num">${i + 1}</td>` +
+    `<td>${esc(h.owner) || '<em>blank on the roll</em>'}${h.entity ? '<span class="chip">entity</span>' : ''}` +
+    `${h.counties > 5 ? '<span class="chip v">statewide</span>' : ''}</td>` +
+    `<td class="num">${n(h.parcels)}</td><td class="num">${n(h.counties)}</td>` +
+    `<td class="num">${money(h.appraised)}</td></tr>`).join('');
+}
+
 fetch('data/owners.json').then(r => r.json()).then(d => { DOC = d; render(); })
-  .catch(() => { $('lead').textContent = 'The owner file has not been built yet.'; });
+  .catch(() => { $('lead').textContent = 'The Garland owner file has not been built yet.'; });
 $('q').addEventListener('input', apply);
 $('f').addEventListener('change', apply);
 </script>

@@ -445,7 +445,14 @@ def build():
     tpl = tpl.replace("The 21 investigated so far", f"The {n_inv} investigated so far")
     # the one-file share and the site's scan page embed Garland + Saline only; every other
     # county is loaded on demand from docs/data/scan/<fips>.json (the statewide export below)
-    embed = [r for r in rows if r.get("cf") in ("05051", "05125")]
+    # A parcel the scanner has not scored yet has nothing to show on a ranked
+    # page, and the pages already filter it out in the browser. Publishing it
+    # anyway is what took garland.json from 8.6 MB to 30 MB the first time the
+    # county namelist landed -- a 30 MB fetch on the home page, on a phone.
+    # Held-but-unscored is reported as a count, never silently dropped.
+    scored = [r for r in rows if r.get("s") is not None]
+    unscored_n = len(rows) - len(scored)
+    embed = [r for r in scored if r.get("cf") in ("05051", "05125")]
     data = json.dumps(embed, separators=(",", ":")).replace("</", "<\\/")
     body = tpl.replace("__DATA__", data).replace("__LABELS__", json.dumps(labels))
     head, rest = body.split("<style>", 1)
@@ -463,21 +470,27 @@ def build():
         open(docs, "w").write(full)
         os.makedirs(os.path.join(ROOT, "docs", "data"), exist_ok=True)
         built = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(timespec="seconds")
-        slim = [{k: v for k, v in r.items() if k != "inv"} for r in rows]
+        slim = [{k: v for k, v in r.items() if k != "inv"} for r in scored]
         home = [r for r in slim if r.get("cf") in ("05051", "05125")]
-        json.dump({"built_at": built, "labels": labels, "rows": home},
+        json.dump({"built_at": built, "labels": labels, "rows": home,
+                   "held_unscored": unscored_n},
                   open(os.path.join(ROOT, "docs", "data", "garland.json"), "w"), separators=(",", ":"))
         # every county: its own file, plus a small statewide index (counts + top 25) for the Today page
         sdir = os.path.join(ROOT, "docs", "data", "scan"); os.makedirs(sdir, exist_ok=True)
         by = {}
         for r in slim:
             by.setdefault(r.get("cf") or "?", []).append(r)
+        unscored_by = {}
+        for r in rows:
+            if r.get("s") is None:
+                unscored_by[r.get("cf") or "?"] = unscored_by.get(r.get("cf") or "?", 0) + 1
         index = {"built_at": built, "counties": {}}
         for cf, rs in by.items():
             rs.sort(key=lambda r: -(r.get("s") or 0))
             json.dump({"built_at": built, "labels": labels, "county": rs[0].get("cn"), "fips": cf, "rows": rs},
                       open(os.path.join(sdir, f"{cf}.json"), "w"), separators=(",", ":"))
             index["counties"][cf] = {"county": rs[0].get("cn"), "n": len(rs), "strong": sum(1 for r in rs if (r.get("s") or 0) >= 65),
+                                     "held_unscored": unscored_by.get(cf, 0),
                                      "smax": max((r.get("s") or 0) for r in rs),
                                      "with_building": sum(1 for r in rs if (r.get("iv") or 0) > 0),
                                      "top": [r for r in rs if r.get("rec") != "PASS"][:25]}

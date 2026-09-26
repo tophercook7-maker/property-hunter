@@ -104,6 +104,38 @@ def _latest_full(field, only=None):
     return out
 
 
+def dump_if_changed(doc: dict, path: str) -> bool:
+    """Write a published file only when its content actually changed.
+
+    Every build stamps a fresh built_at, so a rebuild that found nothing new
+    still rewrote all 75 county files and the publish loop committed ~100 MB of
+    churn for no change -- 34 of 40 consecutive auto-commits touched every
+    county. Compare everything except the stamp; if it matches, leave the file
+    alone and keep its existing built_at, which then honestly reads as "this is
+    when this county's data last actually changed" rather than "when a loop last
+    ran". Freshness of the check itself lives in status.json, which is small and
+    is meant to change every cycle.
+    """
+    try:
+        with open(path) as fh:
+            old = json.load(fh)
+    except (OSError, ValueError):
+        old = None
+    payload = json.dumps(doc, separators=(",", ":"))
+    if old is not None:
+        # Compare what WOULD be written, round-tripped, not the live objects:
+        # labels are built as tuples and come back from JSON as lists, so a
+        # direct == never matched and every file was rewritten every build.
+        a = {k: v for k, v in old.items() if k != "built_at"}
+        b = {k: v for k, v in json.loads(payload).items() if k != "built_at"}
+        if a == b:
+            return False
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as fh:
+        fh.write(payload)
+    return True
+
+
 # Most rows any single published file carries. See the note in build().
 PUBLISH_CAP = 2000
 
@@ -500,13 +532,14 @@ def build():
         home_all = [r for r in slim if r.get("cf") in ("05051", "05125")]
         home_all.sort(key=lambda r: -(r.get("s") or 0))
         home = home_all[:PUBLISH_CAP]
-        json.dump({"built_at": built, "labels": labels, "rows": home,
-                   "held_unscored": unscored_n,
-                   "scored_total": len(home_all), "published": len(home),
-                   "capped": len(home_all) > len(home)},
-                  open(os.path.join(ROOT, "docs", "data", "garland.json"), "w"), separators=(",", ":"))
+        dump_if_changed({"built_at": built, "labels": labels, "rows": home,
+                         "held_unscored": unscored_n,
+                         "scored_total": len(home_all), "published": len(home),
+                         "capped": len(home_all) > len(home)},
+                        os.path.join(ROOT, "docs", "data", "garland.json"))
         # every county: its own file, plus a small statewide index (counts + top 25) for the Today page
         sdir = os.path.join(ROOT, "docs", "data", "scan"); os.makedirs(sdir, exist_ok=True)
+        rewritten = 0
         by = {}
         for r in slim:
             by.setdefault(r.get("cf") or "?", []).append(r)
@@ -518,10 +551,11 @@ def build():
         for cf, rs in by.items():
             rs.sort(key=lambda r: -(r.get("s") or 0))
             top = rs[:PUBLISH_CAP]
-            json.dump({"built_at": built, "labels": labels, "county": rs[0].get("cn"), "fips": cf,
-                       "rows": top, "scored_total": len(rs), "published": len(top),
-                       "capped": len(rs) > len(top), "held_unscored": unscored_by.get(cf, 0)},
-                      open(os.path.join(sdir, f"{cf}.json"), "w"), separators=(",", ":"))
+            if dump_if_changed({"built_at": built, "labels": labels, "county": rs[0].get("cn"), "fips": cf,
+                                "rows": top, "scored_total": len(rs), "published": len(top),
+                                "capped": len(rs) > len(top), "held_unscored": unscored_by.get(cf, 0)},
+                               os.path.join(sdir, f"{cf}.json")):
+                rewritten += 1
             index["counties"][cf] = {"county": rs[0].get("cn"), "n": len(rs), "strong": sum(1 for r in rs if (r.get("s") or 0) >= 65),
                                      "held_unscored": unscored_by.get(cf, 0),
                                      "smax": max((r.get("s") or 0) for r in rs),
@@ -548,7 +582,7 @@ def build():
         # They are served only by the licensed local app and are no longer written to the public site.
         tdir = os.path.join(ROOT, "docs", "data", "timeline"); os.makedirs(tdir, exist_ok=True)
         for cf, per in build_timelines({r["i"]: r for r in slim}).items():
-            json.dump({"built_at": built, "county": cf, "properties": per}, open(os.path.join(tdir, f"{cf}.json"), "w"), separators=(",", ":"))
+            dump_if_changed({"built_at": built, "county": cf, "properties": per}, os.path.join(tdir, f"{cf}.json"))
         json.dump({"built_at": built, "week": True, "total": len(real), "conflicts": sum(1 for r in chrows if r["k"] == "conflict"),
                    "sources": sum(1 for r in chrows if r["k"] == "sources"), "by_field": byfield.most_common(12),
                    "rows": real[:120] + [r for r in chrows if r["k"] != "change"][:80]},

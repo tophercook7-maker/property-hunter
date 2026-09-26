@@ -71,25 +71,19 @@ def build() -> dict:
 
 
 def tool_news() -> dict:
-    """What changed in the tool itself this week. Counts come from the local
-    database so the brief never claims coverage it does not have. The county
-    mailing addresses are counted, never listed: they stay with the license
-    holder and are used only to prepare outreach a person reviews."""
-    out = {"parcels": 0, "counties": 0, "deed_refs": 0, "mailing": 0, "namelist_date": "2026-09-24"}
-    try:
-        idx = load("scan_index.json", {})
-        out["counties"] = len(idx.get("counties") or {})
-    except Exception:
-        pass
-    try:
-        import sqlite3
-        con = sqlite3.connect("file:" + os.path.join(ROOT, "data", "property_hunter.db") + "?mode=ro", uri=True)
-        out["parcels"] = con.execute("select count(*) from properties").fetchone()[0]
-        out["deed_refs"] = con.execute("select count(distinct property_id) from evidence where source='garland_namelist' and field='deed_reference'").fetchone()[0]
-        out["mailing"] = con.execute("select count(distinct property_id) from evidence where source='garland_namelist' and field='owner_mailing_address'").fetchone()[0]
-        con.close()
-    except Exception:
-        pass
+    """What changed in the tool itself this week, from the PUBLIC data files
+    only (scan_index.json for coverage, hunt_status.json for the county files
+    on hand). The county mailing addresses are counted there, never listed:
+    they stay with the license holder and are used only to prepare outreach a
+    person reviews."""
+    out = {"parcels": 0, "counties": 0, "deed_refs": 0, "mailing": 0, "namelist_date": None}
+    idx = (load("scan_index.json", {}) or {}).get("counties") or {}
+    out["counties"] = len(idx)
+    out["parcels"] = sum(int((c or {}).get("n") or 0) for c in idx.values())
+    cf = ((load("hunt_status.json", {}) or {}).get("county_files") or {}).get("05051") or {}
+    out["deed_refs"] = cf.get("deed_reference_parcels") or 0
+    out["mailing"] = cf.get("mailing_address_parcels") or 0
+    out["namelist_date"] = cf.get("fulfilled")
     return out
 
 

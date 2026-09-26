@@ -613,6 +613,21 @@ def build():
                                       "sources": {"roll": True, "state_lands": fips in sl_counties,
                                                   "city_registers": fips == "05051",
                                                   "collector": "unavailable" if cp_open is False else ("open" if cp_open else "untested")}}
+        # County records files on hand, as COUNTS only. The mailing addresses
+        # themselves never leave the database; the public record of the file is
+        # that it exists and how many parcels it covers.
+        try:
+            cf = {}
+            for r in q("SELECT field, COUNT(DISTINCT property_id) AS n, MAX(effective_date) AS d FROM evidence WHERE source='garland_namelist' AND field IN ('deed_reference','owner_mailing_address') GROUP BY field"):
+                cf[r["field"]] = {"parcels": r["n"], "as_of": r["d"]}
+            if cf:
+                hunt["county_files"] = {"05051": {"county": "Garland", "source": "Garland County Assessor namelist (records request #26-1543)",
+                                                  "fulfilled": "2026-09-24",
+                                                  "deed_reference_parcels": cf.get("deed_reference", {}).get("parcels", 0),
+                                                  "mailing_address_parcels": cf.get("owner_mailing_address", {}).get("parcels", 0),
+                                                  "mailing_published": False}}
+        except Exception:
+            pass
         json.dump(hunt, open(os.path.join(ROOT, "docs", "data", "hunt_status.json"), "w"), separators=(",", ":"))
     return {"properties": len(rows), "investigated": n_inv, "kb": len(full) // 1024, "file": out, "desktop": DESKTOP}
 

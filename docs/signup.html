@@ -92,7 +92,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 <script>
 (function(){
   var f=document.getElementById('f'), need=document.getElementById('need');
-  function label(el){ var l=el.closest('label'); if(l){ var t=l.textContent.trim().split('\n')[0]; return t.replace(/\s*\*$/,''); } var o=el.closest('.opts'); return o ? o.querySelector('.fine').textContent.replace(/\s*\*$/,'') : el.name; }
+  function label(el){ var o=el.closest('.opts'); if(o){ var q=o.querySelector('.fine'); return (q?q.textContent:el.name).replace(/\s*\*$/,'').replace(/^Straight question: /,''); } var l=el.closest('label'); if(l){ var t=l.textContent.trim().split('\n')[0]; return t.replace(/\s*\*$/,''); } return el.name; }
   f.addEventListener('invalid', function(e){
     e.preventDefault();
     var bad=[].slice.call(f.querySelectorAll(':invalid'));
@@ -103,7 +103,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
     (first.closest('.opts')||first).scrollIntoView({block:'center'});
     if(first.type!=='radio') first.focus();
   }, true);
-  f.addEventListener('input', function(e){ if(e.target.checkValidity()) { e.target.classList.remove('miss'); if(f.checkValidity()){ need.classList.remove('on'); } } });
+  f.addEventListener('input', function(e){ if(e.target.checkValidity()) { var same = e.target.name ? f.querySelectorAll('[name="'+e.target.name+'"]') : [e.target]; [].forEach.call(same, function(el){ el.classList.remove('miss'); }); if(f.checkValidity()){ need.classList.remove('on'); } } });
   f.addEventListener('submit', function(){ need.classList.remove('on'); var b=f.querySelector('button[type=submit]'); b.disabled=true; b.textContent='Sending…'; });
 })();
 </script>

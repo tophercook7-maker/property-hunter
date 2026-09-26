@@ -78,6 +78,21 @@ def conflict_change_ids() -> dict:
             other = q1("SELECT 1 FROM evidence WHERE property_id=? AND source<>? LIMIT 1", (r["property_id"], r["source"]))
             if other:
                 out[r["id"]] = "sources"
+    # First contact from a source is never "the world changed". A source that has
+    # not written this field for this property before is simply disagreeing with
+    # whoever wrote it last, across two snapshots of different vintage -- a transfer
+    # recorded two years ago looks like this week's news the first time a fresher
+    # roll lands. Importing the Garland namelist produced 6,742 such rows; the value
+    # and flip-flop tests above caught 99.6% of them, and this catches the rest by
+    # rule rather than by coincidence.
+    for r in rows:
+        if r["id"] in out or not (r["old_value"] or "").strip():
+            continue
+        seen_before = q1("""SELECT 1 FROM evidence WHERE property_id=? AND source=? AND field=?
+                             AND created_at < (SELECT detected_at FROM changes WHERE id=?) LIMIT 1""",
+                         (r["property_id"], r["source"], r["field"], r["id"]))
+        if not seen_before:
+            out[r["id"]] = "sources"
     return out
 
 

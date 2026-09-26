@@ -226,11 +226,11 @@ def morning_report() -> dict:
     """The daily intelligence briefing (spec 37)."""
     new = db.q("""SELECT p.id,p.address,p.parcel_id,s.score FROM properties p
                   JOIN scores s ON s.property_id=p.id AND s.kind='overall'
-                  WHERE p.excluded=0 AND p.first_seen >= datetime('now','-1 day')
+                  WHERE p.excluded=0 AND datetime(replace(p.first_seen,'T',' ')) >= datetime('now','-1 day')
                   ORDER BY s.score DESC LIMIT 8""")
     changed = db.q("""SELECT c.*, p.address, p.parcel_id FROM changes c
                       JOIN properties p ON p.id=c.property_id
-                      WHERE p.excluded=0 AND c.detected_at >= datetime('now','-2 day')
+                      WHERE p.excluded=0 AND datetime(replace(c.detected_at,'T',' ')) >= datetime('now','-2 day')
                       AND c.severity IN ('high','medium')
                       ORDER BY c.id DESC LIMIT 8""")
     picks = analyzers.topher_picks(3)

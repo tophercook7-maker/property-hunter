@@ -68,7 +68,7 @@ def ask(question: str, use_ai: bool = False) -> dict:
     if intent == "whats_new":
         rows = db.q("""SELECT p.id FROM properties p JOIN scores s ON s.property_id=p.id
                        AND s.kind='overall' WHERE p.excluded=0
-                       AND p.first_seen >= datetime('now','-2 day')
+                       AND datetime(replace(p.first_seen,'T',' ')) >= datetime('now','-2 day')
                        ORDER BY s.score DESC LIMIT 8""")
         out["results"] = [_card(r["id"]) for r in rows]
         out["answer"] = (f"{len(out['results'])} new in the last two days." if rows

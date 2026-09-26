@@ -52,7 +52,7 @@ def conflict_change_ids() -> dict:
     rows = q("""SELECT c.id, c.property_id, c.field, c.old_value, c.new_value, c.source,
                        (julianday(c.detected_at)-julianday(p.first_seen))*1440 AS mins
                 FROM changes c JOIN properties p ON p.id=c.property_id
-                WHERE c.detected_at > datetime('now','-7 days') AND c.severity IN ('medium','high')""")
+                WHERE datetime(replace(c.detected_at,'T',' ')) > datetime('now','-7 days') AND c.severity IN ('medium','high')""")
     # a first reading (nothing -> something) is discovery, not a change and not a conflict: drop it
     out = {r["id"]: "seed" for r in rows if not (r["old_value"] or "").strip() or r["old_value"] in ("None", "not known")}
     out.update({r["id"]: "conflict" for r in rows if r["id"] not in out and r["mins"] is not None and r["mins"] < 10})
@@ -335,7 +335,7 @@ def build_timelines(rows_by_id: dict) -> dict:
             add(p["id"], {"date": (p["first_seen"] or "")[:16], "cls": "FIRST_DISCOVERY", "title": "Property Hunter first read this parcel from the county roll", "src": "Arkansas GIS Office (county assessor roll)", "ref": f"property:{p['id']}", "url": None})
         for c in q(f"""SELECT id, property_id, field, old_value, new_value, source, detected_at FROM changes
                        WHERE property_id IN ({marks}) AND field IN ('owner_name','total_value','imp_value','land_value','tax_status')
-                       AND detected_at > datetime('now','-90 days') AND old_value IS NOT NULL AND old_value NOT IN ('', 'None', 'not known') ORDER BY id""", tuple(ids)):
+                       AND datetime(replace(detected_at,'T',' ')) > datetime('now','-90 days') AND old_value IS NOT NULL AND old_value NOT IN ('', 'None', 'not known') ORDER BY id""", tuple(ids)):
             add(c["property_id"], {"date": (c["detected_at"] or "")[:16], "cls": "INFORMATIONAL", "title": f"Roll reading changed: {c['field'].replace('_', ' ')}",
                                    "detail": f"{(c['old_value'] or '')[:40]} -> {(c['new_value'] or '')[:40]}", "src": c["source"], "ref": f"change:{c['id']}", "url": None})
     for cf in out:
@@ -371,7 +371,7 @@ def export_rows(only=None):
     chg = {}
     conflicts = conflict_change_ids()
     for r in q(f"""SELECT id, property_id, field, old_value, new_value, severity, detected_at FROM changes
-                  WHERE detected_at > datetime('now','-7 days') AND severity IN ('medium','high')
+                  WHERE datetime(replace(detected_at,'T',' ')) > datetime('now','-7 days') AND severity IN ('medium','high')
                   AND field NOT IN ('improved','acreage','property_type','register_attachment','building_sqft'){frag} ORDER BY id DESC""", ids):
         if conflicts.get(r["id"]) == "seed":
             continue
@@ -536,7 +536,7 @@ def build():
                    "k": conflicts.get(r["id"], "change")}
                   for r in q("""SELECT c.id, c.property_id, c.field, c.old_value, c.new_value, c.severity, c.detected_at, p.address, p.county_fips
                                 FROM changes c JOIN properties p ON p.id=c.property_id
-                                WHERE c.detected_at > datetime('now','-7 days') AND c.severity IN ('medium','high') AND p.excluded=0
+                                WHERE datetime(replace(c.detected_at,'T',' ')) > datetime('now','-7 days') AND c.severity IN ('medium','high') AND p.excluded=0
                                 AND c.field NOT IN ('register_attachment','improved','acreage','property_type','building_sqft') ORDER BY c.id DESC LIMIT 300""")]
         from collections import Counter
         chrows = [r for r in chrows if r["k"] != "seed"]

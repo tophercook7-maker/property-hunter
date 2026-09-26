@@ -229,7 +229,7 @@ def api_status() -> dict:
         SUM(excluded=0) active,
         SUM(excluded=1) excluded,
         SUM(excluded=0 AND data_class='demo') demo,
-        SUM(excluded=0 AND first_seen >= datetime('now','-2 day')) fresh,
+        SUM(excluded=0 AND datetime(replace(first_seen,'T',' ')) >= datetime('now','-2 day')) fresh,
         SUM(excluded=0 AND property_type='lot') lots,
         SUM(excluded=0 AND property_type='house') houses,
         SUM(excluded=0 AND property_type='commercial') commercial

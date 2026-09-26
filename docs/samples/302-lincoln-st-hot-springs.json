@@ -1,17 +1,17 @@
 {
  "sample": true,
- "sample_note": "302 Lincoln St, Hot Springs: a house on the City's vacant-structure register with a City cleanup lien, redeemed from the State tax sale in July 2026. The county Collector's online source was down when this file was made, so the tax state is honestly unavailable.",
- "published_at": "2026-09-24T00:20:13+00:00",
+ "sample_note": "302 Lincoln St, Hot Springs: a house on the City's vacant-structure register with a City cleanup lien, redeemed from the State tax sale in July 2026. Deed reference and mailing state come from the county assessor's own extract; the mailing address itself is held privately.",
+ "published_at": "2026-09-26T21:33:29+00:00",
  "workup_view": {
   "workup_id": "sample",
   "status": "COMPLETE_WITH_SOURCE_FAILURES",
   "status_label": "WORKUP COMPLETE \u2014 SOURCE FAILURES",
   "version": "p7.1",
-  "started_at": "2026-09-23T21:22:49+00:00",
-  "completed_at": "2026-09-23T21:22:53+00:00",
+  "started_at": "2026-09-26T21:32:53+00:00",
+  "completed_at": "2026-09-26T21:33:26+00:00",
   "actor": "license holder",
   "timings": {
-   "total_ms": 4424
+   "total_ms": 30909
   },
   "error": null,
   "progress": [
@@ -79,7 +79,7 @@
     "domain": "TITLE_DEED",
     "label": "Title / deed / Circuit Clerk",
     "done": true,
-    "status": "MANUAL_ONLY"
+    "status": "SUCCESS_WITH_EVIDENCE"
    },
    {
     "domain": "LISTING",
@@ -99,11 +99,11 @@
   "status": "COMPLETE_WITH_SOURCE_FAILURES",
   "status_label": "WORKUP COMPLETE \u2014 SOURCE FAILURES",
   "version": "p7.1",
-  "started_at": "2026-09-23T21:22:49+00:00",
-  "completed_at": "2026-09-23T21:22:53+00:00",
+  "started_at": "2026-09-26T21:32:53+00:00",
+  "completed_at": "2026-09-26T21:33:26+00:00",
   "actor": "license holder",
   "timings": {
-   "total_ms": 4424
+   "total_ms": 30909
   },
   "error": null
  },
@@ -132,12 +132,12 @@
    "label": "Parcel number",
    "value": "300-06307-000",
    "state": "FOUND",
-   "source": "ar_gis_parcels",
-   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
-   "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27300-06307-000%27+AND+countyfips%3D%2705051%27&outFields=*&f=json",
-   "source_date": "2025-10-31",
-   "read_date": "2026-09-17T22:38",
-   "ref": "evidence:1234",
+   "source": "garland_namelist",
+   "source_name": "garland_namelist",
+   "source_url": null,
+   "source_date": "2026-09-24",
+   "read_date": "2026-09-26T18:56",
+   "ref": "evidence:2928678",
    "origin": "AUTOMATED_SOURCE",
    "origin_label": "AUTOMATED SOURCE",
    "confidence": "HIGH",
@@ -356,7 +356,7 @@
    "source_name": "FEMA National Flood Hazard Layer",
    "source_url": "https://msc.fema.gov/portal/search?AddressQuery=34.497604,-93.044543",
    "source_date": null,
-   "read_date": "2026-09-23T21:22",
+   "read_date": "2026-09-26T21:32",
    "ref": "evidence:2234655",
    "origin": "AUTOMATED_SOURCE",
    "origin_label": "AUTOMATED SOURCE",
@@ -376,7 +376,7 @@
    "source_name": "Arkansas GIS Office - road centerlines (911 addressing)",
    "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Transportation/FeatureServer/18",
    "source_date": "2025-10-08",
-   "read_date": "2026-09-23T21:22",
+   "read_date": "2026-09-26T21:33",
    "ref": "evidence:2234656",
    "origin": "AUTOMATED_SOURCE",
    "origin_label": "AUTOMATED SOURCE",
@@ -396,7 +396,7 @@
    "source_name": "City of Hot Springs GIS - vacant structure register",
    "source_url": "https://services1.arcgis.com/lCwVhIwyitVebu0v/arcgis/rest/services/Vacant_Structures_view/FeatureServer/99",
    "source_date": "2024-11-20",
-   "read_date": "2026-09-23T21:22",
+   "read_date": "2026-09-26T21:33",
    "ref": "evidence:19724",
    "origin": "AUTOMATED_SOURCE",
    "origin_label": "AUTOMATED SOURCE",
@@ -416,7 +416,7 @@
    "source_name": "City of Hot Springs GIS - housing / cleanup / demolition liens",
    "source_url": "https://services1.arcgis.com/lCwVhIwyitVebu0v/arcgis/rest/services/Housing_Lien_Parcels/FeatureServer/90",
    "source_date": "2026-06-09",
-   "read_date": "2026-09-23T21:22",
+   "read_date": "2026-09-26T21:33",
    "ref": "evidence:20842",
    "origin": "AUTOMATED_SOURCE",
    "origin_label": "AUTOMATED SOURCE",
@@ -432,12 +432,12 @@
    "label": "Owner of record (roll)",
    "value": "WOODFORK, TOMMY JR",
    "state": "FOUND",
-   "source": "ar_gis_parcels",
-   "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
-   "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27300-06307-000%27+AND+countyfips%3D%2705051%27&outFields=*&f=json",
-   "source_date": "2025-10-31",
-   "read_date": "2026-09-17T22:38",
-   "ref": "evidence:1235",
+   "source": "garland_namelist",
+   "source_name": "garland_namelist",
+   "source_url": null,
+   "source_date": "2026-09-24",
+   "read_date": "2026-09-26T18:56",
+   "ref": "evidence:2928677",
    "origin": "AUTOMATED_SOURCE",
    "origin_label": "AUTOMATED SOURCE",
    "confidence": "HIGH",
@@ -446,6 +446,26 @@
    "conflict": false,
    "raw_ref": null,
    "domain": "OWNER_MAILING"
+  },
+  {
+   "field": "deed_reference",
+   "label": "Deed reference",
+   "value": "Book 4811 Page 581",
+   "state": "FOUND",
+   "source": "garland_namelist",
+   "source_name": "garland_namelist",
+   "source_url": null,
+   "source_date": "2026-09-24",
+   "read_date": "2026-09-26T18:56",
+   "ref": "evidence:2928681",
+   "origin": "AUTOMATED_SOURCE",
+   "origin_label": "AUTOMATED SOURCE",
+   "confidence": "HIGH",
+   "verification": "FACT",
+   "historical": false,
+   "conflict": false,
+   "raw_ref": null,
+   "domain": "TITLE_DEED"
   }
  ],
  "checked_not_found": [
@@ -458,7 +478,7 @@
    "source_name": "Arkansas Commissioner of State Lands - tax-delinquent parcels for sale",
    "source_url": "https://cosl.org/Home/SearchByParcel",
    "source_date": "2026-09-16",
-   "read_date": "2026-09-23T21:22",
+   "read_date": "2026-09-26T21:32",
    "ref": "evidence:2234654",
    "origin": "AUTOMATED_SOURCE",
    "origin_label": "AUTOMATED SOURCE",
@@ -478,7 +498,7 @@
    "source_name": "City of Hot Springs GIS - 2025 housing / code-enforcement cases",
    "source_url": "https://services1.arcgis.com/lCwVhIwyitVebu0v/arcgis/rest/services/Addressing_Points_for_Housing_Cases_2025/FeatureServer/33",
    "source_date": null,
-   "read_date": "2026-09-23T21:22",
+   "read_date": "2026-09-26T21:33",
    "ref": "evidence:2234659",
    "origin": "AUTOMATED_SOURCE",
    "origin_label": "AUTOMATED SOURCE",
@@ -499,7 +519,7 @@
   "collector": {
    "status": "UNAVAILABLE",
    "down_since": "2026-09-14T14:25:00-0500",
-   "checked_at": "2026-09-23T19:05:08-0500",
+   "checked_at": "2026-09-26T16:16:31-0500",
    "detail": "Online payments are currently unavailable."
   },
   "meaning": "The Collector's online source is down; nothing was checked. Not a finding either way."
@@ -514,12 +534,12 @@
      "label": "Parcel number",
      "value": "300-06307-000",
      "state": "FOUND",
-     "source": "ar_gis_parcels",
-     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
-     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27300-06307-000%27+AND+countyfips%3D%2705051%27&outFields=*&f=json",
-     "source_date": "2025-10-31",
-     "read_date": "2026-09-17T22:38",
-     "ref": "evidence:1234",
+     "source": "garland_namelist",
+     "source_name": "garland_namelist",
+     "source_url": null,
+     "source_date": "2026-09-24",
+     "read_date": "2026-09-26T18:56",
+     "ref": "evidence:2928678",
      "origin": "AUTOMATED_SOURCE",
      "origin_label": "AUTOMATED SOURCE",
      "confidence": "HIGH",
@@ -724,12 +744,12 @@
      "label": "Parcel number",
      "value": "300-06307-000",
      "state": "FOUND",
-     "source": "ar_gis_parcels",
-     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
-     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27300-06307-000%27+AND+countyfips%3D%2705051%27&outFields=*&f=json",
-     "source_date": "2025-10-31",
-     "read_date": "2026-09-17T22:38",
-     "ref": "evidence:1234",
+     "source": "garland_namelist",
+     "source_name": "garland_namelist",
+     "source_url": null,
+     "source_date": "2026-09-24",
+     "read_date": "2026-09-26T18:56",
+     "ref": "evidence:2928678",
      "origin": "AUTOMATED_SOURCE",
      "origin_label": "AUTOMATED SOURCE",
      "confidence": "HIGH",
@@ -916,7 +936,7 @@
      "key": "values",
      "wording": "What does the county roll record for land, building and total value?",
      "state": "FOUND",
-     "answer": "land 5400.0, building 39850.0, total 45250.0 (assessor's figures, not a price)",
+     "answer": "land 5400.0, building 39850.0, total 6100.0 (assessor's figures, not a price)",
      "source": "Arkansas GIS Office (county assessor roll)",
      "checked_at": "2025-10-31",
      "checked_by": "source",
@@ -1003,7 +1023,7 @@
      "source_name": "Arkansas Commissioner of State Lands - tax-delinquent parcels for sale",
      "source_url": "https://cosl.org/Home/SearchByParcel",
      "source_date": "2026-09-16",
-     "read_date": "2026-09-23T21:22",
+     "read_date": "2026-09-26T21:32",
      "ref": "evidence:2234654",
      "origin": "AUTOMATED_SOURCE",
      "origin_label": "AUTOMATED SOURCE",
@@ -1025,7 +1045,7 @@
      "source_name": "Arkansas Commissioner of State Lands - tax-delinquent parcels for sale",
      "source_url": "https://cosl.org/Home/SearchByParcel",
      "source_date": "2026-09-16",
-     "read_date": "2026-09-23T21:22",
+     "read_date": "2026-09-26T21:32",
      "ref": "evidence:2234654",
      "origin": "AUTOMATED_SOURCE",
      "origin_label": "AUTOMATED SOURCE",
@@ -1076,7 +1096,7 @@
     "status": "SOURCE_UNAVAILABLE",
     "failure_category": "PROBE_FAILED",
     "reused": 0,
-    "ms": 279
+    "ms": 510
    }
   },
   "STATE_LANDS": {
@@ -1194,9 +1214,9 @@
      "key": "state_record",
      "wording": "Is there a State Lands listing record, and if so, what amount and sale information does it document?",
      "state": "NOT_FOUND",
-     "answer": "Not in the State's inventory as of 2026-09-16. Says nothing about the county bill",
+     "answer": "Not in the State's inventory as of 2026-09-26. Says nothing about the county bill",
      "source": "Commissioner of State Lands inventory",
-     "checked_at": "2026-09-16",
+     "checked_at": "2026-09-26",
      "checked_by": "source",
      "refs": []
     },
@@ -1204,9 +1224,9 @@
      "key": "state_inventory",
      "wording": "Is the parcel in the State tax-sale inventory (Commissioner of State Lands)?",
      "state": "NOT_FOUND",
-     "answer": "Not in the State's inventory as of 2026-09-16. Says nothing about the county bill",
+     "answer": "Not in the State's inventory as of 2026-09-26. Says nothing about the county bill",
      "source": "Commissioner of State Lands inventory",
-     "checked_at": "2026-09-16",
+     "checked_at": "2026-09-26",
      "checked_by": "source",
      "refs": []
     },
@@ -1231,7 +1251,7 @@
     "status": "SUCCESS_WITH_EVIDENCE",
     "failure_category": null,
     "reused": 0,
-    "ms": 985
+    "ms": 3763
    }
   },
   "FLOOD": {
@@ -1247,7 +1267,7 @@
      "source_name": "FEMA National Flood Hazard Layer",
      "source_url": "https://msc.fema.gov/portal/search?AddressQuery=34.497604,-93.044543",
      "source_date": null,
-     "read_date": "2026-09-23T21:22",
+     "read_date": "2026-09-26T21:32",
      "ref": "evidence:2234655",
      "origin": "AUTOMATED_SOURCE",
      "origin_label": "AUTOMATED SOURCE",
@@ -1286,7 +1306,7 @@
      "source_name": "FEMA National Flood Hazard Layer",
      "source_url": "https://msc.fema.gov/portal/search?AddressQuery=34.497604,-93.044543",
      "source_date": null,
-     "read_date": "2026-09-23T21:22",
+     "read_date": "2026-09-26T21:32",
      "ref": "evidence:2234655",
      "origin": "AUTOMATED_SOURCE",
      "origin_label": "AUTOMATED SOURCE",
@@ -1320,7 +1340,7 @@
     "status": "SUCCESS_WITH_EVIDENCE",
     "failure_category": null,
     "reused": 0,
-    "ms": 558
+    "ms": 3359
    }
   },
   "ROAD_ACCESS": {
@@ -1336,7 +1356,7 @@
      "source_name": "Arkansas GIS Office - road centerlines (911 addressing)",
      "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Transportation/FeatureServer/18",
      "source_date": "2025-10-08",
-     "read_date": "2026-09-23T21:22",
+     "read_date": "2026-09-26T21:33",
      "ref": "evidence:2234656",
      "origin": "AUTOMATED_SOURCE",
      "origin_label": "AUTOMATED SOURCE",
@@ -1375,7 +1395,7 @@
      "source_name": "Arkansas GIS Office - road centerlines (911 addressing)",
      "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Transportation/FeatureServer/18",
      "source_date": "2025-10-08",
-     "read_date": "2026-09-23T21:22",
+     "read_date": "2026-09-26T21:33",
      "ref": "evidence:2234656",
      "origin": "AUTOMATED_SOURCE",
      "origin_label": "AUTOMATED SOURCE",
@@ -1409,7 +1429,7 @@
     "status": "SUCCESS_WITH_EVIDENCE",
     "failure_category": null,
     "reused": 0,
-    "ms": 316
+    "ms": 3028
    },
    "legal_access": {
     "state": "UNKNOWN",
@@ -1429,7 +1449,7 @@
      "source_name": "City of Hot Springs GIS - vacant structure register",
      "source_url": "https://services1.arcgis.com/lCwVhIwyitVebu0v/arcgis/rest/services/Vacant_Structures_view/FeatureServer/99",
      "source_date": "2024-11-20",
-     "read_date": "2026-09-23T21:22",
+     "read_date": "2026-09-26T21:33",
      "ref": "evidence:19724",
      "origin": "AUTOMATED_SOURCE",
      "origin_label": "AUTOMATED SOURCE",
@@ -1468,7 +1488,7 @@
      "source_name": "City of Hot Springs GIS - vacant structure register",
      "source_url": "https://services1.arcgis.com/lCwVhIwyitVebu0v/arcgis/rest/services/Vacant_Structures_view/FeatureServer/99",
      "source_date": "2024-11-20",
-     "read_date": "2026-09-23T21:22",
+     "read_date": "2026-09-26T21:33",
      "ref": "evidence:19724",
      "origin": "AUTOMATED_SOURCE",
      "origin_label": "AUTOMATED SOURCE",
@@ -1502,7 +1522,7 @@
     "status": "SUCCESS_WITH_EVIDENCE",
     "failure_category": null,
     "reused": 0,
-    "ms": 562
+    "ms": 3708
    }
   },
   "MUNICIPAL_LIEN": {
@@ -1518,7 +1538,7 @@
      "source_name": "City of Hot Springs GIS - housing / cleanup / demolition liens",
      "source_url": "https://services1.arcgis.com/lCwVhIwyitVebu0v/arcgis/rest/services/Housing_Lien_Parcels/FeatureServer/90",
      "source_date": "2026-06-09",
-     "read_date": "2026-09-23T21:22",
+     "read_date": "2026-09-26T21:33",
      "ref": "evidence:20842",
      "origin": "AUTOMATED_SOURCE",
      "origin_label": "AUTOMATED SOURCE",
@@ -1557,7 +1577,7 @@
      "source_name": "City of Hot Springs GIS - housing / cleanup / demolition liens",
      "source_url": "https://services1.arcgis.com/lCwVhIwyitVebu0v/arcgis/rest/services/Housing_Lien_Parcels/FeatureServer/90",
      "source_date": "2026-06-09",
-     "read_date": "2026-09-23T21:22",
+     "read_date": "2026-09-26T21:33",
      "ref": "evidence:20842",
      "origin": "AUTOMATED_SOURCE",
      "origin_label": "AUTOMATED SOURCE",
@@ -1603,7 +1623,7 @@
     "status": "SUCCESS_WITH_EVIDENCE",
     "failure_category": null,
     "reused": 0,
-    "ms": 606
+    "ms": 3405
    }
   },
   "MUNICIPAL_CODE": {
@@ -1637,7 +1657,7 @@
      "source_name": "City of Hot Springs GIS - 2025 housing / code-enforcement cases",
      "source_url": "https://services1.arcgis.com/lCwVhIwyitVebu0v/arcgis/rest/services/Addressing_Points_for_Housing_Cases_2025/FeatureServer/33",
      "source_date": null,
-     "read_date": "2026-09-23T21:22",
+     "read_date": "2026-09-26T21:33",
      "ref": "evidence:2234659",
      "origin": "AUTOMATED_SOURCE",
      "origin_label": "AUTOMATED SOURCE",
@@ -1659,7 +1679,7 @@
      "source_name": "City of Hot Springs GIS - 2025 housing / code-enforcement cases",
      "source_url": "https://services1.arcgis.com/lCwVhIwyitVebu0v/arcgis/rest/services/Addressing_Points_for_Housing_Cases_2025/FeatureServer/33",
      "source_date": null,
-     "read_date": "2026-09-23T21:22",
+     "read_date": "2026-09-26T21:33",
      "ref": "evidence:2234659",
      "origin": "AUTOMATED_SOURCE",
      "origin_label": "AUTOMATED SOURCE",
@@ -1692,7 +1712,7 @@
     "status": "SUCCESS_WITH_EVIDENCE",
     "failure_category": null,
     "reused": 0,
-    "ms": 484
+    "ms": 3249
    }
   },
   "OWNER_MAILING": {
@@ -1704,12 +1724,12 @@
      "label": "Owner of record (roll)",
      "value": "WOODFORK, TOMMY JR",
      "state": "FOUND",
-     "source": "ar_gis_parcels",
-     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
-     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27300-06307-000%27+AND+countyfips%3D%2705051%27&outFields=*&f=json",
-     "source_date": "2025-10-31",
-     "read_date": "2026-09-17T22:38",
-     "ref": "evidence:1235",
+     "source": "garland_namelist",
+     "source_name": "garland_namelist",
+     "source_url": null,
+     "source_date": "2026-09-24",
+     "read_date": "2026-09-26T18:56",
+     "ref": "evidence:2928677",
      "origin": "AUTOMATED_SOURCE",
      "origin_label": "AUTOMATED SOURCE",
      "confidence": "HIGH",
@@ -1725,12 +1745,12 @@
      "label": "Owner of record (roll)",
      "value": "WOODFORK, TOMMY JR",
      "state": "FOUND",
-     "source": "ar_gis_parcels",
-     "source_name": "Arkansas GIS Office - statewide parcels (county assessor CAMA)",
-     "source_url": "https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6/query?where=parcelid%3D%27300-06307-000%27+AND+countyfips%3D%2705051%27&outFields=*&f=json",
-     "source_date": "2025-10-31",
-     "read_date": "2026-09-17T22:38",
-     "ref": "evidence:1235",
+     "source": "garland_namelist",
+     "source_name": "garland_namelist",
+     "source_url": null,
+     "source_date": "2026-09-24",
+     "read_date": "2026-09-26T18:56",
+     "ref": "evidence:2928677",
      "origin": "AUTOMATED_SOURCE",
      "origin_label": "AUTOMATED SOURCE",
      "confidence": "HIGH",
@@ -1760,10 +1780,10 @@
      "state": "PRIVATE",
      "answer": "mailing details are private to the license holder",
      "source": "City of Hot Springs GIS - county parcel copy with owner mailing address",
-     "checked_at": "2026-09-17",
+     "checked_at": "2026-09-26",
      "checked_by": "source",
      "refs": [
-      "evidence:2235251"
+      "evidence:12182179"
      ]
     }
    ],
@@ -1775,7 +1795,7 @@
     "status": "PRIVATE",
     "failure_category": null,
     "reused": 0,
-    "ms": 609
+    "ms": 4490
    }
   },
   "TITLE_DEED": {
@@ -1785,20 +1805,21 @@
     {
      "field": "deed_reference",
      "label": "Deed reference",
-     "value": null,
-     "state": "UNKNOWN",
-     "source": null,
-     "source_name": null,
+     "value": "Book 4811 Page 581",
+     "state": "FOUND",
+     "source": "garland_namelist",
+     "source_name": "garland_namelist",
      "source_url": null,
-     "source_date": null,
-     "read_date": null,
-     "ref": null,
-     "origin": null,
-     "origin_label": null,
-     "confidence": null,
-     "verification": null,
+     "source_date": "2026-09-24",
+     "read_date": "2026-09-26T18:56",
+     "ref": "evidence:2928681",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
      "historical": false,
-     "conflict": false
+     "conflict": false,
+     "raw_ref": null
     },
     {
      "field": "sourceref",
@@ -1819,19 +1840,29 @@
      "conflict": false
     }
    ],
-   "known": [],
+   "known": [
+    {
+     "field": "deed_reference",
+     "label": "Deed reference",
+     "value": "Book 4811 Page 581",
+     "state": "FOUND",
+     "source": "garland_namelist",
+     "source_name": "garland_namelist",
+     "source_url": null,
+     "source_date": "2026-09-24",
+     "read_date": "2026-09-26T18:56",
+     "ref": "evidence:2928681",
+     "origin": "AUTOMATED_SOURCE",
+     "origin_label": "AUTOMATED SOURCE",
+     "confidence": "HIGH",
+     "verification": "FACT",
+     "historical": false,
+     "conflict": false,
+     "raw_ref": null
+    }
+   ],
    "checked_not_found": [],
    "questions": [
-    {
-     "key": "deed",
-     "wording": "Is there a recorded deed reference, and if so, what does it document?",
-     "state": "UNKNOWN",
-     "answer": "answered by the license holder's own research (private)",
-     "source": null,
-     "checked_at": null,
-     "checked_by": null,
-     "refs": []
-    },
     {
      "key": "lien_clerk",
      "wording": "Is there a recorded mortgage, judgment or tax lien at the Circuit Clerk?",
@@ -1851,19 +1882,31 @@
      "checked_at": null,
      "checked_by": null,
      "refs": []
+    },
+    {
+     "key": "deed",
+     "wording": "Is there a recorded deed reference, and if so, what does it document?",
+     "state": "FOUND",
+     "answer": "Deed reference Book 4811 Page 581",
+     "source": "garland_namelist",
+     "checked_at": "2026-09-24",
+     "checked_by": "source",
+     "refs": [
+      "evidence:2928681"
+     ]
     }
    ],
    "attempt": {
     "domain": "TITLE_DEED",
     "label": "Title / deed / Circuit Clerk",
-    "source": null,
+    "source": "manual_verification",
     "check_type": null,
-    "status": "MANUAL_ONLY",
-    "failure_category": "NO_CLERK_ADAPTER",
+    "status": "SUCCESS_WITH_EVIDENCE",
+    "failure_category": null,
     "reused": 0,
     "ms": 0
    },
-   "status": "TITLE STATUS: UNKNOWN \u2014 MANUAL CIRCUIT CLERK REVIEW REQUIRED"
+   "status": "A deed/title reading is on file; see its date and origin. Property Hunter never declares title clear."
   },
   "LISTING": {
    "label": "Listing / sale status",
@@ -1901,7 +1944,7 @@
     "status": "MANUAL_ONLY",
     "failure_category": "NO_LISTING_ADAPTER",
     "reused": 0,
-    "ms": 0
+    "ms": 2722
    }
   },
   "PHYSICAL": {
@@ -1972,12 +2015,6 @@
    "category": "SALE_STATUS"
   },
   {
-   "key": "deed",
-   "wording": "Is there a recorded deed reference, and if so, what does it document?",
-   "answer": "answered by the license holder's own research (private)",
-   "category": "OWNERSHIP"
-  },
-  {
    "key": "collector_asof",
    "wording": "When did the county Collector last answer for this parcel, and what did it say?",
    "answer": "The Collector has never answered for this parcel (source unavailable)",
@@ -2014,10 +2051,19 @@
    "source": "county_tax_collector",
    "status": "SOURCE_UNAVAILABLE",
    "category": "PROBE_FAILED",
-   "at": "2026-09-23T21:22:49+00:00"
+   "at": "2026-09-26T21:32:53+00:00"
   }
  ],
- "conflicts": [],
+ "conflicts": [
+  {
+   "field": "owner_mailing_address",
+   "source_a": "hs_gis_owner_mailing",
+   "date_a": null,
+   "source_b": "garland_namelist",
+   "date_b": "2026-09-24",
+   "status": "NEEDS VERIFICATION"
+  }
+ ],
  "checks_performed": [
   {
    "domain": "IDENTITY",
@@ -2050,7 +2096,7 @@
    "failure_category": "PROBE_FAILED",
    "evidence_count": 0,
    "reused": 0,
-   "ms": 279
+   "ms": 510
   },
   {
    "domain": "STATE_LANDS",
@@ -2061,7 +2107,7 @@
    "failure_category": null,
    "evidence_count": 1,
    "reused": 0,
-   "ms": 985
+   "ms": 3763
   },
   {
    "domain": "FLOOD",
@@ -2070,9 +2116,9 @@
    "check_type": "FEMA_RECHECK",
    "status": "SUCCESS_WITH_EVIDENCE",
    "failure_category": null,
-   "evidence_count": 2,
+   "evidence_count": 1,
    "reused": 0,
-   "ms": 558
+   "ms": 3359
   },
   {
    "domain": "ROAD_ACCESS",
@@ -2081,9 +2127,9 @@
    "check_type": "ROAD_RECORD_RECHECK",
    "status": "SUCCESS_WITH_EVIDENCE",
    "failure_category": null,
-   "evidence_count": 3,
+   "evidence_count": 2,
    "reused": 0,
-   "ms": 316
+   "ms": 3028
   },
   {
    "domain": "MUNICIPAL_VACANCY",
@@ -2092,9 +2138,9 @@
    "check_type": "CITY_VACANCY_RECHECK",
    "status": "SUCCESS_WITH_EVIDENCE",
    "failure_category": null,
-   "evidence_count": 4,
+   "evidence_count": 1,
    "reused": 0,
-   "ms": 562
+   "ms": 3708
   },
   {
    "domain": "MUNICIPAL_LIEN",
@@ -2103,9 +2149,9 @@
    "check_type": "CITY_LIEN_RECHECK",
    "status": "SUCCESS_WITH_EVIDENCE",
    "failure_category": null,
-   "evidence_count": 7,
+   "evidence_count": 3,
    "reused": 0,
-   "ms": 606
+   "ms": 3405
   },
   {
    "domain": "MUNICIPAL_CODE",
@@ -2114,9 +2160,9 @@
    "check_type": "CITY_CODE_RECHECK",
    "status": "SUCCESS_WITH_EVIDENCE",
    "failure_category": null,
-   "evidence_count": 4,
+   "evidence_count": 1,
    "reused": 0,
-   "ms": 484
+   "ms": 3249
   },
   {
    "domain": "OWNER_MAILING",
@@ -2127,16 +2173,16 @@
    "failure_category": null,
    "evidence_count": null,
    "reused": 0,
-   "ms": 609
+   "ms": 4490
   },
   {
    "domain": "TITLE_DEED",
    "label": "Title / deed / Circuit Clerk",
-   "source": null,
+   "source": "manual_verification",
    "check_type": null,
-   "status": "MANUAL_ONLY",
-   "failure_category": "NO_CLERK_ADAPTER",
-   "evidence_count": 2,
+   "status": "SUCCESS_WITH_EVIDENCE",
+   "failure_category": null,
+   "evidence_count": 3,
    "reused": 0,
    "ms": 0
   },
@@ -2149,7 +2195,7 @@
    "failure_category": "NO_LISTING_ADAPTER",
    "evidence_count": 0,
    "reused": 0,
-   "ms": 0
+   "ms": 2722
   },
   {
    "domain": "PHYSICAL",
@@ -2201,15 +2247,6 @@
    "source_status": "MANUAL_ONLY"
   },
   {
-   "domain": "TITLE_DEED",
-   "question": "deed",
-   "wording": "Is there a recorded deed reference, and if so, what does it document?",
-   "what": "Pull the latest deed at the Circuit Clerk",
-   "why": "Vesting owner, legal description and instrument number come only from the recorded deed. Now: no automated source; a person does this.",
-   "resolves": "Deed book/page or instrument number, grantor/grantee, record date",
-   "source_status": "MANUAL_ONLY"
-  },
-  {
    "domain": "TAX_COLLECTOR",
    "question": "collector_asof",
    "wording": "When did the county Collector last answer for this parcel, and what did it say?",
@@ -2232,18 +2269,18 @@
    "question": "lien_clerk",
    "wording": "Is there a recorded mortgage, judgment or tax lien at the Circuit Clerk?",
    "what": "Search the Circuit Clerk index for mortgages, judgments and tax liens",
-   "why": "Recorded liens follow the property. Now: no automated source; a person does this.",
+   "why": "Recorded liens follow the property. Now: the sources that answered did not establish it.",
    "resolves": "A Clerk index result naming any instruments, or a dated 'none found'",
-   "source_status": "MANUAL_ONLY"
+   "source_status": "SUCCESS_WITH_EVIDENCE"
   },
   {
    "domain": "TITLE_DEED",
    "question": "title",
    "wording": "Is there a title search or Circuit Clerk index result on record?",
    "what": "Order or run a title search at the Circuit Clerk",
-   "why": "Property Hunter never declares title clear; only a search does. Now: no automated source; a person does this.",
+   "why": "Property Hunter never declares title clear; only a search does. Now: the sources that answered did not establish it.",
    "resolves": "A title search result or Circuit Clerk index review, recorded as a manual verification",
-   "source_status": "MANUAL_ONLY"
+   "source_status": "SUCCESS_WITH_EVIDENCE"
   },
   {
    "domain": "STATE_LANDS",
@@ -2261,11 +2298,11 @@
   "id": null,
   "status": "OPEN",
   "counts": {
-   "found": 11,
+   "found": 12,
    "not_found": 3,
-   "unknown": 10,
+   "unknown": 9,
    "signals": 4,
-   "evidence": 32,
+   "evidence": 43,
    "notes": 0
   },
   "signals": [
@@ -2900,15 +2937,301 @@
    "at": "2026-09-23T21:22:53+00:00",
    "cls": "WORKUP COMPLETED",
    "title": "Workup 6: COMPLETE WITH SOURCE FAILURES"
+  },
+  {
+   "at": "2026-09-26T21:32:47+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "Is there a recorded deed reference, and if so, what does it document? \u2192 FOUND (recorded evidence supersedes the manual entry)"
+  },
+  {
+   "at": "2026-09-26T21:32:47+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "Is there a mailing address of record for the owner, and from which source? \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-26T21:32:47+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "Is the parcel in the State tax-sale inventory (Commissioner of State Lands)? \u2192 NOT_FOUND"
+  },
+  {
+   "at": "2026-09-26T21:32:47+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "Is there a State Lands listing record, and if so, what amount and sale information does it document? \u2192 NOT_FOUND"
+  },
+  {
+   "at": "2026-09-26T21:32:47+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "What does the county roll record for land, building and total value? \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-26T21:32:53+00:00",
+   "cls": "WORKUP STARTED",
+   "title": "Full property workup 11 started by the license holder"
+  },
+  {
+   "at": "2026-09-26T21:32:53+00:00",
+   "cls": "INVESTIGATION CHECK STARTED",
+   "title": "County Collector re-check (CountyPay) for tax_state"
+  },
+  {
+   "at": "2026-09-26T21:32:53+00:00",
+   "cls": "INVESTIGATION CHECK BLOCKED",
+   "title": "County Collector re-check (CountyPay): BLOCKED"
+  },
+  {
+   "at": "2026-09-26T21:32:53+00:00",
+   "cls": "INVESTIGATION CHECK STARTED",
+   "title": "State Lands per-parcel re-read for state_inventory"
+  },
+  {
+   "at": "2026-09-26T21:32:57+00:00",
+   "cls": "QUESTION REFRESHED",
+   "title": "state_inventory: NOT_FOUND \u2192 NOT_FOUND"
+  },
+  {
+   "at": "2026-09-26T21:32:57+00:00",
+   "cls": "INVESTIGATION CHECK SUCCEEDED",
+   "title": "State Lands per-parcel re-read: SUCCEEDED"
+  },
+  {
+   "at": "2026-09-26T21:32:57+00:00",
+   "cls": "INVESTIGATION CHECK STARTED",
+   "title": "FEMA flood-zone read at the parcel centroid for flood"
+  },
+  {
+   "at": "2026-09-26T21:33:00+00:00",
+   "cls": "QUESTION REFRESHED",
+   "title": "flood: FOUND \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-26T21:33:00+00:00",
+   "cls": "INVESTIGATION CHECK SUCCEEDED",
+   "title": "FEMA flood-zone read at the parcel centroid: SUCCEEDED"
+  },
+  {
+   "at": "2026-09-26T21:33:00+00:00",
+   "cls": "INVESTIGATION CHECK STARTED",
+   "title": "State road centreline read near the parcel for access"
+  },
+  {
+   "at": "2026-09-26T21:33:03+00:00",
+   "cls": "QUESTION REFRESHED",
+   "title": "access: FOUND \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-26T21:33:03+00:00",
+   "cls": "INVESTIGATION CHECK SUCCEEDED",
+   "title": "State road centreline read near the parcel: SUCCEEDED"
+  },
+  {
+   "at": "2026-09-26T21:33:03+00:00",
+   "cls": "INVESTIGATION CHECK STARTED",
+   "title": "City of Hot Springs vacant-structure register re-read for vacancy"
+  },
+  {
+   "at": "2026-09-26T21:33:07+00:00",
+   "cls": "QUESTION REFRESHED",
+   "title": "vacancy: FOUND \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-26T21:33:07+00:00",
+   "cls": "INVESTIGATION CHECK SUCCEEDED",
+   "title": "City of Hot Springs vacant-structure register re-read: SUCCEEDED"
+  },
+  {
+   "at": "2026-09-26T21:33:07+00:00",
+   "cls": "INVESTIGATION CHECK STARTED",
+   "title": "City of Hot Springs lien layer re-read for lien_city"
+  },
+  {
+   "at": "2026-09-26T21:33:10+00:00",
+   "cls": "QUESTION REFRESHED",
+   "title": "lien_city: FOUND \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-26T21:33:10+00:00",
+   "cls": "INVESTIGATION CHECK SUCCEEDED",
+   "title": "City of Hot Springs lien layer re-read: SUCCEEDED"
+  },
+  {
+   "at": "2026-09-26T21:33:10+00:00",
+   "cls": "INVESTIGATION CHECK STARTED",
+   "title": "City of Hot Springs code-case layer re-read for code"
+  },
+  {
+   "at": "2026-09-26T21:33:14+00:00",
+   "cls": "QUESTION REFRESHED",
+   "title": "code: NOT_FOUND \u2192 NOT_FOUND"
+  },
+  {
+   "at": "2026-09-26T21:33:14+00:00",
+   "cls": "INVESTIGATION CHECK SUCCEEDED",
+   "title": "City of Hot Springs code-case layer re-read: SUCCEEDED"
+  },
+  {
+   "at": "2026-09-26T21:33:14+00:00",
+   "cls": "INVESTIGATION CHECK STARTED",
+   "title": "City of Hot Springs roll copy: owner mailing address re-read for mailing_address"
+  },
+  {
+   "at": "2026-09-26T21:33:16+00:00",
+   "cls": "INVESTIGATION CHECK PRODUCED EVIDENCE",
+   "title": "1 reading from City of Hot Springs GIS - county parcel copy with owner mailing address"
+  },
+  {
+   "at": "2026-09-26T21:33:18+00:00",
+   "cls": "QUESTION ANSWERED",
+   "title": "Is there a mailing address of record for the owner, and from which source? \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-26T21:33:18+00:00",
+   "cls": "QUESTION REFRESHED",
+   "title": "mailing_address: FOUND \u2192 FOUND"
+  },
+  {
+   "at": "2026-09-26T21:33:18+00:00",
+   "cls": "INVESTIGATION CHECK SUCCEEDED",
+   "title": "City of Hot Springs roll copy: owner mailing address re-read: SUCCEEDED"
+  },
+  {
+   "at": "2026-09-26T21:33:26+00:00",
+   "cls": "WORKUP COMPLETED",
+   "title": "Workup 11: COMPLETE WITH SOURCE FAILURES"
   }
  ],
  "evidence": [
+  {
+   "ref": "evidence:2928685",
+   "field": "subdivision_code",
+   "value": "H04319",
+   "source_name": null,
+   "date": "2026-09-24",
+   "recorded_at": "2026-09-26T06:13",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2928684",
+   "field": "section_township_range",
+   "value": "04-03S-19W",
+   "source_name": null,
+   "date": "2026-09-24",
+   "recorded_at": "2026-09-26T06:13",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2928683",
+   "field": "owner_mailing_state",
+   "value": "AR",
+   "source_name": null,
+   "date": "2026-09-24",
+   "recorded_at": "2026-09-26T06:13",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2928682",
+   "field": "owner_id",
+   "value": "1030333",
+   "source_name": null,
+   "date": "2026-09-24",
+   "recorded_at": "2026-09-26T06:13",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2928681",
+   "field": "deed_reference",
+   "value": "Book 4811 Page 581",
+   "source_name": null,
+   "date": "2026-09-24",
+   "recorded_at": "2026-09-26T06:13",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2928680",
+   "field": "assessed_value",
+   "value": "$1,220",
+   "source_name": null,
+   "date": "2026-09-24",
+   "recorded_at": "2026-09-26T06:13",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2928679",
+   "field": "total_value",
+   "value": "$6,100",
+   "source_name": null,
+   "date": "2026-09-24",
+   "recorded_at": "2026-09-26T06:13",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2928678",
+   "field": "parcel_id",
+   "value": "300-06307-000",
+   "source_name": null,
+   "date": "2026-09-24",
+   "recorded_at": "2026-09-26T06:13",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
+  {
+   "ref": "evidence:2928677",
+   "field": "owner_name",
+   "value": "WOODFORK, TOMMY JR",
+   "source_name": null,
+   "date": "2026-09-24",
+   "recorded_at": "2026-09-26T06:13",
+   "etype": "FACT",
+   "conf": "HIGH",
+   "state": "FOUND",
+   "verification": "AUTOMATED SOURCE",
+   "superseded": false,
+   "conflict": false
+  },
   {
    "ref": "evidence:2234659",
    "field": "code_case_check",
    "value": "no 2025 code case at this address",
    "source_name": "City of Hot Springs GIS - 2025 housing / code-enforcement cases",
-   "date": "2026-09-23",
+   "date": "2026-09-26",
    "recorded_at": "2026-09-16T21:55",
    "etype": "OBSERVATION",
    "conf": "MEDIUM",
@@ -2922,7 +3245,7 @@
    "field": "cleanup_lien_total",
    "value": "5917.61",
    "source_name": "City of Hot Springs GIS - housing / cleanup / demolition liens",
-   "date": "2026-09-23",
+   "date": "2026-09-26",
    "recorded_at": "2026-09-16T21:55",
    "etype": "FACT",
    "conf": "HIGH",
@@ -2936,7 +3259,7 @@
    "field": "road_frontage_candidates",
    "value": "Blake St, Borden St, Eureka St, Garfield St, Lincoln St",
    "source_name": "Arkansas GIS Office - road centerlines (911 addressing)",
-   "date": "2026-09-23",
+   "date": "2026-09-26",
    "recorded_at": "2026-09-16T21:55",
    "etype": "OBSERVATION",
    "conf": "MEDIUM",
@@ -2964,7 +3287,7 @@
    "field": "flood_zone",
    "value": "X (AREA OF MINIMAL FLOOD HAZARD)",
    "source_name": "FEMA National Flood Hazard Layer",
-   "date": "2026-09-23",
+   "date": "2026-09-26",
    "recorded_at": "2026-09-16T21:55",
    "etype": "FACT",
    "conf": "HIGH",
@@ -3180,7 +3503,7 @@
    "conf": "HIGH",
    "state": "FOUND",
    "verification": "AUTOMATED SOURCE",
-   "superseded": false,
+   "superseded": true,
    "conflict": false
   },
   {
@@ -3194,7 +3517,7 @@
    "conf": "HIGH",
    "state": "FOUND",
    "verification": "AUTOMATED SOURCE",
-   "superseded": false,
+   "superseded": true,
    "conflict": false
   }
  ],

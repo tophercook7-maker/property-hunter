@@ -46,10 +46,28 @@ def build() -> dict:
     listings = sl.get("listings") or []
     new_listings = sorted([x for x in listings if (x.get("added") or "") >= (datetime.now(timezone.utc).strftime("%Y-%m-%d"))[:8] + "01"], key=lambda x: x.get("starting_bid") or 0)[:10]
     cheapest = sorted([x for x in listings if x.get("starting_bid") and x.get("parcel_id")], key=lambda x: x["starting_bid"])[:8]
+    # The State tax-sale inventory is where the week's actual news is, and it is
+    # built separately by tools/build_radar.py. signals.json only carries scan
+    # diffs, so a week with no scan made the brief say "0 recorded events" while
+    # 137 parcels had in fact entered the sale. Read both.
+    radar = load("radar.json", {})
+    rc = radar.get("counties") or {}
+    sale = {"new": sum(len(c.get("new") or []) for c in rc.values()),
+            "gone": sum(len(c.get("gone") or []) for c in rc.values()),
+            "bids": sum(len(c.get("bids") or []) for c in rc.values()),
+            "week_start": radar.get("week_start"),
+            "counties": sorted(
+                ({"county": k.title(),
+                  "new": len(v.get("new") or []), "gone": len(v.get("gone") or []),
+                  "bids": len(v.get("bids") or [])} for k, v in rc.items()),
+                key=lambda c: -(c["new"] + c["gone"]))}
+    sale["counties"] = [c for c in sale["counties"] if c["new"] or c["gone"] or c["bids"]][:12]
+    sale["movers"] = [c for c in sale["counties"] if c["new"] or c["gone"]][:8]
     cp = status.get("countypay") or {}
     unavailable = [c["county"] for c in (tax.get("counties") or {}).values() if (c.get("sources") or {}).get("countypay", {}).get("status") in ("TEMPORARILY_UNAVAILABLE", "BLOCKED")]
     return {"built_at": built, "window_days": sig.get("window_days"), "total": len(rows), "by_event": dict(by_event), "by_county": {k: v for k, v in sorted(by_county.items(), key=lambda kv: -len(kv[1]))},
-            "cheapest": cheapest, "samples": samples[-5:], "collector": cp, "unavailable_counties": unavailable[:12], "listing_count": len(listings)}
+            "cheapest": cheapest, "samples": samples[-5:], "collector": cp, "unavailable_counties": unavailable[:12], "listing_count": len(listings),
+            "sale": sale}
 
 
 def utc():
@@ -57,16 +75,36 @@ def utc():
 
 
 def markdown(b: dict) -> str:
+    sale = b.get("sale") or {}
     L = [f"# Property Hunter weekly brief — {b['built_at'][:10]}", "",
-         f"What changed on the Arkansas public record in the last {b['window_days'] or 7} days: {b['total']} recorded events. Every line names its source; nothing here is advice.", ""]
+         f"What moved in the State of Arkansas' tax-sale inventory in the week of "
+         f"{sale.get('week_start') or b['built_at'][:10]}: **{sale.get('new', 0)} parcels entered it**, "
+         f"**{sale.get('gone', 0)} left it** (sold or redeemed), and **{sale.get('bids', 0)} are carrying a bid**. "
+         f"Every line names its source; nothing here is advice.", ""]
     L.append("## By the numbers")
+    L.append(f"- {sale.get('new', 0)} parcels entered the State tax-sale inventory")
+    L.append(f"- {sale.get('gone', 0)} left it: sold at auction or redeemed by the owner")
+    L.append(f"- {sale.get('bids', 0)} are carrying at least one bid right now")
     for ev, n in sorted(b["by_event"].items(), key=lambda kv: -kv[1]):
         L.append(f"- {n} parcels {EVENT_WORDS.get(ev, ev.lower().replace('_', ' '))}")
     L.append(f"- {b['listing_count']:,} parcels in the State tax-sale inventory today")
-    L += ["", "## By county (most activity first)"]
-    for cn, rs in list(b["by_county"].items())[:10]:
-        c = Counter(r["event"] for r in rs)
-        L.append(f"- **{cn}**: " + ", ".join(f"{n} {EVENT_WORDS.get(e, e)}" for e, n in c.most_common()))
+    if sale.get("movers"):
+        L += ["", "## Where it moved this week"]
+        for c in sale["movers"]:
+            bits = []
+            if c["new"]:
+                bits.append(f"{c['new']} new")
+            if c["gone"]:
+                bits.append(f"{c['gone']} sold or redeemed")
+            if c["bids"]:
+                bits.append(f"{c['bids']} with a bid")
+            L.append(f"- **{c['county']} County**: " + ", ".join(bits) +
+                     f" · {SITE}/state-lands.html?county={c['county'].upper().replace(chr(32), chr(37) + chr(50) + chr(48))}")
+    if b["by_county"]:
+        L += ["", "## Scanner findings by county"]
+        for cn, rs in list(b["by_county"].items())[:10]:
+            c = Counter(r["event"] for r in rs)
+            L.append(f"- **{cn}**: " + ", ".join(f"{n} {EVENT_WORDS.get(e, e)}" for e, n in c.most_common()))
     L += ["", "## Cheapest State-sale parcels right now (starting bid)"]
     for x in b["cheapest"]:
         L.append(f"- ${x['starting_bid']:,.2f} — {x.get('address') or 'no situs'}, {x.get('city') or ''} ({x.get('county', '').title()} County) · parcel {x['parcel_id']} · {x.get('sale_type_text', '')}")
@@ -118,7 +156,7 @@ code{{font-family:var(--mono);font-size:12.5px}}
 <body>
 <header class="ph-top"><h1><small>What changed on the Arkansas public record · sources and dates on everything · nothing here is advice</small>Weekly brief</h1><nav data-nav aria-label="Sections"></nav></header>
 <main>
-  <section><h2>Week ending {esc(b['built_at'][:10])}</h2><p class="lead">{b['total']} recorded events in the last {esc(str(b['window_days'] or 7))} days across the State tax-sale inventory and the City of Hot Springs registers. {b['listing_count']:,} parcels are in the State inventory today.</p>
+  <section><h2>Week ending {esc(b['built_at'][:10])}</h2><p class="lead">{(b.get('sale') or {}).get('new', 0)} parcels entered the State's tax-sale inventory this week, {(b.get('sale') or {}).get('gone', 0)} left it by sale or redemption, and {(b.get('sale') or {}).get('bids', 0)} are carrying a bid. The scanner recorded {b['total']} further events across the City of Hot Springs registers. {b['listing_count']:,} parcels are in the State inventory today.</p>
   <div class="cta"><a class="btn" href="signup.html">Get this by email every Monday</a><a class="btn ghost" href="state-lands.html">Browse the State sale by county</a></div></section>
   <section class="box"><h3>By the numbers</h3><ul>{ev or '<li>No recorded changes in the window.</li>'}</ul></section>
   <section class="box"><h3>By county, most activity first</h3><ul>{counties or '<li>None.</li>'}</ul></section>

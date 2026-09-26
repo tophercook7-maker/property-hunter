@@ -9,7 +9,10 @@
 <meta property="og:description" content="What changed on the public record this week, statewide. Free while it's being built.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="ph.css">
-<style>
+<style>[hidden]{display:none!important}
+.miss{outline:2px solid #e0b34a;outline-offset:2px}
+#need{display:none;background:#3a2f12;border:1px solid #e0b34a;color:#fbe9b7;padding:10px 12px;font-size:14px}
+#need.on{display:block}
 main{max-width:720px;margin:0 auto;padding:16px 16px 70px;display:grid;gap:18px}
 h2{font-size:32px;text-transform:uppercase;letter-spacing:.02em;margin:0;text-wrap:balance}
 .lead{margin:4px 0 0;font-size:15px;line-height:1.5;max-width:66ch}
@@ -71,6 +74,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
     </div>
     <label>If yes or maybe: what would it be worth to you per month? (a number, or "per file" pricing if you'd rather)<input name="price" maxlength="80" placeholder="e.g. $20/month, or $15 per file"></label>
     <label>Anything you'd need it to do first? (optional)<textarea name="need" rows="3" maxlength="2000"></textarea></label>
+    <div id="need" role="alert"></div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn" type="submit">Send me the brief</button><span class="fine">One email a week. Reply "stop" to any of them and you're off. Your address is never shared or sold.</span></div>
   </form>
   <p class="fine">Prefer email? <a href="mailto:topher@mixedmakershop.com?subject=Property%20Hunter%20signup&body=Counties%3A%0AWould%20I%20pay%3A%0AWorth%20per%20month%3A%20">topher@mixedmakershop.com</a></p>
@@ -82,6 +86,25 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
   var w = p.get('watch'), c = p.get('county');
   if(w){ document.getElementById('watch_parcel').value = w; document.getElementById('watch_county').value = c || ''; document.getElementById('watchbox').hidden = false; document.getElementById('watchtxt').textContent = 'Parcel ' + w + (c ? ', ' + c + ' County' : ''); document.querySelector('input[name=_subject]').value = 'Property Hunter watch: ' + w + (c ? ' ' + c : ''); }
   if(p.get('sent') === '1'){ document.getElementById('thanks').hidden = false; document.getElementById('f').hidden = true; }
+})();
+</script>
+
+<script>
+(function(){
+  var f=document.getElementById('f'), need=document.getElementById('need');
+  function label(el){ var l=el.closest('label'); if(l){ var t=l.textContent.trim().split('\n')[0]; return t.replace(/\s*\*$/,''); } var o=el.closest('.opts'); return o ? o.querySelector('.fine').textContent.replace(/\s*\*$/,'') : el.name; }
+  f.addEventListener('invalid', function(e){
+    e.preventDefault();
+    var bad=[].slice.call(f.querySelectorAll(':invalid'));
+    bad.forEach(function(el){ el.classList.add('miss'); });
+    var first=bad[0];
+    need.textContent='Still needed: ' + bad.map(label).filter(function(v,i,a){return a.indexOf(v)===i;}).join(' · ');
+    need.classList.add('on');
+    (first.closest('.opts')||first).scrollIntoView({block:'center'});
+    if(first.type!=='radio') first.focus();
+  }, true);
+  f.addEventListener('input', function(e){ if(e.target.checkValidity()) { e.target.classList.remove('miss'); if(f.checkValidity()){ need.classList.remove('on'); } } });
+  f.addEventListener('submit', function(){ need.classList.remove('on'); var b=f.querySelector('button[type=submit]'); b.disabled=true; b.textContent='Sending…'; });
 })();
 </script>
 <script src="nav.js"></script>

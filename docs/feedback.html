@@ -7,7 +7,10 @@
 <meta name="description" content="Tell Property Hunter what would make a Property File worth your time. Two minutes, no account.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="ph.css">
-<style>
+<style>[hidden]{display:none!important}
+.miss{outline:2px solid #e0b34a;outline-offset:2px}
+#need{display:none;background:#3a2f12;border:1px solid #e0b34a;color:#fbe9b7;padding:10px 12px;font-size:14px}
+#need.on{display:block}
 main{max-width:720px;margin:0 auto;padding:16px 16px 70px;display:grid;gap:18px}
 h2{font-size:30px;text-transform:uppercase;letter-spacing:.02em;margin:0;text-wrap:balance}
 .lead{margin:4px 0 0;font-size:15px;line-height:1.5;max-width:66ch}
@@ -58,6 +61,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
       <label>Your name (optional)<input name="name" maxlength="80" autocomplete="name"></label>
       <label>Email, if you want a reply (optional)<input name="email" type="email" maxlength="120" autocomplete="email"></label>
     </div>
+    <div id="need" role="alert"></div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn" type="submit">Send it</button><span class="fine">Delivered by FormSubmit to one inbox. Nothing is posted publicly. No newsletter, no list.</span></div>
   </form>
   <p class="fine">Prefer email? <a href="mailto:topher@mixedmakershop.com?subject=Property%20Hunter%20feedback">topher@mixedmakershop.com</a></p>
@@ -67,6 +71,25 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
   var p = new URLSearchParams(location.search);
   document.getElementById('page').value = document.referrer || location.href;
   if(p.get('sent') === '1'){ document.getElementById('thanks').hidden = false; document.getElementById('f').hidden = true; }
+})();
+</script>
+
+<script>
+(function(){
+  var f=document.getElementById('f'), need=document.getElementById('need');
+  function label(el){ var l=el.closest('label'); if(l){ var t=l.textContent.trim().split('\n')[0]; return t.replace(/\s*\*$/,''); } var o=el.closest('.opts'); return o ? o.querySelector('.fine').textContent.replace(/\s*\*$/,'') : el.name; }
+  f.addEventListener('invalid', function(e){
+    e.preventDefault();
+    var bad=[].slice.call(f.querySelectorAll(':invalid'));
+    bad.forEach(function(el){ el.classList.add('miss'); });
+    var first=bad[0];
+    need.textContent='Still needed: ' + bad.map(label).filter(function(v,i,a){return a.indexOf(v)===i;}).join(' · ');
+    need.classList.add('on');
+    (first.closest('.opts')||first).scrollIntoView({block:'center'});
+    if(first.type!=='radio') first.focus();
+  }, true);
+  f.addEventListener('input', function(e){ if(e.target.checkValidity()) { e.target.classList.remove('miss'); if(f.checkValidity()){ need.classList.remove('on'); } } });
+  f.addEventListener('submit', function(){ need.classList.remove('on'); var b=f.querySelector('button[type=submit]'); b.disabled=true; b.textContent='Sending…'; });
 })();
 </script>
 <script src="nav.js"></script>

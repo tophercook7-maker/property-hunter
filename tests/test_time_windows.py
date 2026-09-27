@@ -23,11 +23,27 @@ def _db():
 
 
 def test_raw_comparison_is_wrong_within_the_same_day():
+    """Fixed timestamps, not 'now' minus an hour.
+
+    The first version of this used relative times and so failed for one hour a
+    day: run it at 00:05 UTC and "an hour ago" is yesterday's date, the date
+    part of the string decides the comparison, and the naive form is
+    accidentally right. A test about a time bug is not allowed to have one.
+    """
     c = _db()
-    # written an hour ago, in the format db.utcnow() produces
-    c.execute("INSERT INTO t(at) VALUES (strftime('%Y-%m-%dT%H:%M:%S','now','-1 hour') || '+00:00')")
-    naive = c.execute("SELECT COUNT(*) FROM t WHERE at > datetime('now','-2 minutes')").fetchone()[0]
-    assert naive == 1, "this is the bug: an hour-old row inside a two-minute window"
+    c.execute("INSERT INTO t(at) VALUES ('2026-09-26T09:00:00+00:00')")   # 09:00, ISO with a T
+    cutoff = "2026-09-26 17:00:00"                                        # same day, eight hours later
+    naive = c.execute("SELECT COUNT(*) FROM t WHERE at > ?", (cutoff,)).fetchone()[0]
+    assert naive == 1, "this is the bug: 09:00 reads as later than 17:00 because 'T' sorts above ' '"
+
+
+def test_normalised_comparison_is_right_on_the_same_fixed_pair():
+    c = _db()
+    c.execute("INSERT INTO t(at) VALUES ('2026-09-26T09:00:00+00:00')")
+    cutoff = "2026-09-26 17:00:00"
+    fixed = c.execute("SELECT COUNT(*) FROM t WHERE datetime(replace(at,'T',' ')) > ?",
+                      (cutoff,)).fetchone()[0]
+    assert fixed == 0
 
 
 def test_normalised_comparison_is_right():

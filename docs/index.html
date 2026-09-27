@@ -227,7 +227,7 @@ async function main(){
     if(best.lien>0) verified.push(`${PH.money(best.lien)} City cleanup / demolition lien on record`);
     if(best.cc) verified.push('Open 2025 code-enforcement case at this address');
     if(best.tv) verified.push(`County appraised ${PH.money(best.tv)}${best.iv>0?`, building ${PH.money(best.iv)}`:''} (assessor's figure, not a sale price)`);
-    if(best.ab) verified.push(`Tax bill goes to ${esc(title(best.m))}`);
+    if(best.ab) verified.push('Tax bill goes to a different address than the property (absentee owner)');
     if(best.f) verified.push(`FEMA flood zone ${best.f}`);
     const derived = (best.d||[]).filter(k=>PH.LABEL[k] && PH.LABEL[k][1]==='derived').map(k=>PH.LABEL[k][0]).slice(0,3);
     const unknown = ['Physical condition (aerials are from 2023)', 'Title, liens and judgments at the Circuit Clerk', tax.kind==='unknown' ? "This year's county tax bill (Collector not checked)" : null, best.f?null:'Flood zone (not checked yet)'].filter(Boolean);

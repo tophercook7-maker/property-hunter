@@ -1,30 +1,57 @@
-/* Visitor counting, off by default.
+/* Visitor counting. Two ways, both off until configured, neither one tracking.
 
    The site is static on GitHub Pages, which keeps no access log you can read,
-   so without something like this there is no way to tell whether anybody has
-   ever opened it. Repo traffic on github.com is a different number and is not
-   it.
+   so without something here there is no way to tell whether anyone has ever
+   opened it.
 
-   Cloudflare Web Analytics is the one used here: free, no cookie, no consent
-   banner needed, and it never sees a visitor's identity. Nothing loads until a
-   token is set, so the default state of this file is "counts nothing".
+   1. SELF-HOSTED (preferred here): posts the page path and the referring
+      address to a small counter on Topher's own Mac, behind the Cloudflare
+      Tunnel that already serves mixedmakershop.com. Nothing leaves his
+      hardware, there is no account and no third party. Set the endpoint in
+      analytics-endpoint.txt.
 
-   To turn it on: create a site in Cloudflare Web Analytics, copy its token,
-   and put it in docs/analytics-token.txt (one line, nothing else). It is a
-   public token by design -- it appears in the page source either way.
+   2. CLOUDFLARE WEB ANALYTICS: free, no cookie, needs a token from the
+      dashboard. Set it in analytics-token.txt.
 
-   To turn it off again: empty that file. */
+   Neither sets a cookie, reads one, or stores anything that follows a person
+   between visits. The counter keeps the day, the path, the referring host and
+   a coarse device word, and refuses the IP and the user agent. So this counts
+   page views and cannot count unique people -- a limit worth keeping rather
+   than engineering around.
+
+   Bots, previews and prerenders are not counted: a page nobody looked at is
+   not a visit. Everything is wrapped so that counting can never break a page. */
 (function () {
-  fetch('analytics-token.txt', { cache: 'no-store' })
-    .then(function (r) { return r.ok ? r.text() : ''; })
-    .then(function (t) {
-      t = (t || '').trim();
-      if (!/^[0-9a-f]{20,40}$/i.test(t)) return;          // absent or placeholder: count nothing
+  function txt(name) {
+    return fetch(name, { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.text() : ''; })
+      .then(function (t) { return (t || '').trim(); })
+      .catch(function () { return ''; });
+  }
+
+  // A prerender or a hidden tab is not somebody reading the page.
+  if (document.visibilityState === 'prerender') return;
+
+  txt('analytics-endpoint.txt').then(function (url) {
+    if (/^https:\/\/[^\s"']+$/.test(url)) {
+      var body = JSON.stringify({
+        p: location.pathname.replace(/^.*\/property-hunter/, '') || '/',
+        r: document.referrer || ''
+      });
+      // keepalive so the count survives the reader clicking straight through
+      fetch(url, {
+        method: 'POST', keepalive: true, mode: 'cors',
+        headers: { 'Content-Type': 'application/json' }, body: body
+      }).catch(function () { /* counting is never worth breaking a page over */ });
+      return;
+    }
+    return txt('analytics-token.txt').then(function (t) {
+      if (!/^[0-9a-f]{20,40}$/i.test(t)) return;        // absent or placeholder: count nothing
       var s = document.createElement('script');
       s.defer = true;
       s.src = 'https://static.cloudflareinsights.com/beacon.min.js';
       s.setAttribute('data-cf-beacon', JSON.stringify({ token: t }));
       document.head.appendChild(s);
-    })
-    .catch(function () { /* counting is never worth breaking a page over */ });
+    });
+  }).catch(function () { /* never break a page */ });
 })();

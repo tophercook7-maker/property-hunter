@@ -14,6 +14,26 @@ from pathlib import Path
 DOCS = Path(__file__).resolve().parent.parent / "docs"
 
 
+def test_the_self_hosted_endpoint_must_be_https_or_absent():
+    e = (DOCS / "analytics-endpoint.txt").read_text().strip()
+    assert e == "" or re.fullmatch(r"https://[^\s\"']+", e), \
+        "the counter endpoint is one https URL or nothing; http would leak the referrer in clear"
+
+
+def test_the_counter_refuses_to_send_anything_identifying():
+    js = (DOCS / "analytics.js").read_text()
+    for forbidden in ("navigator.userAgent", "screen.width", "canvas", "localStorage",
+                      "document.cookie", "navigator.plugins"):
+        assert forbidden not in js, f"the beacon must not collect {forbidden}"
+    assert "location.pathname" in js and "document.referrer" in js, \
+        "path and referrer are the whole payload"
+
+
+def test_prerenders_are_not_counted():
+    js = (DOCS / "analytics.js").read_text()
+    assert "prerender" in js, "a page nobody looked at is not a visit"
+
+
 def test_it_counts_nothing_until_a_token_is_set():
     tok = (DOCS / "analytics-token.txt").read_text().strip()
     assert tok == "" or re.fullmatch(r"[0-9a-f]{20,40}", tok, re.I), \

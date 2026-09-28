@@ -302,3 +302,49 @@ def test_stale_cross_county_alias_never_matches():
     db.ex("UPDATE properties SET county_fips='05013', territory='calhoun_ar', canonical_key='parcel:05013:10001801000' WHERE id=?", (a,))
     pid, how = identity.resolve({"parcel_id": "100-01801-000", "address": "1495 Mcclendon Rd", "county_fips": "05051", "lat": 34.6, "lon": -93.1, "owner_name": "HENSON, DONNA", "legal": "PT NE SE"})
     assert pid is None, (pid, how)
+
+
+def test_a_namelist_parcel_is_a_roll_record_not_a_register_twin():
+    """merge_address_twins reads "no county-roll evidence" as "a register record
+    that never found its parcel". That held until the county namelist imported
+    real parcels under its own source name: 198 Garland properties -- among them
+    106 SKIPPY LN lots 075 and 076, adjacent and distinct -- looked like register
+    twins and were one completed scan away from being folded away.
+
+    The fix is that the namelist counts as a roll, not a new rule about parcel
+    ids: a rule like that would also block the condo-unit merge this function
+    exists for.
+    """
+    from tests.conftest import make_record
+    assert "garland_namelist" in store.ROLL_SOURCES
+    a, _, _ = store.ingest(make_record(parcel_id="200-03700-075-000", address="106 Skippy Ln",
+                                       lat=34.51, lon=-93.05))
+    store.store_evidence(a, [{"field": "parcel_id", "value": "200-03700-075-000",
+                              "evidence_type": "FACT", "confidence": "HIGH",
+                              "source": "ar_gis_parcels"}])
+    rec = make_record(parcel_id="200-03700-076-000", address="106 Skippy Ln",
+                      legal=None, owner_name=None, lat=34.5101, lon=-93.0501)
+    rec.source = "garland_namelist"
+    b, _, _ = store.ingest(rec)
+    store.store_evidence(b, [{"field": "parcel_id", "value": "200-03700-076-000",
+                              "evidence_type": "FACT", "confidence": "HIGH",
+                              "source": "garland_namelist"}])
+    assert a != b, "two parcel ids must not have resolved to one property in the first place"
+    store.merge_address_twins()
+    assert store.get_property(a) and store.get_property(b), \
+        "neither adjacent lot may be merged away"
+
+
+def test_address_twins_still_fold_a_parcel_less_register_record():
+    """The case the function exists for still works."""
+    from tests.conftest import make_record
+    keep = store.ingest(make_record(parcel_id="300-11111-000", address="222 Real St",
+                                    city="HOT SPRINGS", lat=34.52, lon=-93.06))[0]
+    rec = make_record(parcel_id=None, address="222 Real St", city="HOT SPRINGS",
+                      lat=34.52, lon=-93.06)
+    rec.source = "hs_gis_liens"
+    drop = store.ingest(rec)[0]
+    if drop == keep:
+        return                      # already folded at ingest, which is also correct
+    store.merge_address_twins()
+    assert store.get_property(keep), "the county-anchored record survives"

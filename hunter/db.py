@@ -201,6 +201,10 @@ CREATE INDEX IF NOT EXISTS idx_prop_parcel_norm
 CREATE INDEX IF NOT EXISTS idx_prop_county ON properties(county_fips);
 CREATE INDEX IF NOT EXISTS idx_prop_county_addr ON properties(county_fips, address_norm);
 CREATE INDEX IF NOT EXISTS idx_prop_county_owner ON properties(county_fips, owner_norm);
+-- rpid had no index, so merge_rpid_twins' self-join had nothing to join on and
+-- fell back to driving both sides off idx_prop_excluded: two values, 2.1 million
+-- rows each side.
+CREATE INDEX IF NOT EXISTS idx_prop_rpid ON properties(county_fips, rpid);
 
 CREATE TABLE IF NOT EXISTS property_aliases (
   id INTEGER PRIMARY KEY,

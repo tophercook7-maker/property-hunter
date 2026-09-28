@@ -16,7 +16,7 @@ from typing import Any, Iterable
 from . import db, exclusions, identity
 from .db import jdump, jload, utcnow
 from . import geo
-from .normalize import normalize_address, normalize_owner
+from .normalize import normalize_address, normalize_owner, normalize_parcel
 from .sources.base import Record
 
 # A centroid that moves less than this between sources is the same parcel drawn
@@ -530,14 +530,23 @@ def set_fields(prop_id: int, cols: dict, source: str) -> None:
         identity.record_aliases(prop_id, ident, source)
 
 
-def merge_rpid_twins() -> int:
+def merge_rpid_twins(county_fips: str | None = None) -> int:
     """Two properties, one RPID, only one with a parcel id: the parcel-less one
-    is a register record that never found its parcel. Fold it onto the other."""
+    is a register record that never found its parcel. Fold it onto the other.
+
+    Scope this to the county being scanned. Unscoped, SQLite drives both sides
+    off idx_prop_excluded -- an index on a column with two values -- so at 2.1
+    million rows it is a 2.1M x 2.1M nested loop. A scheduled Garland rescan sat
+    in exactly this query for 21 hours at 60% CPU and would never have finished.
+    Register records only ever exist inside one county anyway.
+    """
     from . import identity
-    rows = db.q("""SELECT a.id AS keep, b.id AS drop_ FROM properties a JOIN properties b
+    where = "AND a.county_fips=? AND b.county_fips=a.county_fips" if county_fips else ""
+    args = (county_fips,) if county_fips else ()
+    rows = db.q(f"""SELECT a.id AS keep, b.id AS drop_ FROM properties a JOIN properties b
                    ON a.rpid=b.rpid AND a.id!=b.id
                    WHERE a.rpid IS NOT NULL AND a.parcel_id IS NOT NULL AND b.parcel_id IS NULL
-                   AND a.excluded=0 AND b.excluded=0""")
+                   AND a.excluded=0 AND b.excluded=0 {where}""", args)
     n = 0
     seen = set()
     for r in rows:
@@ -551,7 +560,15 @@ def merge_rpid_twins() -> int:
     return n
 
 
-def merge_address_twins() -> int:
+# Sources that mean "this row came from a county roll, with its own parcel id",
+# as opposed to a register record that never found its parcel. The namelist was
+# missing here, so 198 Garland properties -- 106 SKIPPY LN lots 075 and 076,
+# adjacent and distinct -- looked like register twins and were one completed scan
+# away from being folded away.
+ROLL_SOURCES = ("ar_gis_parcels", "garland_namelist")
+
+
+def merge_address_twins(county_fips: str | None = None) -> int:
     """Two properties at one NUMBERED address where only one came from the
     county roll: the other is a register record that missed its parcel (a
     condo-unit parcel, a boundary centroid). Fold it onto the county record.
@@ -559,14 +576,16 @@ def merge_address_twins() -> int:
     from . import identity
     # keep the county-anchored side; when neither side is (two register-created
     # condo-unit parcels at one building), keep the one seen first
-    rows = db.q("""SELECT a.id AS keep, b.id AS drop_, a.address FROM properties a
+    where = "AND a.county_fips=?" if county_fips else ""
+    args = ((county_fips,) if county_fips else ()) + ROLL_SOURCES + ROLL_SOURCES
+    rows = db.q(f"""SELECT a.id AS keep, b.id AS drop_, a.address FROM properties a
                    JOIN properties b ON a.address_norm=b.address_norm AND a.id!=b.id
                         AND a.county_fips=b.county_fips
-                   WHERE a.address_norm IS NOT NULL AND a.excluded=0 AND b.excluded=0
+                   WHERE a.address_norm IS NOT NULL AND a.excluded=0 AND b.excluded=0 {where}
                    AND NOT EXISTS (SELECT 1 FROM evidence e WHERE e.property_id=b.id
-                                   AND e.source='ar_gis_parcels')
+                                   AND e.source IN (?,?))
                    AND (EXISTS (SELECT 1 FROM evidence e WHERE e.property_id=a.id
-                                AND e.source='ar_gis_parcels') OR a.id < b.id)""")
+                                AND e.source IN (?,?)) OR a.id < b.id)""", args)
     n, seen = 0, set()
     for r in rows:
         if r["drop_"] in seen or r["keep"] in seen or not (r["address"] or "")[:1].isdigit():

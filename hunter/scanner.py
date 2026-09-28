@@ -556,7 +556,15 @@ class Scan:
             self.touched.append(pid)
             if n % 20 == 0 or n == len(ids):
                 self.tick("parcel_ids", n, len(ids), f"{matched} matched, {merged} merged")
-        twins = store.merge_rpid_twins() + store.merge_address_twins()
+        # Scoped to this county and inside the budget. Unscoped these are a
+        # 2.1M x 2.1M self-join that ran for 21 hours past a budget break.
+        fips = self._fips()
+        twins = 0
+        if time.monotonic() <= deadline + budget:
+            twins = store.merge_rpid_twins(fips) + store.merge_address_twins(fips)
+        else:
+            self.log("parcel_ids: over budget, leaving the twin merge for the next scan",
+                     level="warn", stage="parcel_ids")
         merged += twins
         src.record_attempt(SimpleResult(OK if (matched or merged) else "unavailable",
                                         f"{matched} matched, {merged} merged, {missed} not found"))

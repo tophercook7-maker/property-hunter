@@ -508,8 +508,17 @@ def build():
     body = tpl.replace("__DATA__", data).replace("__LABELS__", json.dumps(labels))
     head, rest = body.split("<style>", 1)
     css, tail = rest.split("</style>", 1)
+    # Generated page: the share tags belong here, or the next build strips them
+    # and a pasted link goes back to rendering as bare text.
+    SITE = "https://tophercook7-maker.github.io/property-hunter"
     full = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">'
+            f'<meta property="og:title" content="Garland County scan · Property Hunter">'
+            f'<meta property="og:type" content="website">'
+            f'<meta property="og:image" content="{SITE}/share.png">'
+            '<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">'
+            '<meta name="twitter:card" content="summary_large_image">'
+            f'<meta name="twitter:image" content="{SITE}/share.png">'
             + head + "<style>" + css + "</style></head><body>" + tail
             # garland.html is generated, so editing the file to add the counter
             # lasts exactly until the next build. It belongs here.

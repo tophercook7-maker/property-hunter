@@ -58,3 +58,33 @@ def test_every_page_is_counted_the_same_way():
     pages = [Path(p) for p in glob.glob(str(DOCS / "*.html"))]
     missing = [p.name for p in pages if "analytics.js" not in p.read_text(errors="replace")]
     assert not missing, f"pages that would not be counted: {missing}"
+
+
+def test_every_page_previews_when_shared():
+    """A link with no og:image renders as bare text wherever it is pasted --
+    the same defect the Century 21 audit charged them for. 13 of 25 pages had
+    og:title and none had an image."""
+    import glob
+    from pathlib import Path
+    pages = [Path(p) for p in glob.glob(str(DOCS / "*.html"))]
+    assert pages
+    for tag in ("og:title", "og:image", "twitter:card"):
+        missing = [p.name for p in pages if tag not in p.read_text(errors="replace")]
+        assert not missing, f"pages with no {tag}: {missing}"
+
+
+def test_the_share_image_exists_and_is_the_right_shape():
+    import struct
+    f = DOCS / "share.png"
+    assert f.exists(), "og:image points at a file that has to be there"
+    head = f.read_bytes()[:24]
+    assert head[:8] == b"\x89PNG\r\n\x1a\n", "must be a real PNG, not an SVG renamed"
+    w, h = struct.unpack(">II", head[16:24])
+    assert (w, h) == (1200, 630), f"Facebook and iMessage want 1200x630, got {w}x{h}"
+
+
+def test_the_generated_scan_page_keeps_its_tags():
+    """garland.html is rebuilt from a template; tags added to the file alone
+    last until the next build."""
+    src = (DOCS.parent / "tools" / "build_share.py").read_text()
+    assert "og:image" in src and "twitter:card" in src

@@ -83,6 +83,17 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 
 <script>
 (function(){
+  var p = new URLSearchParams(location.search);
+  if(p.get('listing') === '1'){
+    var subj = document.querySelector('input[name=_subject]'); if(subj) subj.value = 'Property Hunter listing tip: ' + (p.get('parcel') || p.get('addr') || '');
+    var msg = document.querySelector('textarea[name=message]');
+    if(msg && !msg.value) msg.value = 'I found this parcel listed for sale.\nParcel: ' + (p.get('parcel') || '') + '\nAddress: ' + (p.get('addr') || '') + (p.get('county') ? ', ' + p.get('county') + ' County' : '') + '\nListing link: \nAsking price: \nListing agent or seller: \nDate I saw it: ';
+    var h = document.querySelector('h1'); if(h){ for(var n=h.lastChild; n; n=n.previousSibling){ if(n.nodeType===3){ n.textContent='Found it listed? Send the link.'; break; } } }
+  }
+})();
+</script>
+<script>
+(function(){
   var f=document.getElementById('f'), need=document.getElementById('need');
   function label(el){ var o=el.closest('.opts'); if(o){ var q=o.querySelector('.fine'); return (q?q.textContent:el.name).replace(/\s*\*$/,'').replace(/^Straight question: /,''); } var l=el.closest('label'); if(l){ var t=l.textContent.trim().split('\n')[0]; return t.replace(/\s*\*$/,''); } return el.name; }
   f.addEventListener('invalid', function(e){

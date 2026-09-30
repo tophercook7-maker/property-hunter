@@ -18,7 +18,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="ph.css">
-<style>
+<style>.salebox{margin-top:10px;padding-top:8px;border-top:1px dashed var(--rule,#2a333c)}.salebox a.lk{display:inline-block;margin:4px 6px 0 0;padding:4px 9px;border:1px solid var(--rule,#2a333c);border-radius:2px;text-decoration:none;font-size:12.5px;color:var(--ink)}.salebox a.lk:hover{background:var(--accent);color:var(--accent-ink,#fff)}.tag.bad{background:#5a2323;color:#ffd9d9;padding:1px 6px;border-radius:2px;font-size:11px;letter-spacing:.05em}
 :root{
   --ground:#E8ECEF; --surface:#FFFFFF; --surface2:#F3F5F7; --ink:#172029; --muted:#5F6E7B; --rule:#D3DAE0;
   --accent:#0E7C73; --accent-ink:#FFFFFF; --accent-soft:#D6EEEB;
@@ -459,7 +459,7 @@ function doorsHtml(a, county, addr, c){
   const req = `mailto:topher@mixedmakershop.com?subject=${encodeURIComponent('Property File request: ' + (a.parcelid || addr) + ', ' + cty + ' County')}&body=${encodeURIComponent('Parcel: ' + (a.parcelid || '') + '\nCounty: ' + cty + '\nSitus: ' + addr + (a.adrcity ? ', ' + title(a.adrcity) : '') + '\nWhat I am trying to decide: ')}`;
   const watch = `signup.html?watch=${encodeURIComponent(a.parcelid || addr)}&county=${encodeURIComponent(cty)}`;
   const sl = onSale(a) ? `<a class="door sale" href="state-lands.html?county=${esc(a.countyfips)}&q=${encodeURIComponent(a.parcelid || '')}">State sale listing</a>` : '';
-  return `<div class="doors"><a class="door main" href="${find}" title="Resolve this parcel and run the full workup (licensed)">Full Property File</a><a class="door" href="${req}">Get a file</a><a class="door" href="${watch}">Watch</a>${sl}<a class="door" href="${c ? `https://www.google.com/maps/search/?api=1&query=${c[0]},${c[1]}` : '#'}" target="_blank" rel="noopener">Drive there</a><button type="button" class="door" onclick="showCorners()">Corners</button></div>`;
+  return `<div class="doors"><a class="door main" href="${find}" title="Resolve this parcel and run the full workup (licensed)">Full Property File</a><a class="door" href="${req}">Get a file</a><a class="door" href="${watch}">Watch</a>${sl}<a class="door" href="${PH.listingLinks(addr, title(a.adrcity) || '', (cty || '').replace(/ County$/i, ''))[0].href}" target="_blank" rel="noopener" title="Zillow's page for this address, if it has one: price and listing agent. No listing feed is connected here.">Is it listed?</a><a class="door" href="${c ? `https://www.google.com/maps/search/?api=1&query=${c[0]},${c[1]}` : '#'}" target="_blank" rel="noopener">Drive there</a><button type="button" class="door" onclick="showCorners()">Corners</button></div>`;
 }
 
 /* identify by map click */
@@ -505,7 +505,7 @@ async function select(i){
   $('detail').innerHTML = `<div class="detail">
     <div><h2>${esc(addr)}</h2><div class="sub">${esc(title(a.adrcity)||'')}${a.adrzip5?' '+a.adrzip5:''} · ${esc(county)} County · parcel <span class="num">${esc(a.parcelid)}</span></div>${doors}</div>
     <div id="village"></div>
-    <div class="strip" id="strip" aria-label="Summary"><div><span>Sale</span><b>UNKNOWN — no listing source connected</b></div><div><span>Taxes</span><b id="strip-tax">checking the State list and Collector status…</b></div><div><span>Signals</span><b id="strip-sig">looking up the scan…</b></div><div><span>Next</span><b id="strip-next">…</b></div></div>
+    <div class="strip" id="strip" aria-label="Summary"><div><span>Sale</span><b id="strip-sale">UNKNOWN — no listing source connected</b></div><div><span>Taxes</span><b id="strip-tax">checking the State list and Collector status…</b></div><div><span>Signals</span><b id="strip-sig">looking up the scan…</b></div><div><span>Next</span><b id="strip-next">…</b></div></div>
     <div class="sec" id="whysec"><h3>Why this property? <span class="from">only from records read</span></h3><div id="why"><span class="pending">assembling…</span></div></div>
     <div class="sec" id="knowsec"><h3>What we know · what we don't know · next steps <span class="from">verified is named; unknown stays unknown</span></h3><div id="know"><span class="pending">assembling…</span></div></div>
     <div class="sec" id="tlsec"><h3>Evidence timeline <span class="from">dated records, oldest first · world events, first readings, source checks</span></h3><div id="tl"><span class="pending">reading the county timeline…</span></div></div>
@@ -764,12 +764,17 @@ async function taxStatus(a, c){
   const collectorLine = (tx.state === 'TAX_SALE_VERIFIED')
     ? `County Collector: the bill for a State-certified parcel is settled through State Lands, not the county payment site.`
     : `<b>County Collector:</b> ${esc(tx.text)}.${tx.state==='SOURCE_UNAVAILABLE' ? ' The county Collector\'s online search (CountyPay) is down; this year\'s bill is not checked, and the poller retries every 20 minutes.' : tx.state==='UNKNOWN' ? ' Nobody has asked the Collector about this parcel yet; that is not a finding either way.' : ''}`;
+  const addrTxt = clean(a.adrlabel) || [a.adrnum, a.predir, a.pstrnam, a.pstrtype, a.psufdir].filter(Boolean).join(' ');
+  const cityTxt = title(a.adrcity) || '';
+  const cName = (COUNTIES[a.countyfips] || a.county || '').replace(/ County$/i, '');
+  const saleLinks = `<div class="salebox"><b>Is it for sale?</b> ${hit ? `<span class="tag bad">FOR SALE BY THE STATE</span> starting bid <b>${fmt$(hit.starting_bid)}</b>${hit.current_bid>0?`, current bid <b>${fmt$(hit.current_bid)}</b>`:''}${hit.sale_type_text?` · ${esc(hit.sale_type_text)}`:''}${hit.listing_url?` · <a href="${esc(hit.listing_url)}" target="_blank" rel="noopener"><b>Open the State's listing and bid page</b></a>`:''}<br>` : `<span class="tag unk">NO PRIVATE LISTING SOURCE IS CONNECTED</span> so this tool cannot say whether an owner or agent has it listed. `}Check the sites that carry the price and the seller, one tap each: ${PH.listingLinksHtml(addrTxt, cityTxt, cName, 'lk')} <span class="t">If you find it listed, <a href="${PH.reportListingUrl(addrTxt, cityTxt, cName, a.parcelid)}">tell me the link and price</a> and it goes on this parcel's file with the date. Absence from every site is not "not for sale"; nothing here says whether an owner wants to sell.</span></div>`;
   if(hit){
     el.className = 'taxbox cert';
-    el.innerHTML = `<b class="big">${fmt$(hit.starting_bid)} owed</b> · <b>TAX SALE — certified to the State for unpaid taxes and for sale by the State</b>${hit.delinquent_year?` · unpaid since ${esc(hit.delinquent_year)}`:''}${hit.current_bid>0?` · current bid ${fmt$(hit.current_bid)}`:''} · State inventory as of ${asOf}.<br>${collectorLine}<span class="t">Source: Commissioner of State Lands. A State sale, not a private listing.</span>`;
+    el.innerHTML = `<b class="big">${fmt$(hit.starting_bid)} owed</b> · <b>TAX SALE — certified to the State for unpaid taxes and for sale by the State</b>${hit.delinquent_year?` · unpaid since ${esc(hit.delinquent_year)}`:''}${hit.current_bid>0?` · current bid ${fmt$(hit.current_bid)}`:''} · State inventory as of ${asOf}.<br>${collectorLine}<span class="t">Source: Commissioner of State Lands. A State sale, not a private listing.</span>${saleLinks}`;
+    const ss = $('strip-sale'); if(ss){ ss.textContent = `FOR SALE BY THE STATE · starting bid ${fmt$(hit.starting_bid)}`; ss.className = 'tx-bad'; }
   } else {
     el.className = 'taxbox';
-    el.innerHTML = `${collectorLine}<br><b>State Lands:</b> not in the State tax-sale inventory as of ${asOf}${row && row.taxs && row.taxs.cosl_check ? ` (per-parcel check ${esc(row.taxs.cosl_check)})` : ''}. That only says the State is not selling it; it does not say the taxes are paid or current. The one-year-behind list is a records request: <a href="request.html">the kit</a>.<span class="t">Two sources, two answers: the State's sale list and the county Collector. Neither speaks for the other.</span>`;
+    el.innerHTML = `${collectorLine}<br><b>State Lands:</b> not in the State tax-sale inventory as of ${asOf}${row && row.taxs && row.taxs.cosl_check ? ` (per-parcel check ${esc(row.taxs.cosl_check)})` : ''}. That only says the State is not selling it; it does not say the taxes are paid or current. The one-year-behind list is a records request: <a href="request.html">the kit</a>.<span class="t">Two sources, two answers: the State's sale list and the county Collector. Neither speaks for the other.</span>${saleLinks}`;
   }
   const st = $('strip-tax'); if(st){ st.textContent = tx.text; st.className = 'tx-' + tx.tone; }
 }

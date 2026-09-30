@@ -139,6 +139,23 @@
     return { state: 'UNKNOWN', text: 'UNKNOWN — no listing source connected. Property Hunter is not saying this is for sale or not for sale.', source: null, kind: 'unknown' };
   };
   PH.searchListingsUrl = r => { const q = [r && r.a, r && r.c, 'Arkansas'].filter(Boolean).join(' '); return 'https://www.google.com/search?q=' + encodeURIComponent(q + ' listing'); };
+  // One tap to each public listing site for THIS address. No listing feed is connected, so the
+  // visitor sees the price and the listing agent on the site that has them; the tool never
+  // guesses. Zillow's address URL lands on the property page itself when it exists.
+  PH.listingLinks = (addr, city, county) => {
+    const a = (addr || '').trim(), c = (city || '').trim(), cty = (county || '').trim();
+    const full = [a, c, 'AR'].filter(Boolean).join(', ');
+    const g = q => 'https://www.google.com/search?q=' + encodeURIComponent(q);
+    const out = [];
+    if (a) out.push({ label: 'Zillow', href: 'https://www.zillow.com/homes/' + encodeURIComponent(full.replace(/\s+/g, ' ')) + '_rb/', note: 'lands on the property page if Zillow has it: price, photos, listing agent' });
+    if (a) out.push({ label: 'Realtor.com', href: g('site:realtor.com "' + a + '" ' + c + ' AR'), note: 'MLS listings and the listing office' });
+    if (a) out.push({ label: 'Redfin', href: g('site:redfin.com "' + a + '" ' + c + ' AR'), note: 'listing, price history, agent' });
+    if (cty) out.push({ label: 'LandWatch (' + cty + ' County)', href: 'https://www.landwatch.com/arkansas-land-for-sale/' + cty.toLowerCase().replace(/[^a-z]+/g, '-') + '-county', note: 'land and acreage listings for the county' });
+    out.push({ label: 'Everything else', href: g((full || cty + ' County Arkansas') + ' for sale'), note: 'FSBO, auction and small-site listings' });
+    return out;
+  };
+  PH.listingLinksHtml = (addr, city, county, cls) => PH.listingLinks(addr, city, county).map(l => `<a class="${cls || 'btn ghost'}" href="${l.href}" target="_blank" rel="noopener" title="${l.note}">${l.label}</a>`).join(' ');
+  PH.reportListingUrl = (addr, city, county, parcel) => 'feedback.html?listing=1&parcel=' + encodeURIComponent(parcel || '') + '&addr=' + encodeURIComponent([addr, city].filter(Boolean).join(', ')) + '&county=' + encodeURIComponent(county || '');
 
   // ---------- SIGNALS: what the records actually say, counted honestly ----------
   PH.signals = r => {

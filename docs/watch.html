@@ -109,11 +109,11 @@ const HS = s => `https://services1.arcgis.com/lCwVhIwyitVebu0v/arcgis/rest/servi
 const store = { get(){ try { return JSON.parse(localStorage.getItem('ph-watch')||'[]'); } catch(e){ return []; } }, set(v){ try { localStorage.setItem('ph-watch', JSON.stringify(v)); } catch(e){} } };
 let LIST = store.get(); let SL = null;
 
-async function arc(url, params){ const p = new URLSearchParams({f:'json', ...params}); const r = await fetch(url+'?'+p); const j = await r.json(); if(j.error) throw new Error(j.error.message||'service error'); return j; }
+async function arc(url, params){ const p = new URLSearchParams({f:'json', ...params}); const r = await fetch(url+'?'+p); const j = await r.json(); if(j.error) throw new Error(j.error.message||'service error'); (j.features||[]).forEach(f => { if(f.attributes && f.attributes.countyfips != null){ const v = String(f.attributes.countyfips).trim(); f.attributes.countyfips = v.length === 3 ? '05' + v : v; } }); return j; }
 async function loadSL(){ if(SL) return SL; try { SL = await (await fetch('data/state_lands.json')).json(); } catch(e){ SL = {listings:[]}; } return SL; }
 
 async function snapshot(w){
-  const j = await arc(PARCELS, {where:`countyfips='${w.fips}' AND parcelid='${w.parcel_id.replace(/'/g,"''")}'`, outFields:'parcelid,camakey,ownername,adrlabel,adrcity,totalvalue,impvalue,sourceref,sourcedate', outSR:4326, returnGeometry:false, returnCentroid:true});
+  const j = await arc(PARCELS, {where:`countyfips IN ('05${String(w.fips).slice(-3)}','${String(w.fips).slice(-3)}') AND parcelid='${w.parcel_id.replace(/'/g,"''")}'`, outFields:'parcelid,camakey,ownername,adrlabel,adrcity,totalvalue,impvalue,sourceref,sourcedate', outSR:4326, returnGeometry:false, returnCentroid:true});
   const f = (j.features||[])[0]; if(!f) return {missing:true, at:new Date().toISOString()};
   const a = f.attributes, c = f.centroid;
   const s = {at:new Date().toISOString(), owner:a.ownername, appraised:a.totalvalue, improvements:a.impvalue, deed:a.sourceref, address:(a.adrlabel||'').replace(/\s+/g,' ').trim(), city:a.adrcity, rpid:String(a.camakey||'').split('.')[0], lat:c?c.y:null, lon:c?c.x:null, liens:null, vacant:null, cases:null, cosl:null, bid:null};

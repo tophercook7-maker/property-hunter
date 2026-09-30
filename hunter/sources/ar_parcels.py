@@ -154,8 +154,9 @@ class ArkansasParcels(PropertySource):
 
         prop_type = self._property_type(cls, improve, imp)
 
+        three = str(terr['county_fips'])[-3:]
         src_url = (f"{SERVICE}/{LAYER}/query?where=parcelid%3D%27{parcel_id}%27"
-                   f"+AND+countyfips%3D%27{terr['county_fips']}%27&outFields=*&f=json")
+                   f"+AND+countyfips+IN+(%2705{three}%27,%27{three}%27)&outFields=*&f=json")
 
         fields: dict[str, Any] = {
             "parcel_id": parcel_id,

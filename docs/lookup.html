@@ -257,19 +257,24 @@ map.on('click', e => identify(e.latlng.lat, e.latlng.lng));
 function status(kind, text){ const s = $('status'); s.className = 'status ' + kind; $('stext').textContent = text; }
 
 /* fetch helper */
+/* The State's parcel layer switched its county code from five digits ('05051') to three ('051')
+   on 2026-09-30. The site keeps the five-digit code everywhere; the boundary accepts both. */
+function fipsWhere(fips){ const f = String(fips || ''); const three = f.slice(-3); return `countyfips IN ('05${three}','${three}')`; }
+function normFips(v){ const s = String(v == null ? '' : v).trim(); return s.length === 3 ? '05' + s : s; }
 async function arc(url, params){
   const p = new URLSearchParams({f:'json', ...params});
   const r = await fetch(url + '?' + p.toString());
   if(!r.ok) throw new Error(`${url.split('/services/')[1].split('/query')[0]} answered ${r.status}`);
   const j = await r.json();
   if(j.error) throw new Error(j.error.message || 'service error');
+  (j.features || []).forEach(f => { if(f.attributes && f.attributes.countyfips != null) f.attributes.countyfips = normFips(f.attributes.countyfips); });
   return j;
 }
 
 /* search */
 function buildWhere(fips, raw){
   const q = clean(raw).toUpperCase();
-  const c = fips ? `countyfips='${fips}' AND ` : '';
+  const c = fips ? `${fipsWhere(fips)} AND ` : '';
   if(!q) return null;
   if(/^[\d-]{5,}[A-Z]?$/.test(q)) return `${c}parcelid LIKE '%${sq(q)}%'`;
   const m = q.match(/^(\d+)\s+(.+)$/);
@@ -361,7 +366,7 @@ async function thisStreet(){
   const a = r.a;
   status('busy', `Reading every parcel on ${title(a.pstrnam)} ${title(a.pstrtype || '')} in ${COUNTIES[a.countyfips] || 'the county'}…`);
   try {
-    const where = `countyfips='${a.countyfips}' AND UPPER(pstrnam)='${sq(String(a.pstrnam).toUpperCase())}'` + (a.pstrtype ? ` AND UPPER(pstrtype)='${sq(String(a.pstrtype).toUpperCase())}'` : '');
+    const where = `${fipsWhere(a.countyfips)} AND UPPER(pstrnam)='${sq(String(a.pstrnam).toUpperCase())}'` + (a.pstrtype ? ` AND UPPER(pstrtype)='${sq(String(a.pstrtype).toUpperCase())}'` : '');
     const j = await arc(PARCELS, {where, outFields: FIELDS, outSR: 4326, returnGeometry: true, returnCentroid: true, resultRecordCount: 500, orderByFields: 'adrnum'});
     current = (j.features || []).map(f => ({a: f.attributes, geom: f.geometry, centroid: f.centroid}));
     drawResults(current);

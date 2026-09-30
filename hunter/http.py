@@ -5,6 +5,8 @@ We never try to defeat access controls. A 403/robots deny becomes an honest
 """
 from __future__ import annotations
 
+import re
+
 import threading
 import time
 import urllib.robotparser
@@ -105,6 +107,7 @@ def arcgis_query(service_url: str, layer: int, *, where: str = "1=1",
         params["resultRecordCount"] = result_record_count
     if extra:
         params.update(extra)
+    params["where"] = _accept_both_county_codes(params["where"])
     url = f"{service_url.rstrip('/')}/{layer}/query"
     # Esri REST endpoints are published for programmatic use; robots.txt on
     # these GIS hosts is typically absent, and we still rate-limit ourselves.
@@ -114,7 +117,35 @@ def arcgis_query(service_url: str, layer: int, *, where: str = "1=1",
         err = data["error"]
         raise RuntimeError(f"ArcGIS error {err.get('code')}: {err.get('message')} "
                            f"{'; '.join(err.get('details') or [])}")
+    _normalize_county_codes(data)
     return data
+
+
+# The State's parcel layer (Planning_Cadastre/6) switched its countyfips values from the
+# five-digit FIPS ('05051') to the three-digit county part ('051') on 2026-09-30, and every
+# county-filtered query started returning zero rows. The app keeps five-digit codes as its
+# identity everywhere; this boundary accepts both forms in a where clause and hands back
+# five-digit codes in every feature, so no caller has to know which day it is.
+_FIPS_EQ = re.compile(r"countyfips\s*=\s*'(\d{3}|05\d{3})'")
+
+
+def _accept_both_county_codes(where: str) -> str:
+    def rep(m):
+        v = m.group(1)
+        three = v[-3:]
+        return f"countyfips IN ('05{three}','{three}')"
+    return _FIPS_EQ.sub(rep, where or "")
+
+
+def _normalize_county_codes(data) -> None:
+    if not isinstance(data, dict):
+        return
+    for f in data.get("features") or []:
+        a = f.get("attributes") if isinstance(f, dict) else None
+        if a and a.get("countyfips") is not None:
+            v = str(a["countyfips"]).strip()
+            if len(v) == 3 and v.isdigit():
+                a["countyfips"] = "05" + v
 
 
 def arcgis_count(service_url: str, layer: int, where: str = "1=1") -> int:

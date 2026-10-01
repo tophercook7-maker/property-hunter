@@ -299,7 +299,7 @@ async function main(){
     ['get-a-file.html','Get a Property File','Send an address. Get back what the public record says, in one file.', 'see two real samples first'],
     ['weekly.html','Weekly brief','What changed on the Arkansas public record this week.', 'read it, or get it by email'],
     ['feedback.html','Feedback','Would a Property File save you time? Say it straight.', 'two minutes, no account'],
-    ['pro.html','Radar','Never miss the property that changed this week.', 'in development · pricing not set'],
+    ['pro.html','Radar','Never miss the property that changed this week.', 'from $29 / month'],
   ].map(d=>`<a class="door" href="${d[0]}"><b>${d[1]}</b><span>${d[2]}</span><em>${d[3]}</em></a>`).join('');
   $('means').innerHTML = PH.means(
     ['Every figure comes from a named public record with a date, or is labelled derived, estimated or unknown', 'The State tax-sale list is checked daily and is the most reliable number here', 'Village and Diamondhead parcels are excluded at the source, never scored', 'A research-priority score ranks what to look at first'],

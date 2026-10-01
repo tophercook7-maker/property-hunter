@@ -118,6 +118,9 @@ def sale_state(row: dict) -> dict:
     s = (row or {}).get("sale") or {}
     if s.get("st") in ("FOR_SALE", "NOT_FOR_SALE") and s.get("src"):
         return {"st": s["st"], "src": s["src"], "as_of": s.get("as_of"), "text": f"{s['st'].replace('_', ' ')} — {s['src']}"}
+    if s.get("st") == "FORECLOSURE_SALE_NOTICED" and s.get("src"):
+        return {"st": "FORECLOSURE_SALE_NOTICED", "src": s["src"], "as_of": s.get("as_of"), "sale_date": s.get("sale_date"),
+                "text": f"FORECLOSURE SALE NOTICED for {s.get('sale_date') or 'a date on the notice'}{' at ' + s['location'] if s.get('location') else ''} ({s['src']}); a noticed sale, not a listing and not an outcome"}
     t = (row or {}).get("taxs") or {}
     certified = t.get("st") == "TAX_SALE_VERIFIED" if t else str((row or {}).get("ts") or "").startswith("CERTIFIED")
     if certified:

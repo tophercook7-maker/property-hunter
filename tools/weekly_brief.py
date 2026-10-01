@@ -65,7 +65,13 @@ def build() -> dict:
     sale["movers"] = [c for c in sale["counties"] if c["new"] or c["gone"]][:8]
     cp = status.get("countypay") or {}
     unavailable = [c["county"] for c in (tax.get("counties") or {}).values() if (c.get("sources") or {}).get("countypay", {}).get("status") in ("TEMPORARILY_UNAVAILABLE", "BLOCKED")]
-    return {"built_at": built, "tool_news": tool_news(), "window_days": sig.get("window_days"), "total": len(rows), "by_event": dict(by_event), "by_county": {k: v for k, v in sorted(by_county.items(), key=lambda kv: -len(kv[1]))},
+    fc = load("foreclosures.json", {})
+    fnew = [n for n in (fc.get("notices") or []) if n.get("new_this_week")]
+    fup = [n for n in (fc.get("notices") or []) if (n.get("sale_date") or "") >= (fc.get("today") or "")]
+    fore = {"new": len(fnew), "upcoming": len(fup), "gone": len(fc.get("gone_recent") or []), "as_of": (fc.get("built_at") or "")[:10],
+            "counties": sorted(({"county": k, "new": v.get("new", 0), "upcoming": v.get("upcoming", 0)} for k, v in (fc.get("counties") or {}).items() if v.get("new") or v.get("upcoming")), key=lambda c: (-c["new"], -c["upcoming"]))[:12],
+            "soon": sorted(fup, key=lambda n: n["sale_date"])[:8]}
+    return {"built_at": built, "tool_news": tool_news(), "foreclosures": fore, "window_days": sig.get("window_days"), "total": len(rows), "by_event": dict(by_event), "by_county": {k: v for k, v in sorted(by_county.items(), key=lambda kv: -len(kv[1]))},
             "cheapest": cheapest, "samples": samples[-5:], "collector": cp, "unavailable_counties": unavailable[:12], "listing_count": len(listings),
             "sale": sale}
 
@@ -125,6 +131,15 @@ def markdown(b: dict) -> str:
     L += ["", "## Cheapest State-sale parcels right now (starting bid)"]
     for x in b["cheapest"]:
         L.append(f"- ${x['starting_bid']:,.2f} — {x.get('address') or 'no situs'}, {x.get('city') or ''} ({x.get('county', '').title()} County) · parcel {x['parcel_id']} · {x.get('sale_type_text', '')}")
+    fo = b.get("foreclosures") or {}
+    if fo.get("upcoming") or fo.get("new"):
+        L += ["", "## Foreclosure sales noticed"]
+        L.append(f"- {fo.get('new', 0)} new notices this week, {fo.get('upcoming', 0)} sales still ahead, {fo.get('gone', 0)} notices dropped off the service (outcome unknown). Source: the internet foreclosure sale notice service (Ark. Code § 18-50-105), read {fo.get('as_of')}.")
+        for c in fo.get("counties") or []:
+            L.append(f"- **{c['county']} County**: {c['new']} new, {c['upcoming']} ahead · {SITE}/foreclosures.html?county={c['county'].upper().replace(' ', '%20')}")
+        for n in fo.get("soon") or []:
+            L.append(f"- {n['sale_date']} {n.get('sale_time') or ''} — {n.get('address') or 'address on the notice'}, {n.get('city') or ''} ({n.get('county') or ''} County) at {n.get('location') or 'the courthouse'}; auctioneer {n.get('auctioneer') or 'on the notice'}")
+        L.append("- No opening bid is published before the sale, and a notice is not an outcome: sales get postponed, cancelled and cured. The county recorder holds the full notice.")
     t = b.get("tool_news") or {}
     L += ["", "## New in the tool this week"]
     if t.get("parcels"):
@@ -154,6 +169,15 @@ def html(b: dict) -> str:
     counties = li(f"<b>{esc(str(cn))}</b>: " + ", ".join(f"{n} {esc(EVENT_WORDS.get(e, e))}" for e, n in Counter(r['event'] for r in rs).most_common()) for cn, rs in list(b["by_county"].items())[:12])
     cheap = li(f"<b>${x['starting_bid']:,.2f}</b> — {esc(x.get('address') or 'no situs')}, {esc(x.get('city') or '')} ({esc(str(x.get('county', '')).title())} County) · parcel <code>{esc(x['parcel_id'])}</code> · {esc(x.get('sale_type_text', ''))}" + (f" · <a href=\"{esc(x['listing_url'])}\" target=\"_blank\" rel=\"noopener\">State listing</a>" if x.get("listing_url") else "") for x in b["cheapest"])
     samples = li(f"<a href=\"sample.html?file={esc(s['slug'])}\">{esc(s['title'])}</a> — {esc(s['headline'])}" for s in b["samples"])
+    fo = b.get("foreclosures") or {}
+    fore_items = []
+    if fo.get("upcoming") or fo.get("new"):
+        fore_items.append(f"<b>{fo.get('new', 0)}</b> new notices this week, <b>{fo.get('upcoming', 0)}</b> sales still ahead, {fo.get('gone', 0)} dropped off the service (outcome unknown). Read {esc(fo.get('as_of'))}.")
+        for c in fo.get("counties") or []:
+            fore_items.append(f"<b>{esc(c['county'])} County</b>: {c['new']} new, {c['upcoming']} ahead · <a href=\"foreclosures.html?county={esc(c['county'].upper())}\">the list</a>")
+        for n in fo.get("soon") or []:
+            fore_items.append(f"{esc(n['sale_date'])} {esc(n.get('sale_time') or '')} — {esc(n.get('address') or 'address on the notice')}, {esc(n.get('city') or '')} ({esc(n.get('county') or '')} County) at {esc(n.get('location') or 'the courthouse')}; auctioneer {esc(n.get('auctioneer') or 'on the notice')}")
+        fore_items.append("No opening bid is published before the sale, and a notice is not an outcome. The county recorder holds the full notice.")
     t = b.get("tool_news") or {}
     news = []
     if t.get("parcels"):
@@ -174,6 +198,15 @@ def html(b: dict) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Weekly Brief · Property Hunter</title>
+<meta property="og:title" content="Property Hunter weekly brief">
+<meta property="og:description" content="What moved on the Arkansas public record this week: the State tax sale, foreclosure sales noticed, and what the tool could not check.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tophercook7-maker.github.io/property-hunter/weekly.html">
+<meta property="og:image" content="https://tophercook7-maker.github.io/property-hunter/share.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://tophercook7-maker.github.io/property-hunter/share.png">
 <meta name="description" content="What changed on the Arkansas public record this week: State tax-sale entries, redemptions, sales, City liens, with sources and dates.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="ph.css">
@@ -196,12 +229,14 @@ code{{font-family:var(--mono);font-size:12.5px}}
   <section class="box"><h3>By the numbers</h3><ul>{ev or '<li>No recorded changes in the window.</li>'}</ul></section>
   <section class="box"><h3>By county, most activity first</h3><ul>{counties or '<li>None.</li>'}</ul></section>
   <section class="box"><h3>Cheapest State-sale parcels right now, by starting bid</h3><ul>{cheap}</ul><p class="lead" style="margin:8px 0 0">A starting bid is the State's number, not a value. Every one of these has open questions; a Property File lists them.</p></section>
+  <section class="box"><h3>Foreclosure sales noticed</h3><ul>{li(fore_items) or '<li>No foreclosure sale notices on file this week.</li>'}</ul></section>
   <section class="box"><h3>New in the tool this week</h3><ul>{li(news)}</ul></section>
   <section class="box"><h3>Files published</h3><ul>{samples or '<li>None this week.</li>'}</ul></section>
   <section class="box"><h3>What the tool could not check</h3><ul>{li(failures) or '<li>Every automated source answered this week.</li>'}</ul></section>
   <section class="cta"><a class="btn ghost" href="get-a-file.html">Get a file on a parcel you are looking at</a><a class="btn ghost" href="feedback.html">Tell me what to add</a></section>
 </main>
 <script src="nav.js"></script>
+<script src="analytics.js"></script>
 </body>
 </html>
 '''

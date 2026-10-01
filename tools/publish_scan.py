@@ -26,16 +26,37 @@ def refresh_state_lands_if_stale():
     print(time.strftime("%H:%M"), "state lands refresh", "ok" if r.returncode == 0 else f"failed ({r.returncode}); see data/state_lands_refresh.log", flush=True)
 
 
+FORECLOSURES = os.path.join(ROOT, "docs", "data", "foreclosures.json")
+
+
+def refresh_foreclosures_if_stale():
+    """The notice service is read once a day from the Mac, like State Lands."""
+    try:
+        age_h = (time.time() - os.path.getmtime(FORECLOSURES)) / 3600 if os.path.exists(FORECLOSURES) else 1e9
+    except OSError:
+        age_h = 1e9
+    if age_h < REFRESH_AFTER_H:
+        return
+    print(time.strftime("%H:%M"), f"foreclosures.json is {age_h:.0f} h old; reading the notice service", flush=True)
+    log = open(os.path.join(ROOT, "data", "foreclosures_refresh.log"), "a")
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "build_foreclosures.py")], cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, check=False, timeout=900)
+    print(time.strftime("%H:%M"), "foreclosure notices refresh", "ok" if r.returncode == 0 else f"failed ({r.returncode}); see data/foreclosures_refresh.log", flush=True)
+
+
 def once():
     try:
         refresh_state_lands_if_stale()
     except Exception as exc:                                             # never let a refresh problem stop publishing
         print(time.strftime("%H:%M"), "state lands refresh error:", exc, flush=True)
+    try:
+        refresh_foreclosures_if_stale()
+    except Exception as exc:
+        print(time.strftime("%H:%M"), "foreclosure notices refresh error:", exc, flush=True)
     subprocess.run([sys.executable, os.path.join(ROOT, "tools", "build_share.py")], cwd=ROOT, stdout=subprocess.DEVNULL, check=False)
     # The divestiture watch reads the change log, so it has to be rebuilt whenever
     # the scan does; otherwise a parcel leaves Weyerhaeuser and the page never says so.
     subprocess.run([sys.executable, os.path.join(ROOT, "tools", "build_divestitures.py")], cwd=ROOT, stdout=subprocess.DEVNULL, check=False)
-    subprocess.run(["git", "add", "docs/data/scan", "docs/data/scan_index.json", "docs/data/garland.json", "docs/data/status.json", "docs/data/hunt_status.json", "docs/data/changes.json", "docs/data/counties.json", "docs/data/signals.json", "docs/data/radar.json", "docs/data/tax_sources.json", "docs/data/timeline", "docs/data/state_lands.json", "docs/data/history", "docs/data/divestitures.json", "docs/data/owners_state.json", "docs/garland.html", "hunter/static/share.html"], cwd=ROOT, check=False)
+    subprocess.run(["git", "add", "docs/data/scan", "docs/data/scan_index.json", "docs/data/garland.json", "docs/data/status.json", "docs/data/hunt_status.json", "docs/data/changes.json", "docs/data/counties.json", "docs/data/signals.json", "docs/data/radar.json", "docs/data/tax_sources.json", "docs/data/timeline", "docs/data/state_lands.json", "docs/data/foreclosures.json", "docs/data/foreclosures_history.json", "docs/data/history", "docs/data/divestitures.json", "docs/data/owners_state.json", "docs/garland.html", "hunter/static/share.html"], cwd=ROOT, check=False)
     r = subprocess.run(["git", "commit", "-qm", "Scan results refresh"], cwd=ROOT, capture_output=True, text=True)
     if r.returncode != 0:
         print(time.strftime("%H:%M"), "nothing new to publish", flush=True); return

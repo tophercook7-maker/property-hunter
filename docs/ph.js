@@ -134,6 +134,7 @@
     const s = (r && r.sale) || {};
     if (s.st === 'FOR_SALE' && s.src) return { state: 'FOR_SALE', text: `FOR SALE — ${s.src}${s.price ? ', asking ' + PH.money(s.price) : ''}`, source: s.src, kind: 'fact' };
     if (s.st === 'NOT_FOR_SALE' && s.src) return { state: 'NOT_FOR_SALE', text: `NOT FOR SALE — ${s.src}`, source: s.src, kind: 'fact' };
+    if (s.st === 'FORECLOSURE_SALE_NOTICED' && s.src) return { state: 'FORECLOSURE_SALE_NOTICED', text: `FORECLOSURE SALE NOTICED for ${s.sale_date || 'a date on the notice'}${s.location ? ' at ' + s.location : ''} (${s.src}); a noticed sale, not a listing and not an outcome`, source: s.src, kind: 'fact', sale_date: s.sale_date, location: s.location };
     const certified = r && r.taxs ? r.taxs.st === 'TAX_SALE_VERIFIED' : String((r && r.ts) || '').startsWith('CERTIFIED');   // the tax model already knows when a certification ended
     if (certified) return { state: 'FOR_SALE_BY_STATE', text: 'FOR SALE BY THE STATE — tax sale (Commissioner of State Lands); not a private listing', source: 'Commissioner of State Lands', kind: 'fact' };
     return { state: 'UNKNOWN', text: 'UNKNOWN — no listing source connected. Property Hunter is not saying this is for sale or not for sale.', source: null, kind: 'unknown' };

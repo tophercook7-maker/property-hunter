@@ -8,6 +8,7 @@
     ["index.html", "Home", "⌂", "Today's record: what moved, and where to start."],
     ["lookup.html", "Look up", "▦", "Any Arkansas parcel by address, parcel number, or the road you are on."],
     ["state-lands.html", "Tax sale", "⚑", "The State's tax-sale inventory, county by county, with the starting bid."],
+    ["foreclosures.html", "Foreclosures", "⚖", "Foreclosure sales noticed across Arkansas: date, courthouse, auctioneer, joined to the parcel."],
     ["samples.html", "Samples", "▥", "Finished Property Files, so you know what you get."],
     ["get-a-file.html", "Get a file", "✚", "A full workup on a parcel you are looking at, or a watch on it."],
     ["signup.html", "Weekly brief", "✉", "What changed on the public record this week, in one email."]
@@ -31,7 +32,8 @@
   var NEXT = {
     "index.html": ["lookup.html", "Start with a parcel: look one up"],
     "lookup.html": ["state-lands.html", "See what the State is selling near it"],
-    "state-lands.html": ["samples.html", "See what a finished file looks like"],
+    "state-lands.html": ["foreclosures.html", "See the foreclosure sales noticed"],
+    "foreclosures.html": ["samples.html", "See what a finished file looks like"],
     "samples.html": ["get-a-file.html", "Get a file on a parcel you are looking at"],
     "get-a-file.html": ["signup.html", "Get the weekly brief while you wait"],
     "signup.html": ["weekly.html", "Read this week's brief now"],
@@ -68,7 +70,7 @@
     ".ph-next a.go{color:var(--ink,#172029);font-weight:600;text-decoration:none;font-size:14px;padding:8px 12px;border:1px solid var(--ink,#172029);border-radius:2px}" +
     ".ph-next a.go:hover{background:var(--accent,#0E7C73);color:var(--accent-ink,#fff);border-color:var(--accent,#0E7C73)}" +
     "@media (max-width:760px){" +
-    " nav[data-nav]{position:fixed;left:0;right:0;bottom:0;z-index:600;margin:0;background:var(--surface,#fff);border-top:1px solid var(--rule,#d3dae0);display:grid;grid-template-columns:repeat(7,1fr);gap:0;padding:4px 0 max(4px,env(safe-area-inset-bottom))}" +
+    " nav[data-nav]{position:fixed;left:0;right:0;bottom:0;z-index:600;margin:0;background:var(--surface,#fff);border-top:1px solid var(--rule,#d3dae0);display:grid;grid-template-columns:repeat(8,1fr);gap:0;padding:4px 0 max(4px,env(safe-area-inset-bottom))}" +
     " nav[data-nav] button.bench-toggle{display:none}" +
     " nav[data-nav] .bench{display:none;grid-column:1/-1;border-top:1px dashed var(--rule,#d3dae0);padding:0}" +
     " nav[data-nav].open .bench{display:grid;grid-template-columns:repeat(4,1fr)}" +

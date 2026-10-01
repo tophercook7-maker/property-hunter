@@ -386,6 +386,17 @@ def export_rows(only=None):
     delinq, amt_state, amt_county = _latest_full("tax_delinquent_county", o), _latest_full("tax_amount_owed", o), _latest_full("tax_amount_owed_county", o)
     today = datetime.date.today()
     frag, ids = _only(o)
+    # Foreclosure sale notices (tools/build_foreclosures.py): a noticed sale is a sale state
+    # with a source and a date; a parcel without one stays UNKNOWN, never "not for sale".
+    fcl = {}
+    try:
+        _fd = json.load(open(os.path.join(ROOT, "docs", "data", "foreclosures.json")))
+        for _n in _fd.get("notices") or []:
+            if _n.get("property_id") and _n.get("sale_date") and _n["sale_date"] >= _fd.get("today", ""):
+                fcl[_n["property_id"]] = {"st": "FORECLOSURE_SALE_NOTICED", "src": "internet foreclosure sale notice service", "as_of": (_fd.get("built_at") or "")[:10],
+                                          "sale_date": _n["sale_date"], "sale_time": _n.get("sale_time"), "location": _n.get("location"), "auctioneer": _n.get("auctioneer"), "url": _fd.get("source_url")}
+    except Exception:
+        pass
     liens = {}
     for r in q(f"SELECT property_id, value, raw_ref FROM evidence WHERE field='cleanup_lien_amount'{frag}", ids):
         liens.setdefault(r["property_id"], {})[r["raw_ref"] or r["value"]] = r["value"]
@@ -464,7 +475,7 @@ def export_rows(only=None):
             "tax": tax_text(pid, taxbill, taxchk, taxcosl),
             "taxs": tax_state(pid, p, cert=taxcosl, removed=removed, redeemed=redeemed, sold=sold, bill=taxbill, chk=taxchk,
                               delinq=delinq, amt_state=amt_state, amt_county=amt_county, today=today),
-            "sale": {"st": "UNKNOWN", "src": None},   # no listing source is connected; silence must never read as "not for sale"
+            "sale": fcl.get(pid) or {"st": "UNKNOWN", "src": None},   # no listing source is connected; silence must never read as "not for sale"
             "lien": round(sum(_money(v) for v in liens.get(pid, {}).values()), 2) if pid in liens else 0,
             "inv": inv.get(pid)})
     rows.sort(key=lambda r: -(r["s"] or 0))

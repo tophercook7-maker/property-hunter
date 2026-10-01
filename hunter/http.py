@@ -69,12 +69,12 @@ def robots_allows(url: str) -> bool:
 
 def get(url: str, params: dict | None = None, *, as_json: bool = False,
         timeout: float | None = None, check_robots: bool = True,
-        accept: str = "*/*") -> Response:
+        accept: str = "*/*", user_agent: str | None = None) -> Response:
     if check_robots and not robots_allows(url):
         raise Blocked(f"robots.txt disallows {url}")
     _throttle(_host(url))
     with httpx.Client(timeout=timeout or HTTP_TIMEOUT, follow_redirects=True,
-                      headers={"User-Agent": USER_AGENT, "Accept": accept}) as c:
+                      headers={"User-Agent": user_agent or USER_AGENT, "Accept": accept}) as c:
         r = c.get(url, params=params)
     if r.status_code in (401, 403, 407, 429):
         raise Blocked(f"HTTP {r.status_code} from {url} - access restricted; not bypassed")

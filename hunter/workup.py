@@ -41,7 +41,7 @@ DOMAINS = (
     ("MUNICIPAL_CODE",    "Municipal code cases",              "CITY_CODE_RECHECK",    ("code", "code_detail"),              ("code_case_open", "code_case_check")),
     ("OWNER_MAILING",     "Owner / mailing address",           "OWNER_MAILING_RECHECK", ("owner", "mailing_address"),        ("owner_name", "owner_mailing_address", "owner_mailing_check", "manual:owner", "manual:mailing_address")),
     ("TITLE_DEED",        "Title / deed / Circuit Clerk",      None,                   ("deed", "title", "lien_clerk"),      ("deed_reference", "sourceref", "manual:deed", "manual:title", "manual:lien_clerk")),
-    ("LISTING",           "Listing / sale status",             None,                   ("listing", "sale_state"),            ("manual:listing", "manual:sale_state")),
+    ("LISTING",           "Listing / sale status",             None,                   ("listing", "sale_state"),            ("foreclosure_notice", "foreclosure_notice_check", "manual:listing", "manual:sale_state")),
     ("PHYSICAL",          "Physical / occupancy",              None,                   ("inspection",),                      ("manual:inspection",)),
 )
 FIELD_LABEL = {"parcel_id": "Parcel number", "address": "Situs address", "identity_resolution": "Address resolution", "manual:identity": "Human property selection",
@@ -54,7 +54,7 @@ FIELD_LABEL = {"parcel_id": "Parcel number", "address": "Situs address", "identi
                "code_case_open": "Code case", "code_case_check": "Code case check", "owner_name": "Owner of record (roll)", "owner_mailing_address": "Mailing address of record", "owner_mailing_check": "Mailing address check (City roll copy)",
                "manual:owner": "Owner (human verification)", "manual:mailing_address": "Mailing address (human verification)", "deed_reference": "Deed reference", "sourceref": "Roll source reference",
                "manual:deed": "Deed (human verification)", "manual:title": "Title search (human verification)", "manual:lien_clerk": "Circuit Clerk liens (human verification)",
-               "manual:listing": "Listing check (human verification)", "manual:sale_state": "Sale state (human verification)", "manual:inspection": "In-person inspection"}
+               "foreclosure_notice": "Foreclosure sale notice (internet notice service)", "foreclosure_notice_check": "Foreclosure notice re-check", "manual:listing": "Listing check (human verification)", "manual:sale_state": "Sale state (human verification)", "manual:inspection": "In-person inspection"}
 NOT_FOUND_FIELDS = ("tax_status_check", "tax_delinquent_removed", "vacant_structure_check", "cleanup_lien_check", "code_case_check", "owner_mailing_check")
 # what a person does for an UNKNOWN question, why, and what evidence closes it (destinations come from cases.next_action, never invented)
 ACTIONS = {

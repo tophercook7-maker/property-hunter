@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Foreclosure Sales Noticed · Arkansas</title>
+<meta property="og:title" content="Arkansas foreclosure sales noticed · Property Hunter">
+<meta property="og:description" content="Every foreclosure sale currently noticed on the statutory internet notice service, joined to the county roll: sale date, courthouse, auctioneer, parcel, owner of record.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tophercook7-maker.github.io/property-hunter/foreclosures.html">
+<link rel="canonical" href="https://tophercook7-maker.github.io/property-hunter/foreclosures.html">
+<meta name="description" content="Arkansas foreclosure sale notices (Ark. Code § 18-50-105 internet notice service), by county and sale date, joined to the parcel on the roll. Facts and dates, no opinions.">
+<meta property="og:image" content="https://tophercook7-maker.github.io/property-hunter/share.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono&display=swap">
+<link rel="stylesheet" href="ph.css">
+<style>
+:root{--ground:#E8ECEF;--surface:#FFFFFF;--surface2:#F3F5F7;--ink:#172029;--muted:#5F6E7B;--rule:#D3DAE0;--accent:#0E7C73;--accent-ink:#FFFFFF;--bad:#B3433B;--bad-soft:#F5DDDB;--warn:#B0771A;--warn-soft:#F6EAD2;--display:"Barlow Condensed","Arial Narrow",Impact,sans-serif;--body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;--mono:"IBM Plex Mono",Menlo,Consolas,monospace}
+@media (prefers-color-scheme: dark){:root{--ground:#101519;--surface:#171E24;--surface2:#1E262D;--ink:#E4E9ED;--muted:#93A0AB;--rule:#2A343D;--bad:#E2746B;--bad-soft:#3A2323;--warn:#E0B34A;--warn-soft:#3A2F12}}
+*{box-sizing:border-box}body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 24px;padding:14px 20px 10px;background:var(--surface);border-bottom:1px solid var(--rule)}
+h1{font-family:var(--display);font-weight:700;font-size:30px;line-height:1;margin:0;text-transform:uppercase;letter-spacing:.01em}h1 small{display:block;font:500 11px/1.2 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.stats{display:flex;gap:18px;font-family:var(--mono);font-size:12px;color:var(--muted)}.stats b{display:block;font:700 22px/1 var(--display);color:var(--ink)}
+.strip{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:12px 20px;background:var(--surface2);border-bottom:1px solid var(--rule);font-size:13px}.strip p{margin:0}
+@media (max-width:760px){.strip{grid-template-columns:1fr}}
+.wrap{display:grid;grid-template-columns:280px 1fr;gap:18px;padding:16px 20px 80px;max-width:1400px;margin:0 auto}@media (max-width:860px){.wrap{grid-template-columns:1fr}}
+.rail{display:flex;flex-direction:column;gap:10px;align-self:start;position:sticky;top:10px}.rail label{display:grid;gap:4px;font-size:12px;color:var(--muted)}.rail select,.rail input{font:inherit;padding:7px 9px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);border-radius:2px}
+.note{font-size:12px;color:var(--muted);margin:0}
+.tbar{display:flex;gap:14px;align-items:center;font-size:13px;color:var(--muted);margin-bottom:8px}
+.card{background:var(--surface);border:1px solid var(--rule);padding:12px 14px;display:grid;grid-template-columns:120px 1fr;gap:8px 14px;margin-bottom:8px}
+@media (max-width:600px){.card{grid-template-columns:1fr}}
+.when{font-family:var(--display);font-size:22px;line-height:1;font-weight:700}.when small{display:block;font:500 11px/1.3 var(--mono);color:var(--muted);text-transform:none;margin-top:4px}
+.when.past{color:var(--muted)}.when.soon{color:var(--bad)}
+.addr{font-weight:600;font-size:15px}.meta{font-size:12.5px;color:var(--muted)}.meta b{color:var(--ink);font-weight:500}
+.tag{display:inline-block;font:500 10.5px/1 var(--mono);letter-spacing:.06em;padding:3px 6px;border-radius:2px;margin-right:4px}.tag.new{background:var(--warn-soft);color:var(--warn)}.tag.post{background:var(--bad-soft);color:var(--bad)}.tag.join{background:var(--surface2);color:var(--muted)}
+.acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}.acts a{font-size:12px;text-decoration:none;padding:4px 8px;border:1px solid var(--rule);border-radius:2px;color:var(--ink)}.acts a:hover{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+footer{padding:16px 20px 90px;font-size:12px;color:var(--muted);max-width:1100px}
+.gone{background:var(--surface2);border:1px dashed var(--rule);padding:10px 14px;font-size:12.5px;margin:14px 0}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1><small>Arkansas · statutory foreclosure notices · public record</small>Foreclosure sales noticed</h1>
+  <div class="stats" id="stats"></div>
+  <nav data-nav></nav>
+</header>
+<div class="strip">
+  <p><b>What this is.</b> Every Arkansas foreclosure sale currently posted on an internet foreclosure sale notice service, which Arkansas law requires for a statutory (non-judicial) foreclosure alongside the recorded notice, the mailed notice and four weeks in a newspaper. Each one is joined to the county tax roll by address when the match is exact, so you get the parcel, the owner of record and the county's appraisal next to the sale date.</p>
+  <p><b>What it is not.</b> Not a price: no opening bid is published before the sale. Not the lender or the full notice: those are at the county recorder and in the newspaper, and each card links to where to look. Not an outcome: a noticed sale can be postponed, cancelled or cured right up to the hour, and a notice leaving this list says only that. Nobody here is telling you to buy anything.</p>
+</div>
+<div class="wrap">
+  <aside class="rail">
+    <label>County<select id="county"><option value="">All counties</option></select></label>
+    <label>Search address, city, auctioneer or owner<input type="text" id="q" placeholder="e.g. Jacksonville, Xome, Wolfe"></label>
+    <label>Show<select id="when"><option value="ahead">Sales still ahead</option><option value="week">New this week</option><option value="all">Everything on the service</option></select></label>
+    <p class="note" id="built"></p>
+    <p class="note">Sort is by sale date, soonest first. Red dates are within seven days.</p>
+  </aside>
+  <section>
+    <div class="tbar"><span>Showing <b id="shown"></b> of <b id="total"></b></span></div>
+    <div id="list"></div>
+    <div class="gone" id="gone" hidden></div>
+  </section>
+</div>
+<footer>Source: an internet foreclosure sale notice information service (Ark. Code § 18-50-105), read once a day; parcel join: Arkansas GIS Office statewide parcel layer (county assessor roll). The full recorded notice of default and intention to sell, with the lender, the legal description and the book and page, is at the county Circuit Clerk / recorder, and it ran four weeks in a county newspaper (search <a href="https://www.arkansaspublicnotices.com/" target="_blank" rel="noopener">Arkansas Public Notices</a>). Nothing here is legal, tax or investment advice.</footer>
+<script src="ph.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let D = null;
+function daysTo(d, today){ return Math.round((new Date(d) - new Date(today)) / 86400000); }
+function card(n){
+  const dt = daysTo(n.sale_date, D.today);
+  const cls = dt < 0 ? 'past' : dt <= 7 ? 'soon' : '';
+  const lookup = `lookup.html?county=${encodeURIComponent(n.county_fips||'')}&q=${encodeURIComponent(n.parcel_id || n.address || '')}`;
+  const file = n.parcel_id ? `find.html?q=${encodeURIComponent(n.parcel_id + ', ' + (n.county||'') + ' County')}` : null;
+  const maps = n.lat ? `https://www.google.com/maps/search/?api=1&query=${n.lat},${n.lon}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([n.address, n.city, 'AR', n.zip].filter(Boolean).join(' '))}`;
+  const notices = `https://www.arkansaspublicnotices.com/`;
+  return `<div class="card"><div class="when ${cls}">${esc(n.sale_date)}<small>${esc(n.sale_time||'time on the notice')}<br>${dt < 0 ? 'sale date has passed' : dt === 0 ? 'today' : 'in ' + dt + ' day' + (dt === 1 ? '' : 's')}</small></div>
+  <div><div>${n.new_this_week ? '<span class="tag new">NEW THIS WEEK</span>' : ''}${n.prior_sale_date ? '<span class="tag post">POSTPONED from ' + esc(n.prior_sale_date) + '</span>' : ''}<span class="tag join">${n.parcel_id ? 'JOINED TO PARCEL ' + esc(n.parcel_id) : 'NOT MATCHED TO THE ROLL' + (n.join ? ' · ' + esc(n.join) : '')}</span></div>
+  <div class="addr">${esc(n.address || 'address on the notice')}${n.city ? ', ' + esc(n.city) : ''}${n.zip ? ' ' + esc(n.zip) : ''} <span class="meta">· ${esc(n.county||'')} County</span></div>
+  <div class="meta">Sale at <b>${esc(n.location || 'the county courthouse')}</b> · auctioneer / trustee <b>${esc(n.auctioneer || 'on the notice')}</b>${n.owner ? ' · owner of record on the roll <b>' + esc(n.owner) + '</b>' : ''}${n.appraised ? ' · county appraised <b>' + PH.money(n.appraised) + '</b> (not a sale price)' : ''}</div>
+  <div class="acts"><a href="${lookup}">Look up the parcel</a>${file ? `<a href="${file}">Full Property File</a>` : ''}<a href="${maps}" target="_blank" rel="noopener">Drive there</a><a href="${esc(D.source_url)}" target="_blank" rel="noopener">The notice service</a><a href="${notices}" target="_blank" rel="noopener">Find the newspaper notice</a>${n.parcel_id ? `<a href="signup.html?watch=${encodeURIComponent(n.parcel_id)}&county=${encodeURIComponent(n.county||'')}">Watch it</a>` : ''}</div></div></div>`;
+}
+function render(){
+  const c = $('county').value, q = $('q').value.trim().toLowerCase(), w = $('when').value;
+  let rows = D.notices.slice();
+  if(c) rows = rows.filter(n => (n.county||'').toUpperCase() === c);
+  if(q) rows = rows.filter(n => [n.address, n.city, n.auctioneer, n.owner, n.location, n.parcel_id].join(' ').toLowerCase().includes(q));
+  if(w === 'ahead') rows = rows.filter(n => n.sale_date >= D.today);
+  if(w === 'week') rows = rows.filter(n => n.new_this_week);
+  rows.sort((a, b) => a.sale_date.localeCompare(b.sale_date) || (a.county||'').localeCompare(b.county||''));
+  $('shown').textContent = rows.length; $('total').textContent = D.notices.length;
+  $('list').innerHTML = rows.map(card).join('') || '<p class="note">Nothing matches. Widen the filter, or pick "Everything on the service".</p>';
+  const g = (D.gone_recent||[]).filter(n => !c || (n.county||'').toUpperCase() === c);
+  $('gone').hidden = !g.length;
+  $('gone').innerHTML = g.length ? `<b>Dropped off the service in the last seven days (${g.length}), outcome unknown:</b> ` + g.map(n => `${esc(n.address||'')}${n.city ? ', ' + esc(n.city) : ''} (${esc(n.county||'')}; was ${esc(n.sale_date)})`).join(' · ') : '';
+}
+(async () => {
+  try { D = await (await fetch('data/foreclosures.json', {cache:'no-store'})).json(); } catch(e){ $('list').innerHTML = '<p class="note">Could not read the notices file.</p>'; return; }
+  $('stats').innerHTML = `<span><b>${D.count}</b>noticed</span><span><b>${D.upcoming}</b>still ahead</span><span><b>${D.new_this_week}</b>new this week</span><span><b>${D.joined}</b>joined to a parcel</span>`;
+  $('built').textContent = `Read from the notice service ${(D.built_at||'').replace('T',' ').slice(0,16)} UTC.`;
+  const counties = Object.entries(D.counties||{}).sort((a,b) => b[1].n - a[1].n || a[0].localeCompare(b[0]));
+  $('county').innerHTML = '<option value="">All counties (' + D.count + ')</option>' + counties.map(([k,v]) => `<option value="${esc(k.toUpperCase())}">${esc(k)} (${v.n})</option>`).join('');
+  const p = new URLSearchParams(location.search); if(p.get('county')) $('county').value = p.get('county').toUpperCase();
+  ['county','q','when'].forEach(id => $(id).addEventListener('input', render));
+  render();
+})();
+</script>
+<script src="nav.js"></script>
+<script src="analytics.js"></script>
+</body>
+</html>

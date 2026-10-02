@@ -14,3 +14,4 @@ data/radar_salt
 data/stripe_links.json
 data/logs/
 data/roll/
+data/feed_state.json

@@ -57,7 +57,8 @@ def once():
     # the scan does; otherwise a parcel leaves Weyerhaeuser and the page never says so.
     subprocess.run([sys.executable, os.path.join(ROOT, "tools", "build_divestitures.py")], cwd=ROOT, stdout=subprocess.DEVNULL, check=False)
     subprocess.run([sys.executable, os.path.join(ROOT, "tools", "build_feed.py")], cwd=ROOT, stdout=subprocess.DEVNULL, check=False)
-    subprocess.run(["git", "add", "docs/data/scan", "docs/data/scan_index.json", "docs/data/garland.json", "docs/data/status.json", "docs/data/hunt_status.json", "docs/data/changes.json", "docs/data/counties.json", "docs/data/signals.json", "docs/data/radar.json", "docs/data/tax_sources.json", "docs/data/timeline", "docs/data/state_lands.json", "docs/data/foreclosures.json", "docs/data/foreclosures_history.json", "docs/data/history", "docs/data/divestitures.json", "docs/data/owners_state.json", "docs/feed.xml", "docs/garland.html", "hunter/static/share.html"], cwd=ROOT, check=False)
+    subprocess.run([sys.executable, os.path.join(ROOT, "tools", "build_sitemap.py")], cwd=ROOT, stdout=subprocess.DEVNULL, check=False)
+    subprocess.run(["git", "add", "docs/data/scan", "docs/data/scan_index.json", "docs/data/garland.json", "docs/data/status.json", "docs/data/hunt_status.json", "docs/data/changes.json", "docs/data/counties.json", "docs/data/signals.json", "docs/data/radar.json", "docs/data/tax_sources.json", "docs/data/timeline", "docs/data/state_lands.json", "docs/data/foreclosures.json", "docs/data/foreclosures_history.json", "docs/data/history", "docs/data/divestitures.json", "docs/data/owners_state.json", "docs/feed.xml", "docs/sitemap.xml", "docs/garland.html", "hunter/static/share.html"], cwd=ROOT, check=False)
     r = subprocess.run(["git", "commit", "-qm", "Scan results refresh"], cwd=ROOT, capture_output=True, text=True)
     if r.returncode != 0:
         print(time.strftime("%H:%M"), "nothing new to publish", flush=True); return

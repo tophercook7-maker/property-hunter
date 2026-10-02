@@ -28,6 +28,7 @@ python3 tools/build_owners_state.py >> "$LOG/state_publish.log" 2>&1
 python3 tools/build_divestitures.py >> "$LOG/state_publish.log" 2>&1
 python3 tools/build_share_image.py >> "$LOG/state_publish.log" 2>&1
 python3 tools/build_feed.py >> "$LOG/state_publish.log" 2>&1
+python3 tools/build_sitemap.py >> "$LOG/state_publish.log" 2>&1
 python3 tools/weekly_brief.py >> "$LOG/state_publish.log" 2>&1
 say "publish exit $?"
 

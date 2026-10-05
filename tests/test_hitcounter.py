@@ -63,3 +63,23 @@ def test_the_report_says_views_not_people(tmp_path, monkeypatch):
     s = hc.summary()
     assert s["total_views"] == 1
     assert "not people" in s["note"], "the limit has to be stated, not left to be assumed"
+
+
+@pytest.mark.parametrize("ua", [
+    "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
+    "Mozilla/5.0 (compatible; facebookexternalhit/1.1)",
+    "WhatsApp/2.23.20.0",
+    "Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)",
+    "Twitterbot/1.0",
+    "LinkedInBot/1.0",
+])
+def test_link_preview_fetchers_are_not_visitors(ua):
+    """These fetch a URL to build the little card under a post. Counting them
+    as people turns "I posted and seven came" into a sentence that is not true,
+    which is worse than having no counter."""
+    assert hc.device_of(ua) == "bot"
+
+
+def test_a_person_browsing_from_the_facebook_app_still_counts():
+    """The in-app browser is a real person reading. Only the fetchers are bots."""
+    assert hc.device_of("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) AppleWebKit/605.1 [FBAN/FBIOS]") == "phone"

@@ -34,7 +34,15 @@ DB = os.path.join(ROOT, "data", "hits.db")
 PORT = 8792
 MAX_BODY = 2048
 
-BOT_RE = re.compile(r"bot|crawl|spider|slurp|curl|wget|python-|headless|preview|fetch", re.I)
+# facebookexternalhit, Slackbot-LinkExpanding, WhatsApp and the rest fetch a URL
+# to build a link preview. They were being counted as desktop visitors, which
+# turns "I posted and seven people came" into a sentence that is not true.
+BOT_RE = re.compile(
+    r"bot|crawl|spider|slurp|curl|wget|python-|headless|preview|fetch|"
+    r"facebookexternalhit|facebookcatalog|meta-externalagent|whatsapp|"
+    r"slackbot|slack-imgproxy|twitterbot|linkedinbot|discordbot|telegrambot|"
+    r"embedly|quora link preview|redditbot|applebot|pinterest|skypeuripreview|"
+    r"vkshare|w3c_validator|google-inspectiontool|chrome-lighthouse", re.I)
 PHONE_RE = re.compile(r"iphone|android(?!.*tablet)|mobile", re.I)
 TABLET_RE = re.compile(r"ipad|tablet", re.I)
 

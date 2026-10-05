@@ -120,6 +120,9 @@ h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:.01em;margin:
 .links a.primary{background:var(--accent);color:var(--accent-ink)}
 .steps{margin:0;padding-left:18px;font-size:13px}.steps li{margin:4px 0}
 footer{background:var(--surface);border-top:1px solid var(--rule);padding:10px 20px;font-size:12px;color:var(--muted);line-height:1.5}
+.linklike{background:none;border:0;padding:0;font:inherit;color:var(--accent);
+  text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.linklike:hover{opacity:.8}
 </style>
 </head>
 <body>
@@ -277,7 +280,21 @@ function render(){
   const more=$('more'); if(gated()){ more.hidden = true; }
   $('shown').textContent = Math.min(limit,view.length).toLocaleString(); $('total').textContent = DATA.listings.length.toLocaleString();
   const owed = view.reduce((s,x)=>s+(+x.starting_bid||0),0), val = view.reduce((s,x)=>s+(+x.appraised||0),0);
-  $('sum').textContent = `${view.length.toLocaleString()} match · ${fmt$(owed)} owed against ${fmt$(val)} of county appraised value`;
+  // Hiding the Village is a buyer's rule, not a claim that nothing is there:
+  // 459 of the 463 lots the State is selling in Garland are Village lots, so a
+  // visitor filtering to this county sees four and reasonably concludes the
+  // tool is empty. Say what is behind the filter, in the county they are
+  // actually looking at, with one click to see it.
+  const c_ = $('county').value;
+  const hiddenHere = $('f-nohsv').checked
+    ? DATA.listings.filter(x => (!c_ || x.county === c_) && isHSV(x)).length : 0;
+  const hiddenNote = hiddenHere
+    ? ` · <button type="button" id="showhsv" class="linklike">${hiddenHere.toLocaleString()} more ${
+        c_ ? 'in ' + esc(title(c_)) : ''} are Hot Springs Village or Diamondhead lots, hidden</button>`
+    : '';
+  $('sum').innerHTML = `${view.length.toLocaleString()} match · ${fmt$(owed)} owed against ${fmt$(val)} of county appraised value${hiddenNote}`;
+  const sh = document.getElementById('showhsv');
+  if (sh) sh.addEventListener('click', () => { $('f-nohsv').checked = false; apply(); });
   if(!gated()){ more.hidden = view.length<=limit; more.textContent = `Show 60 more (${(view.length-limit).toLocaleString()} left)`; }
   $('csvbtn').hidden = !MEMBER;
   layer.clearLayers(); const pts = view.filter(x=>x.lat);
